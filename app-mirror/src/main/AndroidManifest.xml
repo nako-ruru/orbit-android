@@ -20,6 +20,7 @@
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
     <application
+        android:name="com.orbit.OrbitApplication"
      android:requestLegacyExternalStorage="true"
         android:allowBackup="true"
         android:icon="@mipmap/ic_mirror"
@@ -31,14 +32,10 @@
         <activity
             android:name=".MirrorMainActivity"
             android:launchMode="singleTask"
-            android:exported="true"
+            android:exported="false"
             android:icon="@mipmap/ic_mirror"
             android:label="屏易连"
             android:theme="@style/AppTheme" >
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
             <intent-filter>
                 <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"/>
                 <action android:name="android.hardware.usb.action.USB_DEVICE_DETACHED"/>
@@ -90,6 +87,25 @@
             android:launchMode="singleTask"
             android:exported="false"
             android:theme="@style/AppTheme" />
+
+        <activity
+            android:name="com.orbit.MainActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.NoDisplay"> <!-- 关键：NoDisplay 让它不占位 -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- 2. 真正的业务窗口：禁止外部启动，必须由 Go 的 StartActivity 唤醒 -->
+        <activity
+            android:name="com.orbit.GoWebViewActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
+            android:theme="@style/Theme.AppCompat.NoActionBar" />
+
         
         <service
             android:name=".FloatingButtonService"

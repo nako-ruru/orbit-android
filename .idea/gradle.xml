@@ -15,6 +15,7 @@
             <option value="$PROJECT_DIR$/hidden-api-stub" />
             <option value="$PROJECT_DIR$/termux-x11-app" />
             <option value="$PROJECT_DIR$/termux-x11-shell-loader" />
+            <option value="$PROJECT_DIR$/webview-bridge" />
           </set>
         </option>
       </GradleProjectSettings>

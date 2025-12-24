@@ -13,7 +13,7 @@ public class WebviewActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_webview);
 
         webView = findViewById(R.id.webview);
 
@@ -23,8 +23,6 @@ public class WebviewActivity extends AppCompatActivity {
 
         // 在 WebView 内打开页面，不跳转系统浏览器
         webView.setWebViewClient(new WebViewClient());
-
-//        webView.loadUrl("file:///android_asset/index.html"); // 本地 HTML
-        webView.loadUrl("https://www.163.com"); // 外部 URL
+        webView.loadUrl("file:///android_asset/remote.html"); // 外部 URL
     }
 }

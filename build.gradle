@@ -2,6 +2,7 @@
 plugins {
     alias(libs.plugins.android.application) apply false
     id 'dev.rikka.tools.refine' version '4.1.0' apply false
+    alias(libs.plugins.android.library) apply false
 }
 
 // 解决 Kotlin 标准库重复类的关键配置
