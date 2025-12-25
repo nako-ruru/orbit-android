@@ -1,0 +1,21 @@
+vars:
+  base_ip: 192.168.3.18
+  project: /mnt/project/orbit
+clipboard-signal-url: 'ws://{{.base_ip}}:6700/ws/clipboard'
+api: http://{{.base_ip}}:6700
+moonlight-path: 'D:\projects\moonlight-qt\build\deploy-x64-debug\Moonlight.exe'
+oidc-discovery: https://casdoor.guanghe.asia:10001
+client-id: 9b9a46e6a58247fc13dc
+webdav:
+  port: 6710
+  url: http://{{.base_ip}}:5921/webdav
+rclone:
+  path: 'd:\rclone-v1.71.0-windows-amd64\rclone.exe'
+npc:
+  path: 'D:\npc_windows_amd64_client\npc.exe'
+  nps-addr: '100.113.111.18:8024'
+file-transfer:
+  path: 'D:\projects\orbital-client\filetransfer.exe'
+  conf-path: 'D:\projects\orbital-client\cmd\filetransfer\application.yml'
+webview:
+  external-url: 'android_asset/remote.html'

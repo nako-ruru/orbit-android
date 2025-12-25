@@ -1,0 +1,24 @@
+vars:
+  base_ip: 192.168.3.18
+log-dir: console
+desktop-signal-url: ws://{{.base_ip}}:6700/ws/desktop
+api: http://{{.base_ip}}:6700
+vpn-path: 'D:\nebula-1.10.0\nebula.exe'
+sunshine:
+  path: 'D:\Apollo\sunshine.exe'
+  config: 'D:\Apollo\config\sunshine.conf'
+  test-authentication: 'apollo:apollo123'
+streamer:
+  dir: 'D:\moonlight-web-x86_64-pc-windows-gnu'
+  listen-port: '8080'
+  credentials:
+npc:
+  path: 'D:\npc_windows_amd64_client\npc.exe'
+  nps-addr: '100.113.111.18:8024'
+session:
+  stream-timeout: 1m
+  heartbeat-timeout: 1m
+daemon:
+  name: orbit.daemon
+  display-name: Orbit Daemon
+  desc: Orbit Daemon

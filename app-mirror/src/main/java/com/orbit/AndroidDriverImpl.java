@@ -29,9 +29,12 @@ public class AndroidDriverImpl implements AndroidDriver {
     }
 
     @Override
-    public void createAndStart(String id, String title, String url, String html, String jsInit) {
+    public void createAndStart(String id, String title, String url, String html, String jsInit, String bindings) {
         Intent i = new Intent(context, GoWebViewActivity.class);
-        i.putExtra("ID", id); i.putExtra("URL", url); i.putExtra("HTML", html);
+        i.putExtra("ID", id);
+        i.putExtra("URL", url);
+        i.putExtra("HTML", html);
+        i.putExtra("BINDINGS", bindings);
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         context.startActivity(i);
     }
@@ -44,14 +47,6 @@ public class AndroidDriverImpl implements AndroidDriver {
         mainHandler.post(() -> {
             WeakReference<GoWebViewActivity> ref = activityMap.get(id);
             if (ref != null && ref.get() != null) ref.get().getWebView().evaluateJavascript(js, null);
-        });
-    }
-
-    @Override
-    public void addBinding(String id, String name) {
-        mainHandler.post(() -> {
-            WeakReference<GoWebViewActivity> ref = activityMap.get(id);
-            if (ref != null && ref.get() != null) ref.get().injectBinding(name);
         });
     }
 
