@@ -1,48 +1,17 @@
 package com.connect_screen.mirror.job;
 
-import android.content.res.Configuration;
-import android.graphics.Rect;
-import android.hardware.display.DisplayManager;
-import android.hardware.input.IInputManager;
 import android.os.Handler;
 import android.os.Looper;
 import android.app.AlertDialog;
 import android.content.Context;
-import android.os.RemoteException;
-import android.os.SystemClock;
 import android.text.InputFilter;
 import android.text.InputType;
-import android.util.Log;
-import android.view.Display;
-import android.view.DisplayCutout;
-import android.view.IWindowManager;
-import android.view.InputDevice;
-import android.view.MotionEvent;
-import android.view.MotionEventHidden;
 import android.view.Surface;
 import android.widget.EditText;
 import android.widget.Toast;
-import android.media.AudioRecord;
-import android.media.AudioManager;
-
-import androidx.annotation.NonNull;
 
 import com.connect_screen.mirror.Pref;
 import com.connect_screen.mirror.State;
-import com.connect_screen.mirror.SunshineService;
-import com.connect_screen.mirror.TouchpadAccessibilityService;
-import com.connect_screen.mirror.TouchpadActivity;
-import com.connect_screen.mirror.shizuku.ServiceUtils;
-import com.connect_screen.mirror.shizuku.ShizukuUtils;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import dev.rikka.tools.refine.Refine;
 
 // 代码拷贝自 v2025.122.141614
 public class SunshineServer {
