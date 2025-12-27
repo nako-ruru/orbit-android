@@ -18,6 +18,9 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.BIND_VPN_SERVICE" />
+    <!-- Android 14+ 必须显式声明这个特定类型的权限 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
     <application
         android:name="com.orbit.OrbitApplication"
@@ -106,6 +109,17 @@
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
             android:theme="@style/Theme.AppCompat.NoActionBar" />
 
+        <activity
+            android:name="com.orbit.ProjectionPermissionActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true"
+            android:exported="false" />
+
+        <activity android:name="com.orbit.TransparentProxyActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:launchMode="singleTask" />
         
         <service
             android:name=".FloatingButtonService"
@@ -149,13 +163,28 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-        
+
+        <service
+            android:name="com.orbit.NebulaService"
+            android:permission="android.permission.BIND_VPN_SERVICE"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.net.VpnService" />
+            </intent-filter>
+
+            <!-- Android 14 要求在 meta-data 中解释 specialUse 的用途 -->
+            <meta-data
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="VPN connection for secure network tunnel" />
+        </service>
+
         <service
             android:name=".SunshineService"
             android:foregroundServiceType="mediaProjection"
             android:enabled="true"
             android:exported="false" />
-        
+
     </application>
 
     <queries>

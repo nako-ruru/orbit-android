@@ -123,6 +123,10 @@ Java_com_connect_1screen_mirror_job_SunshineServer_setFileStatePath(JNIEnv *env,
     env->ReleaseStringUTFChars(path, str);
 }
 
+void submit_pin_c(const char* pin) {
+    nvhttp::pin(pin, "some-moonlight");
+}
+
 JNIEXPORT void JNICALL
 Java_com_connect_1screen_mirror_job_SunshineServer_submitPin(JNIEnv *env, jclass clazz, jstring pin) {
     const char *pinStr = env->GetStringUTFChars(pin, nullptr);

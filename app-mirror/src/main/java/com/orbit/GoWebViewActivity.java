@@ -1,13 +1,15 @@
 package com.orbit;
 
-import android.graphics.Bitmap;
 import android.os.Bundle;
-import android.util.Log;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
-import android.webkit.WebViewClient;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.webkit.WebViewCompat;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.stream.Collectors;
 
 import aar.Aar;
 
@@ -19,7 +21,7 @@ public class GoWebViewActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mId = getIntent().getStringExtra("ID");
-        AndroidDriverImpl.bind(mId, this);
+        AndroidWebViewProvider.bind(mId, this);
 
         mWebView = new WebView(this);
         mWebView.getSettings().setJavaScriptEnabled(true);
@@ -30,23 +32,20 @@ public class GoWebViewActivity extends AppCompatActivity {
                 return aar.Aar.callBinding(mId, name, args);
             }
         }, "_android_bridge");
-        mWebView.setWebViewClient(new WebViewClient() {
-            @Override
-            public void onPageStarted(WebView view, String url, Bitmap favicon)  {
-                for(String name: getIntent().getStringExtra("BINDINGS").split(",")) {
-                    Log.i("BINDINGS", name);
-                    injectBinding(name.trim());
-                }
-            }
-        });
 
+        WebViewCompat.addDocumentStartJavaScript(mWebView, injectBindings(getIntent().getStringExtra("BINDINGS")), Collections.singleton("*"));
         setContentView(mWebView);
         mWebView.loadUrl(getIntent().getStringExtra("URL"));
     }
 
-    public void injectBinding(String name) {
-        String js = String.format("window.%s = (...args) => _android_bridge.callGo('%s', JSON.stringify(args));", name, name);
-        mWebView.evaluateJavascript(js, null);
+    private String injectBindings(String names) {
+        return Arrays.stream(names.split(","))
+                .map(String::trim)
+                .map(this::injectBinding)
+                .collect(Collectors.joining());
+    }
+    private String injectBinding(String name) {
+        return String.format("window.%s = (...args) => _android_bridge.callGo('%s', JSON.stringify(args));", name, name);
     }
 
     public void detach(String name) {
@@ -59,7 +58,7 @@ public class GoWebViewActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        AndroidDriverImpl.unbind(mId);
+        AndroidWebViewProvider.unbind(mId);
         Aar.notifyWebviewExit(mId);
     }
 }
