@@ -6,6 +6,7 @@ import android.os.Build;
 
 import com.connect_screen.mirror.State;
 import com.connect_screen.mirror.SunshineService;
+import com.connect_screen.mirror.job.SunshineServer;
 
 import aar.SunshineProvider;
 
@@ -19,6 +20,12 @@ public class AndroidSunshineProvider implements SunshineProvider {
     @Override
     public void start() {
         requestStart(context);
+    }
+
+    @Override
+    public boolean inputPin(String pin, String name) throws Exception {
+        SunshineServer.submitPin(pin);
+        return true;
     }
 
     // 静态存储授权后的数据，只要进程不死就一直有效

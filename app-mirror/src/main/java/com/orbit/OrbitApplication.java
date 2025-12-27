@@ -12,9 +12,9 @@ public class OrbitApplication  extends Application {
     @Override
     public void onCreate() {
         // 1. 注册驱动 (驱动持有 ApplicationContext 是安全的)
-        Aar.registerAndroidDriver(new AndroidWebViewProvider(this));
-        Aar.registerSunshineDriver(new AndroidSunshineProvider(this));
-        Aar.registerTunDriver(new AndroidTunProvider(this));
+        Aar.registerAndroidProvider(new AndroidWebViewProvider(this));
+        Aar.registerSunshineProvider(new AndroidSunshineProvider(this));
+        Aar.registerTunProvider(new AndroidTunProvider(this));
         Aar.setConfigDir(this.getFilesDir().getAbsolutePath());
         Aar.setTempDir(this.getCacheDir().getAbsolutePath());
 
