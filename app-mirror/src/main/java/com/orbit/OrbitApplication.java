@@ -12,9 +12,11 @@ public class OrbitApplication  extends Application {
     @Override
     public void onCreate() {
         // 1. 注册驱动 (驱动持有 ApplicationContext 是安全的)
-        Aar.registerAndroidDriver(new AndroidDriverImpl(this));
-        Aar.registerSunshineDriver(new AndroidSunshineDriverImpl(this));
+        Aar.registerAndroidDriver(new AndroidWebViewProvider(this));
+        Aar.registerSunshineDriver(new AndroidSunshineProvider(this));
+        Aar.registerTunDriver(new AndroidTunProvider(this));
         Aar.setConfigDir(this.getFilesDir().getAbsolutePath());
+        Aar.setTempDir(this.getCacheDir().getAbsolutePath());
 
         // 2. 在子线程中启动 Go 逻辑，避免阻塞主线程（UI 线程）
         new Thread(() -> {

@@ -12,12 +12,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import aar.*;
 import aar.Runnable;
 
-public class AndroidDriverImpl implements AndroidDriver {
+public class AndroidWebViewProvider implements WebViewProvider {
     private Context context;
     private Handler mainHandler = new Handler(Looper.getMainLooper());
     private static final Map<String, WeakReference<GoWebViewActivity>> activityMap = new ConcurrentHashMap<>();
 
-    public AndroidDriverImpl(Context context) {
+    public AndroidWebViewProvider(Context context) {
         this.context = context;
     }
 

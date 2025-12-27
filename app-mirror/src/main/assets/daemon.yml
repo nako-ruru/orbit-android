@@ -6,7 +6,7 @@ api: http://{{.base_ip}}:6700
 vpn-path: 'D:\nebula-1.10.0\nebula.exe'
 sunshine:
   path: 'D:\Apollo\sunshine.exe'
-  config: 'D:\Apollo\config\sunshine.conf'
+  config: '/data/user/0/com.connect_screen.mirror/files/sunshine.conf'
   test-authentication: 'apollo:apollo123'
 streamer:
   dir: 'D:\moonlight-web-x86_64-pc-windows-gnu'
