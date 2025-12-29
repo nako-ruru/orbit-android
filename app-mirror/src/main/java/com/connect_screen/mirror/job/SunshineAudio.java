@@ -3,6 +3,7 @@ package com.connect_screen.mirror.job;
 import static com.connect_screen.mirror.MirrorMainActivity.REQUEST_RECORD_AUDIO_PERMISSION;
 
 import android.Manifest;
+import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.media.AudioAttributes;
@@ -20,6 +21,7 @@ import com.connect_screen.mirror.MirrorMainActivity;
 import com.connect_screen.mirror.Pref;
 import com.connect_screen.mirror.State;
 import com.connect_screen.mirror.shizuku.ServiceUtils;
+import com.orbit.GoWebViewActivity;
 
 public class SunshineAudio {
     private static boolean audioPermissionRequested;
@@ -158,7 +160,7 @@ public class SunshineAudio {
                 return true;
             }
             audioPermissionRequested = true;
-            MirrorMainActivity activity = State.getCurrentActivity();
+            Activity activity = GoWebViewActivity.activity;
             if (activity == null) {
                 return true;
             }

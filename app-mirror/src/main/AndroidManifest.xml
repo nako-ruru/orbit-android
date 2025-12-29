@@ -105,11 +105,19 @@
         <!-- 2. 真正的业务窗口：禁止外部启动，必须由 Go 的 StartActivity 唤醒 -->
         <activity
             android:name="com.orbit.GoWebViewActivity"
+            android:launchMode="singleTask"
             android:exported="false"
-            android:launchMode="standard"
-            android:screenOrientation="landscape"
-            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
-            android:theme="@style/Theme.AppCompat.NoActionBar" />
+            android:icon="@mipmap/ic_mirror"
+            android:label="ORBIT"
+            android:theme="@style/AppTheme" >
+            <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"/>
+                <action android:name="android.hardware.usb.action.USB_DEVICE_DETACHED"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
+                android:resource="@xml/device_filter"/>
+        </activity>
 
         <activity
             android:name="com.orbit.ProjectionPermissionActivity"

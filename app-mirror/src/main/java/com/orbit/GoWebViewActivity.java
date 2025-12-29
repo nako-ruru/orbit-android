@@ -123,13 +123,22 @@ public class GoWebViewActivity extends AppCompatActivity {
     }
 
     @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == MirrorMainActivity.REQUEST_RECORD_AUDIO_PERMISSION) {
+            State.resumeJob();
+        } else {
+            State.log("未知权限请求代码: " + requestCode);
+        }
+    }
+
+    @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
         if (requestCode == MirrorMainActivity.REQUEST_CODE_MEDIA_PROJECTION) {
             if (resultCode == RESULT_OK && data != null) {
                 State.log("用户授予了投屏权限");
-//                lastCheckTime = System.currentTimeMillis(); // 记录时间戳
                 if (SunshineService.instance == null) {
                     Intent sunshineServiceIntent = new Intent(this, SunshineService.class);
                     sunshineServiceIntent.putExtra("data", data);
