@@ -83,6 +83,7 @@ public class MirrorMainActivity extends AppCompatActivity implements IMainActivi
     private final Shizuku.OnRequestPermissionResultListener REQUEST_PERMISSION_RESULT_LISTENER =
         this::onRequestShizukuPermissionsResult;
 
+    /*
     @Override
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
@@ -94,7 +95,7 @@ public class MirrorMainActivity extends AppCompatActivity implements IMainActivi
                 android.util.Log.e("MainActivity", "添加隐藏API豁免失败: " + e.getMessage());
             }
         }
-    }
+    }*/
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -102,6 +103,7 @@ public class MirrorMainActivity extends AppCompatActivity implements IMainActivi
         // 设置 State.currentActivity 为当前的 MainActivity 实例
         State.setCurrentActivity(this);
 
+        /*
         // 添加保持屏幕常亮的标志
         getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
@@ -116,6 +118,8 @@ public class MirrorMainActivity extends AppCompatActivity implements IMainActivi
             ensureAccessiblityServiceStarted();
         }
 
+         */
+
         // 检查 SunshineService 是否已经在运行，如果没有运行才启动
         if (SunshineService.instance == null) {
             startMediaProjectionService();
@@ -123,12 +127,15 @@ public class MirrorMainActivity extends AppCompatActivity implements IMainActivi
             State.log("SunshineService 服务已在运行");
         }
         
-        Shizuku.addRequestPermissionResultListener(REQUEST_PERMISSION_RESULT_LISTENER);
+//        Shizuku.addRequestPermissionResultListener(REQUEST_PERMISSION_RESULT_LISTENER);
 
         // 移除默认的 ActionBar
+        /*
         if (getSupportActionBar() != null) {
             getSupportActionBar().hide();
         }
+
+         */
 
         setContentView(R.layout.activity_main);
 
@@ -211,8 +218,8 @@ public class MirrorMainActivity extends AppCompatActivity implements IMainActivi
     @Override
     protected void onResume() {
         super.onResume();
-        State.setCurrentActivity(this);
-        refresh();
+//        State.setCurrentActivity(this);
+//        refresh();
     }
 
     @Override
