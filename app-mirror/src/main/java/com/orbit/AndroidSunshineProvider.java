@@ -35,9 +35,11 @@ public class AndroidSunshineProvider implements SunshineProvider {
      * Golang 调用此方法: 一键启动投屏
      */
     public static void requestStart(Context context) {
+        /*
         Intent intent = new Intent(context, ProjectionPermissionActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 确保从非 Activity 环境也能启动
         context.startActivity(intent);
+         */
     }
 
     // 内部统一启动 Service 方法
