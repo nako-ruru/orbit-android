@@ -24,7 +24,7 @@ public class AndroidSunshineProvider implements SunshineProvider {
 
     @Override
     public boolean inputPin(String pin, String name) throws Exception {
-        SunshineServer.submitPin(pin);
+//        SunshineServer.onPinRequested();
         return true;
     }
 
@@ -35,17 +35,9 @@ public class AndroidSunshineProvider implements SunshineProvider {
      * Golang 调用此方法: 一键启动投屏
      */
     public static void requestStart(Context context) {
-        if (cachedData != null) {
-            // 情况 A: 已授权，直接启动 Service
-            State.log("已授权，静默启动服务...");
-            launchService(context, cachedData);
-        } else {
-            // 情况 B: 未授权，启动透明 Activity 去申请权限
-            State.log("未授权，正在拉起授权界面...");
-            Intent intent = new Intent(context, ProjectionPermissionActivity.class);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 确保从非 Activity 环境也能启动
-            context.startActivity(intent);
-        }
+        Intent intent = new Intent(context, ProjectionPermissionActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 确保从非 Activity 环境也能启动
+        context.startActivity(intent);
     }
 
     // 内部统一启动 Service 方法

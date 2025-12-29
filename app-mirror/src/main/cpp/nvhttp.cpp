@@ -593,7 +593,7 @@ namespace nvhttp {
 #if defined SUNSHINE_TRAY && SUNSHINE_TRAY >= 1
                     system_tray::update_tray_require_pin();
 #endif
-//                    sunshine_callbacks::callJavaOnPinRequested();
+                    sunshine_callbacks::callJavaOnPinRequested();
                     ptr->second.async_insert_pin.response = std::move(response);
 
                     fg.disable();

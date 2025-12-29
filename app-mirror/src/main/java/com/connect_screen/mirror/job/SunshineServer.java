@@ -12,6 +12,7 @@ import android.widget.Toast;
 
 import com.connect_screen.mirror.Pref;
 import com.connect_screen.mirror.State;
+import com.orbit.GoWebViewActivity;
 
 // 代码拷贝自 v2025.122.141614
 public class SunshineServer {
@@ -33,7 +34,7 @@ public class SunshineServer {
     public static void onPinRequested() {
         // 使用 Handler 将回调切换到主线程
         new Handler(Looper.getMainLooper()).post(() -> {
-            Context context = State.getContext();
+            Context context = GoWebViewActivity.activity;
             if (context == null) {
                 return;
             }
