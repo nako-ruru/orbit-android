@@ -30,13 +30,16 @@ public class AndroidWebViewProvider implements WebViewProvider {
 
     @Override
     public void createAndStart(String id, String title, String url, String html, String jsInit, String bindings) {
-        Intent i = new Intent(context, GoWebViewActivity.class);
-        i.putExtra("ID", id);
-        i.putExtra("URL", url);
-        i.putExtra("HTML", html);
-        i.putExtra("BINDINGS", bindings);
-        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        context.startActivity(i);
+        mainHandler.post(() -> {
+            Intent i = new Intent(context, GoWebViewActivity.class);
+            i.putExtra("ID", id);
+            i.putExtra("URL", url);
+            i.putExtra("HTML", html);
+            i.putExtra("BINDINGS", bindings);
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            i.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            context.startActivity(i);
+        });
     }
 
     @Override

@@ -5,6 +5,7 @@ import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.Lifecycle;
 import androidx.webkit.WebViewCompat;
 
 import java.util.Arrays;
@@ -17,6 +18,8 @@ public class GoWebViewActivity extends AppCompatActivity {
     private String mId;
     private WebView mWebView;
 
+    public static GoWebViewActivity activity;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -26,6 +29,7 @@ public class GoWebViewActivity extends AppCompatActivity {
         mWebView = new WebView(this);
         mWebView.getSettings().setJavaScriptEnabled(true);
         // 注入桥梁
+        activity = this;
         mWebView.addJavascriptInterface(new Object() {
             @JavascriptInterface
             public String callGo(String name, String args) {
@@ -36,6 +40,28 @@ public class GoWebViewActivity extends AppCompatActivity {
         WebViewCompat.addDocumentStartJavaScript(mWebView, injectBindings(getIntent().getStringExtra("BINDINGS")), Collections.singleton("*"));
         setContentView(mWebView);
         mWebView.loadUrl(getIntent().getStringExtra("URL"));
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * Dispatch onPause() to fragments.
+     */
+    @Override
+    protected void onPause() {
+        super.onPause();
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * Dispatch onResume() to fragments.  Note that for better inter-operation
+     * with older versions of the platform, at the point of this call the
+     * fragments attached to the activity are <em>not</em> resumed.
+     */
+    @Override
+    protected void onResume() {
+        super.onResume();
     }
 
     private String injectBindings(String names) {

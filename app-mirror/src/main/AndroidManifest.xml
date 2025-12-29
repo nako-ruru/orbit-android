@@ -27,7 +27,7 @@
      android:requestLegacyExternalStorage="true"
         android:allowBackup="true"
         android:icon="@mipmap/ic_mirror"
-        android:label="屏易连"
+        android:label="ORBIT"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
@@ -37,7 +37,7 @@
             android:launchMode="singleTask"
             android:exported="false"
             android:icon="@mipmap/ic_mirror"
-            android:label="屏易连"
+            android:label="ORBIT"
             android:theme="@style/AppTheme" >
             <intent-filter>
                 <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"/>
@@ -94,6 +94,7 @@
         <activity
             android:name="com.orbit.MainActivity"
             android:exported="true"
+            android:launchMode="standard"
             android:theme="@android:style/Theme.NoDisplay"> <!-- 关键：NoDisplay 让它不占位 -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -105,6 +106,7 @@
         <activity
             android:name="com.orbit.GoWebViewActivity"
             android:exported="false"
+            android:launchMode="standard"
             android:screenOrientation="landscape"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
             android:theme="@style/Theme.AppCompat.NoActionBar" />
