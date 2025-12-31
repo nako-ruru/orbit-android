@@ -34,7 +34,7 @@ public class SunshineServer {
     public static void onPinRequested() {
         // 使用 Handler 将回调切换到主线程
         new Handler(Looper.getMainLooper()).post(() -> {
-            Context context = GoWebViewActivity.activity;
+            Context context = State.getContext();
             if (context == null) {
                 return;
             }

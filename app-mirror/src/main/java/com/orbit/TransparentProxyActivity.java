@@ -23,6 +23,7 @@ public class TransparentProxyActivity extends Activity {
         } else {
             // 已经有权限了，直接关掉
             finish();
+            AndroidTunProvider.future.complete(new Object());
         }
     }
 
@@ -35,5 +36,6 @@ public class TransparentProxyActivity extends Activity {
             Log.d("VPN", "Permission Granted by User");
         }
         finish(); // 任务完成，自毁
+        AndroidTunProvider.future.complete(new Object());
     }
 }

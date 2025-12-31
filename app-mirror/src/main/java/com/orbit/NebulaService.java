@@ -1,5 +1,6 @@
 package com.orbit;
 
+import android.content.Intent;
 import android.net.VpnService;
 
 import android.app.Notification;
@@ -7,8 +8,6 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.os.Build;
 import android.os.ParcelFileDescriptor;
-
-import com.connect_screen.mirror.R;
 
 public class NebulaService extends VpnService {
 
@@ -54,16 +53,6 @@ public class NebulaService extends VpnService {
             // 如果这里还崩，说明 AndroidManifest.xml 里的 foregroundServiceType 没写对
             android.util.Log.e("VPN", "启动前台服务失败: " + e.getMessage());
         }
-        establishVpn();
-    }
-
-    private void establishVpn() {
-        Builder builder = new Builder();
-        builder.setSession("DemoVPN")
-                .addAddress("10.9.9.12", 24)
-                .addRoute("10.0.0.0", 8);
-
-        vpnInterface = builder.establish();
     }
 
     private Notification createNotification() {
@@ -93,6 +82,14 @@ public class NebulaService extends VpnService {
 
     @Override
     public int onStartCommand(android.content.Intent intent, int flags, int startId) {
+        Builder builder = new Builder()
+                .setSession("DemoVPN")
+                .addRoute("10.133.0.0", 16);
+        for(String address: intent.getStringArrayExtra("FIXED_IPS")) {
+            builder = builder.addAddress(address, 24);
+        }
+        vpnInterface = builder.establish();
+        AndroidTunProvider.future.complete(new Object());
         return START_STICKY;
     }
 

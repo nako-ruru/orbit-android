@@ -3,15 +3,14 @@ vars:
 log-dir: console
 desktop-signal-url: ws://{{.base_ip}}:6700/ws/desktop
 api: http://{{.base_ip}}:6700
-vpn-path: 'D:\nebula-1.10.0\nebula.exe'
+vpn:
+  path: 'D:\nebula-1.10.0\nebula.exe'
 sunshine:
   path: 'D:\Apollo\sunshine.exe'
   config: '/data/user/0/com.connect_screen.mirror/files/sunshine.conf'
   test-authentication: 'apollo:apollo123'
 streamer:
   dir: 'D:\moonlight-web-x86_64-pc-windows-gnu'
-  listen-port: '8080'
-  credentials:
 npc:
   path: 'D:\npc_windows_amd64_client\npc.exe'
   nps-addr: '100.113.111.18:8024'

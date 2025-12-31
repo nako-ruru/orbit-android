@@ -4,8 +4,14 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.util.Log;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Map;
+import java.util.Random;
+import java.util.stream.IntStream;
 
 import aar.Aar;
 
@@ -15,9 +21,22 @@ public class MainActivity extends Activity {
         super.onCreate(s);
 
         // 1. 注册驱动 (驱动持有 ApplicationContext 是安全的)
-        Aar.registerAndroidProvider(new AndroidWebViewProvider(this));
+        Aar.registerWebViewDriver(new AndroidWebViewProvider(this));
         Aar.registerSunshineProvider(new AndroidSunshineProvider(this));
-        Aar.registerTunProvider(new AndroidTunProvider(this));
+        Random random = new Random();
+        String[] fixedIps = IntStream.range(0, 256)
+                .mapToObj(i -> {
+                    int v;
+                    for (;;) {
+                        v = random.nextInt(256);
+                        if (v != 0 && v != 1 && v != 255) {
+                            break;
+                        }
+                    }
+                    return String.format("10.133.%d.%d", i, v);
+                })
+                .toArray(String[]::new);
+        Aar.registerTunProvider(new AndroidTunProvider(this, fixedIps));
         Aar.setConfigDir(this.getFilesDir().getAbsolutePath());
         Aar.setTempDir(this.getCacheDir().getAbsolutePath());
 
@@ -26,14 +45,12 @@ public class MainActivity extends Activity {
             try {
                 // 读取配置文件
                 InputStream is = getAssets().open("daemon.yml");
-                byte[] data = new byte[is.available()];
-                is.read(data);
+                YAMLMapper yaml = new YAMLMapper();
+                AppConfig config = yaml.readValue(is, AppConfig.class);
+                config.vpn.fixedIps = fixedIps;
                 is.close();
-
-                // 启动 Go 业务
-                // 注意：如果 start 内部调用了 w.Run()，它会在这里阻塞，直到第一个 WebView 销毁
-                aar.Aar.startService(data);
-
+                byte[] data = yaml.writeValueAsBytes(config);
+                Aar.startService(data);
             } catch (IOException e) {
                 Log.e("OrbitSDK", "Failed to load assets", e);
             }
@@ -45,15 +62,92 @@ public class MainActivity extends Activity {
                 byte[] data = new byte[is.available()];
                 is.read(data);
                 is.close();
-
-                // 启动 Go 业务
-                // 注意：如果 start 内部调用了 w.Run()，它会在这里阻塞，直到第一个 WebView 销毁
                 finish();
-                aar.Aar.start(data);
+                Aar.start(data);
 
             } catch (IOException e) {
                 Log.e("OrbitSDK", "Failed to load assets", e);
             }
         }).start();
     }
+
+    public static class AppConfig {
+        /* ===================== 根配置 ===================== */
+        public Map<String, String> vars;
+        @JsonProperty("log-dir")
+        public String logDir;
+        @JsonProperty("desktop-signal-url")
+        public String desktopSignalUrl;
+        public String api;
+        public SunshineConf sunshine;
+        public VpnConf vpn;
+        public DaemonConf daemon;
+        public SessionConf session;
+        public StreamerConf streamer;
+        public NpcConf npc;
+
+        /* ===================== VpnConf ===================== */
+
+        public static class VpnConf {
+            @JsonProperty("path")
+            public String vpnPath;
+            @JsonProperty("fixed-ips")
+            public String[] fixedIps;
+        }
+
+        /* ===================== SunshineConf ===================== */
+
+        public static class SunshineConf {
+
+            public String path;
+
+            @JsonProperty("config")
+            public String configPath;
+
+            @JsonProperty("test-authentication")
+            public String testAuthentication;
+        }
+
+        /* ===================== DaemonConf ===================== */
+
+        public static class DaemonConf {
+
+            public String name;
+
+            @JsonProperty("display-name")
+            public String displayName;
+
+            @JsonProperty("desc")
+            public String description;
+        }
+
+        /* ===================== SessionConf ===================== */
+
+        public static class SessionConf {
+
+            @JsonProperty("stream-timeout")
+            public String streamTimeout;
+
+            @JsonProperty("heartbeat-timeout")
+            public String heartbeatTimeout;
+        }
+
+        /* ===================== StreamerConf ===================== */
+        // 对应 streamer.Config
+        public static class StreamerConf {
+            public String dir;
+        }
+
+        /* ===================== NpcConf ===================== */
+
+        public static class NpcConf {
+
+            @JsonProperty("path")
+            public String path;
+
+            @JsonProperty("nps-addr")
+            public String npsAddr;
+        }
+    }
+
 }

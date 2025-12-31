@@ -108,8 +108,10 @@
             android:launchMode="singleTask"
             android:exported="false"
             android:icon="@mipmap/ic_mirror"
+            android:configChanges="orientation|screenSize|keyboardHidden"
             android:label="ORBIT"
-            android:theme="@style/AppTheme" >
+            android:theme="@style/Theme.AppCompat.NoActionBar"
+            >
             <intent-filter>
                 <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"/>
                 <action android:name="android.hardware.usb.action.USB_DEVICE_DETACHED"/>
