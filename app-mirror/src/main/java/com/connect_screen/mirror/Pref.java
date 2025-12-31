@@ -30,7 +30,7 @@ public class Pref {
     public static boolean doNotAutoStartMoonlight;
 
     public static boolean getAutoRotate() {
-        return getBoolean(KEY_AUTO_ROTATE, true);
+        return false;
     }
 
     public static boolean  getAutoScale() {
@@ -62,7 +62,7 @@ public class Pref {
     }
 
     public static boolean getAutoMatchAspectRatio() {
-        return getBoolean(KEY_AUTO_MATCH_ASPECT_RATIO, false);
+        return true;
     }
 
     public static boolean getUseTouchscreen() {
