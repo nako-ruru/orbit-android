@@ -9,9 +9,10 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.stream.IntStream;
 
 import aar.Aar;
 
@@ -23,20 +24,22 @@ public class MainActivity extends Activity {
         // 1. 注册驱动 (驱动持有 ApplicationContext 是安全的)
         Aar.registerWebViewDriver(new AndroidWebViewProvider(this));
         Aar.registerSunshineProvider(new AndroidSunshineProvider(this));
+        List<String> fixedIpList = new ArrayList<>();
         Random random = new Random();
-        String[] fixedIps = IntStream.range(0, 256)
-                .mapToObj(i -> {
-                    int v;
-                    for (;;) {
-                        v = random.nextInt(256);
-                        if (v != 0 && v != 1 && v != 255) {
-                            break;
-                        }
-                    }
-                    return String.format("10.133.%d.%d", i, v);
-                })
-                .toArray(String[]::new);
-        Aar.registerTunProvider(new AndroidTunProvider(this, fixedIps));
+        for(int i = 0; i < 256; i++) {
+            int v;
+            for (;;) {
+                v = random.nextInt(256);
+                if (v != 0 && v != 1 && v != 255) {
+                    break;
+                }
+            }
+            String ip = String.format("10.133.%d.%d", i, v);
+            fixedIpList.add(ip);
+        }
+        fixedIpList.add("10.249.128.128");
+        String[] fixedIpArray = fixedIpList.toArray(new String[0]);
+        Aar.registerTunProvider(new AndroidTunProvider(this, fixedIpArray));
         Aar.setConfigDir(this.getFilesDir().getAbsolutePath());
         Aar.setTempDir(this.getCacheDir().getAbsolutePath());
 
@@ -47,7 +50,7 @@ public class MainActivity extends Activity {
                 InputStream is = getAssets().open("daemon.yml");
                 YAMLMapper yaml = new YAMLMapper();
                 AppConfig config = yaml.readValue(is, AppConfig.class);
-                config.vpn.fixedIps = fixedIps;
+                config.vpn.fixedIps = fixedIpArray;
                 is.close();
                 byte[] data = yaml.writeValueAsBytes(config);
                 Aar.startService(data);
@@ -64,7 +67,6 @@ public class MainActivity extends Activity {
                 is.close();
                 finish();
                 Aar.start(data);
-
             } catch (IOException e) {
                 Log.e("OrbitSDK", "Failed to load assets", e);
             }
