@@ -27,5 +27,8 @@
     <mapping directory="$PROJECT_DIR$/termux-x11/app/src/main/cpp/xkbcomp" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/termux-x11/app/src/main/cpp/xorgproto" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/termux-x11/app/src/main/cpp/xserver" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../moonlight-android" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../moonlight-android/app/src/main/jni/moonlight-core/moonlight-common-c" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../moonlight-android/app/src/main/jni/moonlight-core/moonlight-common-c/enet" vcs="Git" />
   </component>
 </project>

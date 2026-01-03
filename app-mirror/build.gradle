@@ -26,6 +26,8 @@ android {
                 cppFlags ''
             }
         }
+
+        missingDimensionStrategy 'root', 'nonRoot'
     }
 
     buildTypes {
@@ -78,7 +80,6 @@ dependencies {
     implementation 'dev.rikka.tools.refine:runtime:4.4.0'
     implementation 'org.lsposed.hiddenapibypass:hiddenapibypass:4.3'
     implementation 'org.nanohttpd:nanohttpd:2.3.1'
-    implementation 'org.bouncycastle:bcprov-jdk15on:1.68'
     implementation 'com.google.zxing:core:3.5.2'
     implementation 'org.jmdns:jmdns:3.5.8'
     implementation "androidx.lifecycle:lifecycle-viewmodel:2.6.2"
@@ -88,6 +89,8 @@ dependencies {
     implementation "androidx.webkit:webkit:1.15.0"
     implementation 'org.yaml:snakeyaml:2.2'
     implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.16.0'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
 
     implementation files('./libs/orbit.aar')
+    implementation project(':moonlight')
 } 

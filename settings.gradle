@@ -26,3 +26,6 @@ dependencyResolutionManagement {
 rootProject.name = 'Connect Screen'
 include ':app-mirror'
 include ':hidden-api-stub'
+include ':moonlight'
+
+project(':moonlight').projectDir = file('../moonlight-android/app')

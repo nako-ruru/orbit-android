@@ -8,14 +8,11 @@ import android.media.projection.MediaProjectionConfig;
 import android.media.projection.MediaProjectionManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.lifecycle.Lifecycle;
 import androidx.webkit.WebViewCompat;
 
 import com.connect_screen.mirror.MirrorMainActivity;
@@ -40,6 +37,8 @@ public class GoWebViewActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        Aar.registerMoonlightProvider(new AndroidMoonlightProvider(this));
 
         activity = this;
 
