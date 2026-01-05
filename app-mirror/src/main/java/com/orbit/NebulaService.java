@@ -1,6 +1,6 @@
 package com.orbit;
 
-import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.VpnService;
 
 import android.app.Notification;
@@ -82,16 +82,22 @@ public class NebulaService extends VpnService {
 
     @Override
     public int onStartCommand(android.content.Intent intent, int flags, int startId) {
-        Builder builder = new Builder()
-                .setSession("DemoVPN")
-                .addRoute("10.133.0.0", 16)
-                .addRoute("10.249.128.0", 24);
-        for(String address: intent.getStringArrayExtra("FIXED_IPS")) {
-            builder = builder.addAddress(address, 24);
+        try {
+            Builder builder = new Builder()
+                    .setSession("DemoVPN")
+                    .addAllowedApplication("com.orbit")
+                    .addRoute("10.133.0.0", 16)
+                    .addRoute("10.249.128.0", 24)
+                    .addRoute("fdc8:d0db:a315:cb00::0", 64);
+            for(String address: intent.getStringArrayExtra("FIXED_IPS")) {
+                builder = builder.addAddress(address, 24);
+            }
+            vpnInterface = builder.establish();
+            AndroidTunProvider.future.complete(new Object());
+            return START_STICKY;
+        } catch (PackageManager.NameNotFoundException e) {
+            throw new RuntimeException(e);
         }
-        vpnInterface = builder.establish();
-        AndroidTunProvider.future.complete(new Object());
-        return START_STICKY;
     }
 
     @Override
