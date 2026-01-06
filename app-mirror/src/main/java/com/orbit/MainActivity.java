@@ -25,7 +25,6 @@ public class MainActivity extends Activity {
         Aar.registerWebViewDriver(new AndroidWebViewProvider(this));
         Aar.registerSunshineProvider(new AndroidSunshineProvider(this));
         List<String> fixedIpList = new ArrayList<>();
-        /*
         Random random = new Random();
         for(int i = 0; i < 256; i++) {
             int v;
@@ -37,12 +36,22 @@ public class MainActivity extends Activity {
             }
             String ip = String.format("10.133.%d.%d", i, v);
             fixedIpList.add(ip);
-        }*/
+        }
         fixedIpList.add("10.249.128.128");
         String[] fixedIpArray = fixedIpList.toArray(new String[0]);
-        Aar.registerTunProvider(new AndroidTunProvider(this, fixedIpArray));
+        AndroidTunProvider tunProvider = new AndroidTunProvider(this, fixedIpArray);
+        Aar.registerTunProvider(tunProvider);
         Aar.setConfigDir(this.getFilesDir().getAbsolutePath());
         Aar.setTempDir(this.getCacheDir().getAbsolutePath());
+
+        new Thread(() -> {
+            try {
+                Thread.sleep(5000L);
+                tunProvider.getTunId();
+            } catch (Exception e) {
+                Log.e("OrbitSDK", "Failed to load assets", e);
+            }
+        }).start();
 
         // 2. 在子线程中启动 Go 逻辑，避免阻塞主线程（UI 线程）
         new Thread(() -> {
