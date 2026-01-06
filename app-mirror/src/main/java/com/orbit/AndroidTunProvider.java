@@ -5,6 +5,15 @@ import android.content.Intent;
 import android.net.VpnService;
 import android.os.ParcelFileDescriptor;
 
+import java.net.Inet4Address;
+import java.net.Inet6Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -47,8 +56,47 @@ public class AndroidTunProvider implements TunProvider {
         throw new Exception("getTunId failed");
     }
 
+    @Override
+    public String advertiseIPs() throws Exception {
+        return String.join(", ", getRawLocalIpList());
+    }
+
     public AndroidTunProvider(Context context, String[] fixedIps) {
         this.context = context.getApplicationContext();
         this.fixedIps = fixedIps;
+    }
+
+    private static List<String> getRawLocalIpList() throws SocketException {
+        List<String> addresses = new ArrayList<>();
+
+        Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+        if (interfaces == null) return addresses;
+
+        for (NetworkInterface nif : Collections.list(interfaces)) {
+            if (!nif.isUp() || nif.isLoopback()) continue;
+
+            Enumeration<InetAddress> inetAddresses = nif.getInetAddresses();
+            for (InetAddress addr : Collections.list(inetAddresses)) {
+                if (addr.isLoopbackAddress()) continue;
+
+                String hostAddress = addr.getHostAddress();
+                if (hostAddress == null) continue;
+
+                // 去掉 IPv6 的百分号后缀
+                if (hostAddress.contains("%")) {
+                    hostAddress = hostAddress.substring(0, hostAddress.indexOf("%"));
+                }
+
+                if (addr instanceof Inet4Address) {
+                    addresses.add(hostAddress);
+                } else if (addr instanceof Inet6Address) {
+                    if (!addr.isLinkLocalAddress()) {
+                        addresses.add(hostAddress); // 这里只传 IP，不加括号
+                    }
+                }
+            }
+        }
+
+        return addresses;
     }
 }
