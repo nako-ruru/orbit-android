@@ -2,10 +2,12 @@ package com.orbit;
 
 import android.app.Activity;
 
+import aar.Aar;
 import aar.MoonlightProvider;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 
+import com.limelight.Game;
 import com.limelight.binding.PlatformBinding;
 import com.limelight.computers.ComputerDatabaseManager;
 import com.limelight.computers.ComputerManagerService;
@@ -110,6 +112,16 @@ public class AndroidMoonlightProvider implements MoonlightProvider {
     }
 
     private void doStart(NvApp app, ComputerDetails computer, String srcIP) {
+        Game.listener = new NvConnectionListenerAdapter() {
+            @Override
+            public void connectionStarted() {
+                Aar.onConnectionStarted();
+            }
+            @Override
+            public void connectionTerminated(int errorCode) {
+                Aar.onConnectionTerminated(errorCode);
+            }
+        };
         ComputerManagerService.ComputerManagerBinder mockBinder = new ComputerManagerService().new ComputerManagerBinder() {
             public String getUniqueId() {
                 if (managerBinder == null) {

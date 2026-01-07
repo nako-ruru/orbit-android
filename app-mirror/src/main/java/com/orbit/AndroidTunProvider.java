@@ -11,7 +11,6 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -70,17 +69,27 @@ public class AndroidTunProvider implements TunProvider {
         List<String> addresses = new ArrayList<>();
 
         Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
-        if (interfaces == null) return addresses;
+        if (interfaces == null) {
+            return addresses;
+        }
 
-        for (NetworkInterface nif : Collections.list(interfaces)) {
-            if (!nif.isUp() || nif.isLoopback()) continue;
+        for (NetworkInterface nif; interfaces.hasMoreElements();) {
+            nif = interfaces.nextElement();
+            if (!nif.isUp() || nif.isLoopback()) {
+                continue;
+            }
 
             Enumeration<InetAddress> inetAddresses = nif.getInetAddresses();
-            for (InetAddress addr : Collections.list(inetAddresses)) {
-                if (addr.isLoopbackAddress()) continue;
+            for (InetAddress addr; inetAddresses.hasMoreElements();) {
+                addr = inetAddresses.nextElement();
+                if (addr.isLoopbackAddress()) {
+                    continue;
+                }
 
                 String hostAddress = addr.getHostAddress();
-                if (hostAddress == null) continue;
+                if (hostAddress == null) {
+                    continue;
+                }
 
                 // 去掉 IPv6 的百分号后缀
                 if (hostAddress.contains("%")) {
