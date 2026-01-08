@@ -13,7 +13,7 @@ streamer:
   dir: 'D:\moonlight-web-x86_64-pc-windows-gnu'
 npc:
   path: 'D:\npc_windows_amd64_client\npc.exe'
-  nps-addr: '100.113.111.18:8024'
+  nps-addr: '83.229.122.196:8024'
 session:
   stream-timeout: 1m
   heartbeat-timeout: 1m

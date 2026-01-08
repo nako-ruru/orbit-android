@@ -45,7 +45,7 @@ public class AndroidTunProvider implements TunProvider {
             Intent intent = new Intent(context, NebulaService.class);
             intent.putExtra("FIXED_IPS", fixedIps);
             context.startForegroundService(intent);
-            future.get(10, TimeUnit.SECONDS);
+            future.get(20, TimeUnit.SECONDS);
             ParcelFileDescriptor pfd = NebulaService.vpnInterface;
             if (pfd != null) {
                 return pfd.getFd(); // 成功：返回 FD 供 Go 读写数据包
