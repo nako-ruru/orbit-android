@@ -1,6 +1,5 @@
 package com.orbit;
 
-import android.content.pm.PackageManager;
 import android.net.VpnService;
 
 import android.app.Notification;
@@ -85,14 +84,10 @@ public class NebulaService extends VpnService {
         try {
             Builder builder = new Builder()
                     .setSession("DemoVPN")
-//                    .addAllowedApplication("com.orbit")
-//                    .addRoute("10.133.0.0", 16)
-//                    .addRoute("10.249.128.0", 24)
+                    .addAllowedApplication("com.orbit")
                     .addRoute("fdc8:d0db:a315:cb00::0", 64)
-//                    .addRoute("0.0.0.0", 0)
             ;
             for(String address: intent.getStringArrayExtra("FIXED_IPS")) {
-//                builder = builder.addAddress(address, 64);
                 builder = builder.addAddress(address, 24);
             }
             vpnInterface = builder.establish();

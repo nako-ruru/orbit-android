@@ -24,6 +24,9 @@ public class MainActivity extends Activity {
         // 1. 注册驱动 (驱动持有 ApplicationContext 是安全的)
         Aar.registerWebViewDriver(new AndroidWebViewProvider(this));
         Aar.registerSunshineProvider(new AndroidSunshineProvider(this));
+        Aar.setConfigDir(this.getFilesDir().getAbsolutePath());
+        Aar.setTempDir(this.getCacheDir().getAbsolutePath());
+
         List<String> fixedIpList = new ArrayList<>();
         Random random = new Random();
         for(int i = 0; i < 256; i++) {
@@ -41,15 +44,11 @@ public class MainActivity extends Activity {
         String[] fixedIpArray = fixedIpList.toArray(new String[0]);
         AndroidTunProvider tunProvider = new AndroidTunProvider(this, fixedIpArray);
         Aar.registerTunProvider(tunProvider);
-        Aar.setConfigDir(this.getFilesDir().getAbsolutePath());
-        Aar.setTempDir(this.getCacheDir().getAbsolutePath());
-
         new Thread(() -> {
             try {
-                Thread.sleep(5000L);
                 tunProvider.getTunId();
             } catch (Exception e) {
-                Log.e("OrbitSDK", "Failed to load assets", e);
+                throw new RuntimeException(e);
             }
         }).start();
 
@@ -65,7 +64,7 @@ public class MainActivity extends Activity {
                 byte[] data = yaml.writeValueAsBytes(config);
                 Aar.startService(data);
             } catch (IOException e) {
-                Log.e("OrbitSDK", "Failed to load assets", e);
+                throw new RuntimeException(e);
             }
         }).start();
         new Thread(() -> {
@@ -78,7 +77,7 @@ public class MainActivity extends Activity {
                 finish();
                 Aar.start(data);
             } catch (IOException e) {
-                Log.e("OrbitSDK", "Failed to load assets", e);
+                throw new RuntimeException(e);
             }
         }).start();
     }
