@@ -62,7 +62,7 @@ public class Pref {
     }
 
     public static boolean getAutoMatchAspectRatio() {
-        return true;
+        return getBoolean(KEY_AUTO_MATCH_ASPECT_RATIO, false);
     }
 
     public static boolean getUseTouchscreen() {

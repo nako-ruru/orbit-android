@@ -8,12 +8,12 @@ import android.media.projection.MediaProjectionConfig;
 import android.media.projection.MediaProjectionManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.webkit.WebViewCompat;
 
 import com.connect_screen.mirror.MirrorMainActivity;
 import com.connect_screen.mirror.State;
@@ -23,7 +23,6 @@ import com.connect_screen.mirror.TouchpadAccessibilityService;
 import org.lsposed.hiddenapibypass.HiddenApiBypass;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.stream.Collectors;
 
 import aar.Aar;
@@ -36,6 +35,8 @@ public class GoWebViewActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Log.i("LIFECYCLE", "GoWebViewActivity.onCreate");
+
         super.onCreate(savedInstanceState);
 
         Aar.registerMoonlightProvider(new AndroidMoonlightProvider(this));
@@ -43,13 +44,14 @@ public class GoWebViewActivity extends AppCompatActivity {
         activity = this;
 
         // 检查 SunshineService 是否已经在运行，如果没有运行才启动
+        Log.i("GoWebViewActivity", "SunshineService.instance" + SunshineService.instance);
         if (SunshineService.instance == null) {
             startMediaProjectionService();
         } else {
             State.log("SunshineService 服务已在运行");
         }
 
-        mId = getIntent().getStringExtra("ID");
+        mId = "500";
         AndroidWebViewProvider.bind(mId, this);
 
         mWebView = new WebView(this);
@@ -61,9 +63,7 @@ public class GoWebViewActivity extends AppCompatActivity {
             }
         }, "_android_bridge");
 
-        WebViewCompat.addDocumentStartJavaScript(mWebView, injectBindings(getIntent().getStringExtra("BINDINGS")), Collections.singleton("*"));
         setContentView(mWebView);
-        mWebView.loadUrl(getIntent().getStringExtra("URL"));
     }
 
     /**
@@ -88,7 +88,7 @@ public class GoWebViewActivity extends AppCompatActivity {
         super.onResume();
     }
 
-    private String injectBindings(String names) {
+    public String injectBindings(String names) {
         return Arrays.stream(names.split(","))
                 .map(String::trim)
                 .map(this::injectBinding)
@@ -138,6 +138,7 @@ public class GoWebViewActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
+        Log.i("GoWebViewActivity", String.format("int requestCode: %d, int resultCode: %d", requestCode, resultCode));
         if (requestCode == MirrorMainActivity.REQUEST_CODE_MEDIA_PROJECTION) {
             if (resultCode == RESULT_OK && data != null) {
                 State.log("用户授予了投屏权限");
@@ -180,6 +181,7 @@ public class GoWebViewActivity extends AppCompatActivity {
             } else {
                 captureIntent = mediaProjectionManager.createScreenCaptureIntent();
             }
+            Log.i("GoWebViewActivity", "GoWebViewActivity activity: " + activity);
             if (activity != null) {
                 activity.startActivityForResult(captureIntent, MirrorMainActivity.REQUEST_CODE_MEDIA_PROJECTION);
                 TouchpadAccessibilityService.grantPermissionByClick(activity);
