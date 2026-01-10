@@ -19,3 +19,5 @@ file-transfer:
   conf-path: 'D:\projects\orbital-client\cmd\filetransfer\application.yml'
 webview:
   external-url: 'android_asset/remote.html'
+  target-device-code: '021 617 079'
+  target-password: QZjXGG

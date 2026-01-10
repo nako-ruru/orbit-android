@@ -93,13 +93,6 @@
             android:exported="false"
             android:theme="@style/AppTheme" />
 
-        <activity
-            android:name="com.orbit.MainActivity"
-            android:exported="false"
-            android:launchMode="standard"
-            android:theme="@android:style/Theme.NoDisplay"> <!-- 关键：NoDisplay 让它不占位 -->
-        </activity>
-
         <!-- 2. 真正的业务窗口：禁止外部启动，必须由 Go 的 StartActivity 唤醒 -->
         <activity
             android:name="com.orbit.GoWebViewActivity"

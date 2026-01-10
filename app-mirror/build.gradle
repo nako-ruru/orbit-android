@@ -90,7 +90,12 @@ dependencies {
     implementation 'org.yaml:snakeyaml:2.2'
     implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.16.0'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'org.eclipse.jetty:jetty-server:9.4.51.v20230217'
+    implementation 'info.picocli:picocli:4.7.6'
+    implementation "androidx.documentfile:documentfile:1.1.0"
 
     implementation files('./libs/orbit.aar')
     implementation project(':moonlight')
+    implementation files('C:\\Users\\PC\\.m2\\repository\\de\\sty\\fileserv-core\\0.1.0-SNAPSHOT\\fileserv-core-0.1.0-SNAPSHOT.jar')
+    implementation files('C:\\Users\\PC\\.m2\\repository\\de\\sty\\fileserv-app\\0.1.0-SNAPSHOT\\fileserv-app-0.1.0-SNAPSHOT.jar')
 } 

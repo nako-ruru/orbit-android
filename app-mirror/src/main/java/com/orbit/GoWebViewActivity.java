@@ -2,18 +2,22 @@ package com.orbit;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionConfig;
 import android.media.projection.MediaProjectionManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.util.Log;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.documentfile.provider.DocumentFile;
 
 import com.connect_screen.mirror.MirrorMainActivity;
 import com.connect_screen.mirror.State;
@@ -30,6 +34,8 @@ import aar.Aar;
 public class GoWebViewActivity extends AppCompatActivity {
     private String mId;
     private WebView mWebView;
+
+    public static final int X = 555555;
 
     public static GoWebViewActivity activity;
 
@@ -167,6 +173,18 @@ public class GoWebViewActivity extends AppCompatActivity {
                 State.log("用户拒绝了投屏权限");
 //                refresh();
                 State.resumeJob();
+            }
+        }
+        else if (requestCode == X) {
+            if (resultCode == RESULT_OK) {
+                Uri uri = data.getData();
+                getContentResolver().takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                                Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                );
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+                prefs.edit().putString("dir_uri", uri.toString()).apply();
             }
         }
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);

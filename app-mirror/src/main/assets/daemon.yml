@@ -21,3 +21,8 @@ daemon:
   name: orbit.daemon
   display-name: Orbit Daemon
   desc: Orbit Daemon
+file-transfer:
+  predefined-access-tokens:
+    tom: 123456
+    jerry: abcdef
+    admin: root123
