@@ -41,16 +41,26 @@ android {
         aidl true
         buildConfig true
     }
-    
+
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     externalNativeBuild {
         cmake {
             path "src/main/cpp/CMakeLists.txt"
             version "3.31.6"
+        }
+    }
+
+    packaging {
+        resources {
+            // 方案 A：只保留找到的第一个文件（推荐）
+            pickFirsts.add("version.properties")
+
+            // 方案 B：如果这个文件不重要，可以直接排除它
+            // excludes.add("version.properties")
         }
     }
 }
@@ -91,6 +101,7 @@ dependencies {
     implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.16.0'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'org.eclipse.jetty:jetty-server:9.4.51.v20230217'
+    implementation 'org.eclipse.jetty:jetty-servlet:9.4.51.v20230217'
     implementation 'info.picocli:picocli:4.7.6'
     implementation "androidx.documentfile:documentfile:1.1.0"
 

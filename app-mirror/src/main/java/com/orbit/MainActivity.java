@@ -22,6 +22,7 @@ public class MainActivity {
         Aar.registerWebViewDriver(new AndroidWebViewProvider(context));
         Aar.registerSunshineProvider(new AndroidSunshineProvider(context));
         Aar.registerDeviceInfoProvider(new AndroidDeviceInfoProvider(context));
+        Aar.registerWebDAVServerProvider(new AndroidWebdavProvider(context));
         File filesDir = context.getFilesDir();
         Aar.setConfigDir(filesDir.getAbsolutePath());
         Aar.setTempDir(context.getCacheDir().getAbsolutePath());
