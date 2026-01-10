@@ -2,13 +2,10 @@ package com.orbit;
 
 import android.app.Activity;
 import android.app.Application;
-import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
-
-import java.util.UUID;
 
 public class OrbitApplication  extends Application {
 
@@ -52,7 +49,6 @@ public class OrbitApplication  extends Application {
 
             @Override
             public void onActivityDestroyed(@NonNull Activity activity) {
-
             }
         });
     }
