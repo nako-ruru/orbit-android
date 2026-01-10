@@ -1,8 +1,13 @@
 package com.orbit;
 
+import static androidx.core.app.ActivityCompat.startActivityForResult;
+
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
+
+import androidx.appcompat.app.AppCompatActivity;
 
 import org.eclipse.jetty.server.Server;
 import org.slf4j.Logger;
@@ -32,8 +37,11 @@ import picocli.CommandLine;
 // version is set by maven via filtering
 public class AndroidWebdavProvider implements WebDAVServerProvider {
 
-    private Context context;
+    private final Context context;
 
+    public AndroidWebdavProvider(Context context) {
+        this.context = context;
+    }
     @Override
     public void startWebdavServer(long port) throws Exception {
         new Thread(() -> {

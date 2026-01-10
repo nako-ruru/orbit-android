@@ -57,6 +57,11 @@ public class GoWebViewActivity extends AppCompatActivity {
             State.log("SunshineService 服务已在运行");
         }
 
+        {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+            startActivityForResult(intent, X);
+        }
+
         mId = "500";
         AndroidWebViewProvider.bind(mId, this);
 
