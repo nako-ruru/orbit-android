@@ -17,11 +17,9 @@ import android.os.RemoteException;
 
 import androidx.core.app.ActivityCompat;
 
-import com.connect_screen.mirror.MirrorMainActivity;
 import com.connect_screen.mirror.Pref;
 import com.connect_screen.mirror.State;
-import com.connect_screen.mirror.shizuku.ServiceUtils;
-import com.orbit.GoWebViewActivity;
+import com.orbit.MainActivity;
 
 public class SunshineAudio {
     private static boolean audioPermissionRequested;
@@ -160,7 +158,7 @@ public class SunshineAudio {
                 return true;
             }
             audioPermissionRequested = true;
-            Activity activity = GoWebViewActivity.activity;
+            Activity activity = MainActivity.activity;
             if (activity == null) {
                 return true;
             }
