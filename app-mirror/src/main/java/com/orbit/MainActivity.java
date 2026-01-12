@@ -22,7 +22,7 @@ public class MainActivity {
         Aar.registerWebViewDriver(new AndroidWebViewProvider(context));
         Aar.registerSunshineProvider(new AndroidSunshineProvider(context));
         Aar.registerDeviceInfoProvider(new AndroidDeviceInfoProvider(context));
-        Aar.registerWebDAVServerProvider(new AndroidWebdavProvider(context));
+        Aar.registerFSProvider(new AndroidWebdavProvider(context));
         File filesDir = context.getFilesDir();
         Aar.setConfigDir(filesDir.getAbsolutePath());
         Aar.setTempDir(context.getCacheDir().getAbsolutePath());
@@ -68,7 +68,7 @@ public class MainActivity {
                 for (String ip : fixedIpList) {
                     arr.add(ip);
                 }
-                vpn.set("fixedIps", arr);
+                vpn.set("fixed-ips", arr);
                 byte[] data = mapper.writeValueAsBytes(root);
                 Aar.startService(data);
             } catch (IOException e) {
