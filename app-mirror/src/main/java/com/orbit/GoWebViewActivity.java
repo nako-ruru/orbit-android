@@ -52,7 +52,7 @@ public class GoWebViewActivity extends AppCompatActivity {
         // 检查 SunshineService 是否已经在运行，如果没有运行才启动
         Log.i("GoWebViewActivity", "SunshineService.instance" + SunshineService.instance);
         if (SunshineService.instance == null) {
-            startMediaProjectionService();
+//            startMediaProjectionService();
         } else {
             State.log("SunshineService 服务已在运行");
         }
