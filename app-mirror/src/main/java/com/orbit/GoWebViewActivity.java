@@ -17,7 +17,6 @@ import android.webkit.WebView;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.documentfile.provider.DocumentFile;
 
 import com.connect_screen.mirror.MirrorMainActivity;
 import com.connect_screen.mirror.State;
@@ -25,9 +24,6 @@ import com.connect_screen.mirror.SunshineService;
 import com.connect_screen.mirror.TouchpadAccessibilityService;
 
 import org.lsposed.hiddenapibypass.HiddenApiBypass;
-
-import java.util.Arrays;
-import java.util.stream.Collectors;
 
 import aar.Aar;
 
@@ -63,9 +59,9 @@ public class GoWebViewActivity extends AppCompatActivity {
         }
 
         mId = "500";
-        AndroidWebViewProvider.bind(mId, this);
-
         mWebView = new WebView(this);
+        AndroidWebViewProvider.bind(mId, mWebView, this::finish);
+
         mWebView.getSettings().setJavaScriptEnabled(true);
         mWebView.addJavascriptInterface(new Object() {
             @JavascriptInterface
@@ -97,16 +93,6 @@ public class GoWebViewActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-    }
-
-    public String injectBindings(String names) {
-        return Arrays.stream(names.split(","))
-                .map(String::trim)
-                .map(this::injectBinding)
-                .collect(Collectors.joining());
-    }
-    private String injectBinding(String name) {
-        return String.format("window.%s = (...args) => _android_bridge.callGo('%s', JSON.stringify(args));", name, name);
     }
 
     public void detach(String name) {
