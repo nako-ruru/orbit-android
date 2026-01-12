@@ -1,92 +1,202 @@
 package com.orbit;
 
-import android.app.Activity;
+import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
+import android.media.projection.MediaProjection;
+import android.media.projection.MediaProjectionConfig;
+import android.media.projection.MediaProjectionManager;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
+import android.preference.PreferenceManager;
+import android.util.Log;
+import android.webkit.JavascriptInterface;
+import android.webkit.WebView;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import com.connect_screen.mirror.MirrorMainActivity;
+import com.connect_screen.mirror.State;
+import com.connect_screen.mirror.SunshineService;
+import com.connect_screen.mirror.TouchpadAccessibilityService;
+
+import org.lsposed.hiddenapibypass.HiddenApiBypass;
 
 import aar.Aar;
 
-public class MainActivity {
+public class MainActivity extends AppCompatActivity {
+    private String mId;
+    private WebView mWebView;
 
-    public static void test(Activity context, String id) {
-        // 1. 注册驱动 (驱动持有 ApplicationContext 是安全的)
-        Aar.registerWebViewDriver(new AndroidWebViewProvider(context));
-        Aar.registerSunshineProvider(new AndroidSunshineProvider(context));
-        Aar.registerDeviceInfoProvider(new AndroidDeviceInfoProvider(context));
-        Aar.registerFSProvider(new AndroidWebdavProvider(context));
-        File filesDir = context.getFilesDir();
-        Aar.setConfigDir(filesDir.getAbsolutePath());
-        Aar.setTempDir(context.getCacheDir().getAbsolutePath());
+    public static final int X = 555555;
 
-        List<String> fixedIpList = new ArrayList<>();
-        Random random = new Random();
-        for(int i = 0; i < 256; i++) {
-            int v;
-            for (;;) {
-                v = random.nextInt(256);
-                if (v != 0 && v != 1 && v != 255) {
-                    break;
-                }
-            }
-            String ip = String.format("10.133.%d.%d", i, v);
-            fixedIpList.add(ip);
+    public static MainActivity activity;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        Log.i("LIFECYCLE", "GoWebViewActivity.onCreate");
+
+        super.onCreate(savedInstanceState);
+
+        Aar.registerMoonlightProvider(new AndroidMoonlightProvider(this));
+
+        activity = this;
+
+        // 检查 SunshineService 是否已经在运行，如果没有运行才启动
+        Log.i("GoWebViewActivity", "SunshineService.instance" + SunshineService.instance);
+        if (SunshineService.instance == null) {
+//            startMediaProjectionService();
+        } else {
+            State.log("SunshineService 服务已在运行");
         }
-        fixedIpList.add("10.249.128.128");
-        String[] fixedIpArray = fixedIpList.toArray(new String[0]);
-        AndroidTunProvider tunProvider = new AndroidTunProvider(context, fixedIpArray);
-        Aar.registerTunProvider(tunProvider);
-        new Thread(() -> {
-            try {
-//                tunProvider.getTunId();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }).start();
 
-        // 2. 在子线程中启动 Go 逻辑，避免阻塞主线程（UI 线程）
-        new Thread(() -> {
-            try {
-                // 读取配置文件
-                InputStream is = context.getAssets().open("daemon.yml");
-                YAMLMapper mapper = new YAMLMapper();
-                ObjectNode root = (ObjectNode) mapper.readTree(is);
-                is.close();
-                ObjectNode vpn = (ObjectNode) root.get("vpn");
-                if (vpn == null) {
-                    vpn = root.set("vpn", vpn);
-                }
-                ArrayNode arr = mapper.createArrayNode();
-                for (String ip : fixedIpList) {
-                    arr.add(ip);
-                }
-                vpn.set("fixed-ips", arr);
-                byte[] data = mapper.writeValueAsBytes(root);
-                Aar.startService(data);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
+        {
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+            startActivityForResult(intent, X);
+        }
+
+        mId = "500";
+        mWebView = new WebView(this);
+        AndroidWebViewProvider.bind(mId, mWebView, this::finish);
+
+        mWebView.getSettings().setJavaScriptEnabled(true);
+        mWebView.addJavascriptInterface(new Object() {
+            @JavascriptInterface
+            public String callGo(String name, String args) {
+                return aar.Aar.callBinding(mId, name, args);
             }
-        }).start();
-        new Thread(() -> {
-            try {
-                // 读取配置文件
-                InputStream is =  context.getAssets().open("orbit.yml");
-                byte[] data = new byte[is.available()];
-                is.read(data);
-                is.close();
-                Aar.start(data);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }).start();
+        }, "_android_bridge");
+
+        setContentView(mWebView);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * Dispatch onPause() to fragments.
+     */
+    @Override
+    protected void onPause() {
+        super.onPause();
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * Dispatch onResume() to fragments.  Note that for better inter-operation
+     * with older versions of the platform, at the point of this call the
+     * fragments attached to the activity are <em>not</em> resumed.
+     */
+    @Override
+    protected void onResume() {
+        super.onResume();
+    }
+
+    public void detach(String name) {
+        String js = String.format("delete windows['%s']", name);
+        mWebView.evaluateJavascript(js, null);
+    }
+
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(base);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            try {
+                HiddenApiBypass.addHiddenApiExemptions("");
+                android.util.Log.i("MainActivity", "成功添加隐藏API豁免");
+            } catch (Exception e) {
+                android.util.Log.e("MainActivity", "添加隐藏API豁免失败: " + e.getMessage());
+            }
+        }
+    }
+    public WebView getWebView() { return mWebView; }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        AndroidWebViewProvider.unbind(mId);
+        Aar.notifyWebviewExit(mId);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == MirrorMainActivity.REQUEST_RECORD_AUDIO_PERMISSION) {
+            State.resumeJob();
+        } else {
+            State.log("未知权限请求代码: " + requestCode);
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        Log.i("GoWebViewActivity", String.format("int requestCode: %d, int resultCode: %d", requestCode, resultCode));
+        if (requestCode == MirrorMainActivity.REQUEST_CODE_MEDIA_PROJECTION) {
+            if (resultCode == RESULT_OK && data != null) {
+                State.log("用户授予了投屏权限");
+                if (SunshineService.instance == null) {
+                    Intent sunshineServiceIntent = new Intent(this, SunshineService.class);
+                    sunshineServiceIntent.putExtra("data", data);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(sunshineServiceIntent);
+                    } else {
+                        startService(sunshineServiceIntent);
+                    }
+                    State.log("启动 SunshineService 服务");
+                } else {
+                    MediaProjectionManager mediaProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+                    State.setMediaProjection(mediaProjectionManager.getMediaProjection(RESULT_OK, data));
+                    State.getMediaProjection().registerCallback(new MediaProjection.Callback() {
+                        @Override
+                        public void onStop() {
+                            super.onStop();
+                            State.log("MediaProjection onStop 回调");
+                        }
+                    }, null);
+                    State.resumeJob();
+                }
+            } else {
+                State.log("用户拒绝了投屏权限");
+//                refresh();
+                State.resumeJob();
+            }
+        }
+        else if (requestCode == X) {
+            if (resultCode == RESULT_OK) {
+                Uri uri = data.getData();
+                getContentResolver().takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                                Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                );
+                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+                prefs.edit().putString("dir_uri", uri.toString()).apply();
+            }
+        }
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+    }
+
+    public void startMediaProjectionService() {
+        MediaProjectionManager mediaProjectionManager = (MediaProjectionManager) this.getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+        if (mediaProjectionManager != null) {
+            Intent captureIntent = null;
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                captureIntent = mediaProjectionManager.createScreenCaptureIntent(MediaProjectionConfig.createConfigForDefaultDisplay());
+            } else {
+                captureIntent = mediaProjectionManager.createScreenCaptureIntent();
+            }
+            Log.i("GoWebViewActivity", "GoWebViewActivity activity: " + activity);
+            if (activity != null) {
+                activity.startActivityForResult(captureIntent, MirrorMainActivity.REQUEST_CODE_MEDIA_PROJECTION);
+                TouchpadAccessibilityService.grantPermissionByClick(activity);
+            }
+        } else {
+            throw new RuntimeException("无法获取 MediaProjectionManager 服务");
+        }
+    }
 }

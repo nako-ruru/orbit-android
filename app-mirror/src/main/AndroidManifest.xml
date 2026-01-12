@@ -95,7 +95,7 @@
 
         <!-- 2. 真正的业务窗口：禁止外部启动，必须由 Go 的 StartActivity 唤醒 -->
         <activity
-            android:name="com.orbit.GoWebViewActivity"
+            android:name="com.orbit.MainActivity"
             android:launchMode="standard"
             android:exported="true"
             android:icon="@mipmap/ic_mirror"

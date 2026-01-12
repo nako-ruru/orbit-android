@@ -12,7 +12,6 @@ import android.widget.Toast;
 
 import com.connect_screen.mirror.Pref;
 import com.connect_screen.mirror.State;
-import com.orbit.GoWebViewActivity;
 
 // 代码拷贝自 v2025.122.141614
 public class SunshineServer {
