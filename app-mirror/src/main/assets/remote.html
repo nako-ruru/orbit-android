@@ -1484,20 +1484,13 @@
         document.getElementById('statusBar').lastElementChild.textContent = `最后更新：刚刚`;
     }
 
-    function onDomReady() {
-        // 初始化页面
-        console.log(`DOMContentLoadedDOMContentLoaded`);
+    // 初始化页面
+    document.addEventListener('DOMContentLoaded', function() {
         // 如果有onPageLoaded回调，则调用
         if (window.onPageLoaded) {
-            console.log(`onPageLoadedonPageLoaded`);
             window.onPageLoaded();
         }
-    }
-    if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", onDomReady);
-    } else {
-        onDomReady();
-    }
+    });
 
     const contentLoadedPromise = new Promise(resolve => {
         if (document.readyState === 'loading') {

@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>文件传输</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="https://cdn.jsdelivr.net/npm/jquery.fancytree/dist/skin-win8/ui.fancytree.min.css" rel="stylesheet"/>
+    <style>
+        html, body {height:100%; margin:0; font-family:Segoe UI,Arial,sans-serif;}
+        #outer {display:flex; flex-direction:column; height:100vh; overflow:hidden;}
+        #main {flex:1; display:flex; overflow:hidden; min-height:120px;}
+        .panel {flex:1; display:flex; flex-direction:column;overflow:auto;  border-right:1px solid #ddd; background:#fff;}
+        .panel table {
+            width: 100%;
+        }
+        .panel:last-child {border-right:none;}
+        #splitter-vertical {width:6px; cursor:col-resize; background:#e9ecef;}
+        #splitter-horizontal {height:6px; cursor:row-resize; background:#e9ecef;}
+        #tasks {height:35%; min-height:140px; display:flex; flex-direction:column; border-top:1px solid #ddd; background:#fff; overflow:hidden;}
+
+        /* --- 顶部工具栏 & 地址栏 --- */
+        .toolbar {display:flex; align-items:center; padding:6px; border-bottom:1px solid #eef; background:#fafafa;}
+        .toolbar button {margin-right:6px;}
+        .pathbar {
+            display: flex;
+            align-items: center;
+            padding: 6px;
+            border-bottom: 1px solid #eef;
+            background: #fafafa;
+            height: 38px;
+            position: relative;
+            box-sizing: border-box;
+        }
+        .pathbar .up-btn {margin-right: 8px; flex: 0 0 auto;}
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            flex: 1;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+        .breadcrumb span {
+            color:#0d6efd;
+            margin-right:4px;
+            padding: 2px 6px;
+            border-radius:4px;
+            cursor:pointer;
+            user-select:none;
+        }
+        .breadcrumb span:hover {background:#e7f1ff;}
+        #pathEditContainer {
+            position: absolute;
+            top: 0; left: 40px; right: 0; bottom: 0;
+            display: none;
+            align-items: center;
+            background: #fafafa;
+            padding: 0 6px;
+            box-sizing: border-box;
+        }
+        #pathEdit {
+            width: 100%;
+            padding: 4px 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            height: 26px;
+            line-height: 26px;
+        }
+        #quickAccessBtn {
+            position:absolute; right:4px; top:50%;
+            transform:translateY(-50%);
+            border:none; background:#f1f3f5;
+            padding:0 6px; border-left:1px solid #ccc; cursor:pointer;
+        }
+        #quickAccessMenu {
+            display:none;
+            position:absolute;
+            top:100%; left:0;
+            width:100%;
+            background:#fff;
+            border:1px solid #ddd;
+            border-radius:4px;
+            z-index:30;
+            max-height:200px;
+            overflow:auto;
+        }
+        #quickAccessMenu li {padding:6px 8px; cursor:pointer;}
+        #quickAccessMenu li:hover {background:#f8f9fa;}
+
+        .filelist {
+            flex:1;
+            overflow-x: hidden;
+            overflow-y: auto;
+            padding:0;}
+        table.file-table {
+            border-collapse: collapse;
+            width: 100%;
+            border-spacing: 0;
+        }
+        table.file-table thead {
+            position: sticky;
+            top: 0;
+            background: #f8f8f8;
+        }
+        table.file-table th, table.file-table td{
+            padding:6px 8px;
+            border-bottom:1px solid #eee;
+            white-space: nowrap;       /* 禁止换行 */
+            overflow: hidden;          /* 内容超出隐藏 */
+            text-overflow: ellipsis;   /* 超出显示省略号 */
+        }
+        table.file-table tr:hover{background:#f8fbff; cursor:pointer;}
+        table.file-table tr.selected{background:#ddebff;}
+
+        /* --- 任务区 --- */
+        #taskTabs{flex:0 0 auto; padding:6px; background:#fff; border-bottom:1px solid #eee; display:flex; gap:6px; align-items:center; overflow:auto;}
+        .task-tab-btn{padding:6px 10px; border:1px solid #ddd; border-radius:6px; background:#f8f9fa; cursor:pointer;}
+        .task-tab-btn.active{background:#0d6efd; color:white; border-color:#0d6efd;}
+        #taskContent{flex:1 1 auto; overflow:auto;}
+
+        /* --- FancyTree 表格无缝 & 固定表头 --- */
+        #taskContent table {
+            table-layout: fixed;
+            width: 100%;
+            border-collapse: separate; /* 合并边框，和 tbody 对齐 */
+            border-spacing: 0;
+        }
+        #taskContent thead {
+            position: sticky;
+            top: 0;
+            background: #f8f8f8;
+        }
+        #taskContent th,
+        #taskContent td {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+            line-height: 1.5;
+            height: 28px;
+        }
+        #taskContent thead th {
+            border-bottom: 1px solid #ccc;
+            background: #f8f9fa;
+        }
+        .fancytree-ext-table .fancytree-node td{vertical-align:middle;}
+
+        /* --- 进度条 & 操作按钮 --- */
+        .progress-container{display:inline-block; width:160px; height:12px; background:#eee; border-radius:6px; overflow:hidden; border:1px solid #e0e0e0; vertical-align:middle;}
+        .progress-bar{height:100%; background:#0d6efd; width:0%;}
+        .fancytree-ext-table td .action-buttons {opacity:0; transition:opacity .12s;}
+        .fancytree-ext-table tr:hover td .action-buttons {opacity:1;}
+        #taskContent .action-buttons button {padding: 2px 4px; white-space: nowrap;}
+
+        /* --- 排序箭头 --- */
+        th.asc::after  {content:" ▲"; color:#0d6efd;  display: inline-block;}
+        th.desc::after {content:" ▼"; color:#0d6efd;  display: inline-block;}
+    </style>
+</head>
+<body>
+<div id="outer">
+    <div id="main">
+        <div id="remotePanel" class="panel"></div>
+        <div id="splitter-vertical"></div>
+        <div id="localPanel" class="panel"></div>
+    </div>
+    <div id="splitter-horizontal"></div>
+    <div id="tasks">
+        <div id="taskTabs"></div>
+        <div id="taskContent"></div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.4/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery.fancytree/dist/jquery.fancytree-all-deps.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/colresizable/colResizable-1.6.min.js"></script>
+<script src="https://unpkg.com/tablesort@5.3.0/dist/tablesort.min.js"></script>
+<script src="https://unpkg.com/tablesort@5.3.0/dist/sorts/tablesort.number.min.js"></script>
+
+
+<script>
+    // --- Promise 桥接表 ---
+    window._goCallbacks = {};
+    window._resolvePromise = function(id, result) {
+        if (window._goCallbacks[id]) {
+            window._goCallbacks[id].resolve(result);
+        }
+        delete window._goCallbacks[id];
+    };
+    window._rejectPromise = function(id, err) {
+        if (window._goCallbacks[id]) {
+            window._goCallbacks[id].reject(err);
+        }
+        delete window._goCallbacks[id];
+    };
+</script>
+<script>
+    let requestIdCounter = 0;
+    function goListDir(path, remote, recursive) {
+        return new Promise((resolve, reject) => {
+            const requestId = "" + requestIdCounter++;
+            _goCallbacks[requestId] = { resolve, reject };
+            asyncGoListDir(requestId, path, remote, recursive);
+        });
+    }
+    function goDelete(items, remote) {
+        return new Promise((resolve, reject) => {
+            const requestId = "" + requestIdCounter++;
+            _goCallbacks[requestId] = { resolve, reject };
+            asyncGoDelete(requestId, items, remote);
+        });
+    }
+</script>
+
+<script>
+    class FilePanel{
+        constructor(containerId,isRemote, os){
+            this.container=document.getElementById(containerId);
+            this.isRemote=!!isRemote;
+            this.currentPath="";
+            this.fileList=[];
+            this.hostname = os.hostname;
+            this.os = os.os;
+            this.userHome = os.userHome;
+            this.pathSeparator = this.os === "windows" ? "\\" : "/";
+            this.render();
+            this.bindEvents();
+            this.initRoots();
+        }
+        isWindows(){
+            return this.os === "windows";
+        }
+        render(){
+            this.container.innerHTML=`
+<div class="toolbar">
+  <button data-action="mkdir" class="btn btn-sm btn-outline-secondary">📁 新建</button>
+  <button data-action="delete" class="btn btn-sm btn-outline-secondary">🗑 删除</button>
+  <button data-action="rename" class="btn btn-sm btn-outline-secondary">✏️ 重命名</button>
+  <button data-action="transfer" class="btn btn-sm btn-outline-primary">${this.isRemote?"⬇️ 下载":"⬆️ 上传"}</button>
+</div>
+<div class="pathbar">
+  <button class="btn btn-sm btn-outline-secondary up-btn" id="upBtn">⬆️</button>
+  <div id="breadcrumb" class="breadcrumb"></div>
+  <div id="pathEditContainer">
+    <input id="pathEdit" type="text" placeholder="输入路径回车"/>
+    <button id="quickAccessBtn">▼</button>
+    <ul id="quickAccessMenu">
+      <li data-path="${this.userHome}">🏠 Home</li>
+    </ul>
+  </div>
+</div>
+<div class="filelist">
+  <table class="file-table"><thead><tr><th data-sort-default="asc">名称</th><th>大小</th></tr></thead><tbody></tbody></table>
+</div>`;
+            this.breadcrumb=this.container.querySelector("#breadcrumb");
+            this.pathEditContainer=this.container.querySelector("#pathEditContainer");
+            this.pathEdit=this.container.querySelector("#pathEdit");
+            this.quickAccessBtn=this.container.querySelector("#quickAccessBtn");
+            this.quickAccessMenu=this.container.querySelector("#quickAccessMenu");
+            this.table = this.container.querySelector("table.file-table");
+            this.tbody=this.container.querySelector("tbody");
+
+            let tablesort = this.tablesort = new Tablesort(this.table);
+
+            let table2 = this.table;
+            this.table.addEventListener('afterSort', function(e) {
+                table2.querySelectorAll("th").forEach(t => {
+                    t.classList.remove("asc","desc");
+                });
+                tablesort.current.classList.add(tablesort.current.getAttribute('aria-sort') === "descending" ? "desc" : "asc");
+            });
+            let table = $(this.table);
+            setTimeout(function () {
+                table.colResizable({
+                    liveDrag: true,
+                    gripInnerHtml: "<div class='grip'></div>",
+                    draggingClass: "dragging",
+                    resizeMode: 'fit',
+                });
+            }, 0);
+        }
+        bindEvents(){
+            this.tbody.addEventListener("dblclick",(e)=>{
+                const tr=e.target.closest("tr"); if(!tr) return;
+                const entry=this.fileList.find(f=>f.name===tr.dataset.name);
+                if(entry && entry.isDir) this.openDir(joinPath(this.currentPath,entry.name, this.os));
+            });
+            this.tbody.addEventListener("click",(e)=>{
+                const tr=e.target.closest("tr"); if(!tr) return;
+                if(e.ctrlKey) tr.classList.toggle("selected");
+                else if(e.shiftKey){
+                    const trs=Array.from(this.tbody.querySelectorAll("tr"));
+                    const first=trs.findIndex(x=>x.classList.contains("selected"));
+                    const last=trs.indexOf(tr);
+                    trs.forEach((t,i)=>{if(i>=Math.min(first,last)&&i<=Math.max(first,last)) t.classList.add("selected");});
+                } else {
+                    this.tbody.querySelectorAll("tr").forEach(x=>x.classList.remove("selected"));
+                    tr.classList.add("selected");
+                }
+            });
+            this.container.querySelector(".toolbar").addEventListener("click",e=>{
+                const btn=e.target.closest("button"); if(!btn) return;
+                const act=btn.dataset.action;
+                if(act==="mkdir") {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `<td>📁 <input type="text" class="form-control form-control-sm" placeholder="新建文件夹" style="width:80%"></td><td></td>`;
+                    this.tbody.prepend(tr);
+                    const input = tr.querySelector("input");
+                    input.focus();
+
+                    input.addEventListener("keydown", e=>{
+                        if(e.key==="Enter"){
+                            const name = input.value.trim();
+                            if(!name) { tr.remove(); return; }
+                            window.goMakeDir(joinPath(this.currentPath, name, this.os), this.isRemote)
+                                .then(()=>this.openDir(this.currentPath))
+                                .catch(err=>{alert("创建失败："+err); this.openDir(this.currentPath);});
+                        }
+                        if(e.key==="Escape") tr.remove();
+                    });
+                }
+                else if(act==="delete") {
+                    let selected = this.getSelectedNodes();
+                    if(selected.length) {
+                        if (confirm(`确定要删除选中的 ${selected.length} 个项目吗？`)) {
+                            let deleteItems = [];
+                            for (const item of selected) {
+                                deleteItems.push(joinPath(this.currentPath, item.name, this.os));
+                            }
+                            window.goDelete(deleteItems, this.isRemote)
+                                .then(_ => {
+                                    this.openDir(this.currentPath);
+                                });
+                        }
+                    }
+                }
+                else if(act==="rename") {
+                    let selected = this.getSelectedNodes();
+                    if (selected.length !== 1) {
+                        alert("一次只能重命名一个文件或文件夹");
+                        return;
+                    }
+                    const tr = this.tbody.querySelector(`tr[data-name="${selected[0].name}"]`);
+                    if (!tr) return;
+                    const tdName = tr.querySelector("td:first-child");
+                    const oldName = selected[0].name;
+
+                    // 内联编辑输入框
+                    const input = document.createElement("input");
+                    input.type = "text";
+                    input.value = oldName;
+                    input.style.width = "90%";
+                    input.style.padding = "2px 4px";
+                    tdName.innerHTML = "";
+                    tdName.appendChild(input);
+                    input.focus();
+                    input.select();
+
+                    const commitRename = async () => {
+                        const newName = input.value.trim();
+                        if (!newName || newName === oldName) {
+                            this.renderFileList(); // 还原
+                            return;
+                        }
+                        await window.goRename(joinPath(this.currentPath, oldName, this.os), joinPath(this.currentPath, newName, this.os), this.isRemote);
+                        this.openDir(this.currentPath);
+                    };
+
+                    input.addEventListener("keydown", e => {
+                        if (e.key === "Enter") commitRename();
+                        else if (e.key === "Escape") this.renderFileList();
+                    });
+
+                    input.addEventListener("blur", () => {
+                        this.renderFileList();
+                    });
+                }
+                else if(act==="transfer") {
+                    startTransfer(this.isRemote);
+                }
+            });
+            this.breadcrumb.addEventListener("click", e => {
+                if(e.target === this.breadcrumb) this.enterEditMode();
+            });
+            this.pathEdit.addEventListener("keydown", e => {
+                if(e.key === "Enter") this.openDir(e.target.value);
+                if(e.key === "Escape") this.exitEditMode();
+            });
+            this.pathEdit.addEventListener("blur", () => {
+                this.exitEditMode(); // <--- 自动恢复面包屑模式
+            });
+            this.quickAccessBtn.addEventListener("click",()=>{this.quickAccessMenu.style.display=this.quickAccessMenu.style.display==="none"?"block":"none";});
+            this.quickAccessMenu.querySelectorAll("li").forEach(li=>{
+                li.addEventListener("click",()=>{this.openDir(li.dataset.path); this.quickAccessMenu.style.display="none"; this.exitEditMode();});
+            });
+            this.upBtn = this.container.querySelector("#upBtn");
+            this.upBtn.addEventListener("click",()=>{
+                if(isRoot(this.currentPath)) {
+                    return;
+                }
+                let parent = getParent(this.currentPath, this.os);
+                this.openDir(parent);
+            });
+        }
+        initRoots(){
+            this.openDir("/");
+        }
+        renderBreadcrumb(path){
+            this.breadcrumb.innerHTML="";
+            const parts=this.splitBreadcrumb(path);
+            parts.forEach(p=>{
+                const sep=document.createTextNode(" > ");
+                this.breadcrumb.appendChild(sep);
+                const span=document.createElement("span");
+                span.textContent=p.name;
+                span.onclick=()=> {
+                    this.openDir(p.path);
+                };
+                this.breadcrumb.appendChild(span);
+            });
+        }
+        enterEditMode(){ this.breadcrumb.style.display="none"; this.pathEditContainer.style.display="flex"; this.pathEdit.value=this.currentPath; this.pathEdit.focus();}
+        exitEditMode(){ this.breadcrumb.style.display="flex"; this.pathEditContainer.style.display="none";}
+        openDir(path){
+            console.log(1, path)
+            window.goListDir(path, this.isRemote, false).then(res => {
+                console.log(2, path)
+                this.currentPath=path;
+                this.renderBreadcrumb(path);
+                this.fileList = res;
+                if (!this.fileList) {
+                    this.fileList = [];
+                }
+                console.log(3, path)
+                this.renderFileList();
+                console.log(4, path)
+
+                let table = $(this.table);
+                table.colResizable({
+                    disable: true
+                });
+                console.log(5, path)
+                setTimeout(function () {
+                    table.colResizable({
+                        liveDrag: true,
+                        gripInnerHtml: "<div class='grip'></div>",
+                        draggingClass: "dragging",
+                        resizeMode: 'fit'
+                    });
+                }, 0);
+            });
+        }
+        renderFileList(){
+            this.tbody.innerHTML="";
+            this.fileList.forEach(f=>{
+                const tr=document.createElement("tr");
+                tr.dataset.name=f.name;
+                tr[`__pinyinDict`] = f.pinyinDict;
+                tr.innerHTML=`<td data-sort="${f.name}">${f.isDir?"📁":"📄"} ${f.name}</td><td data-sort="${f.isDir ? -1 : f.size}">${f.isDir ? "" : formatFileSize(f.size)}</td>`;
+                this.tbody.appendChild(tr);
+            });
+            this.tablesort.refresh();
+        }
+        getSelectedNodes(){
+            const names = Array.from(this.tbody.querySelectorAll("tr.selected")).map(x => x.dataset.name);
+            return this.fileList.filter(f => names.includes(f.name));
+        }
+        splitBreadcrumb(path) {
+            let breadcrumb = [{name: "This PC", path: "/"}];
+            if(isRoot(path)) {
+                return breadcrumb;
+            }
+            let sepRegex, head;
+            let sep = this.pathSeparator;
+            if(this.pathSeparator === "\\") {
+                sepRegex = /[\/\\]+/;
+                head = "";
+            } else {
+                sepRegex = /\/+/;
+                head = "/";
+            }
+            let panel = this;
+            let trimSep = function (p) {
+                if(panel.pathSeparator === "\\") {
+                    p = p.replace(/^[\/\\]+/, "").replace(/[\/\\]+$/, "");
+                } else {
+                    p = p.replace(/^\/+/, "").replace(/\/+$/, "");
+                }
+                return p
+            }
+            path = trimSep(path)
+            let elemPath = head;
+            for (const elem of path.split(sepRegex)) {
+                elemPath += elem;
+                breadcrumb.push({
+                    name: elem, path: elemPath
+                })
+                elemPath += sep;
+            }
+            return breadcrumb;
+        }
+    }
+
+    //----------------------
+    let activeTaskId;
+    let taskTabs={};
+    let progressTimer;
+
+    function addTransferTask(srcPath, targetPath, taskRoots, downloading, tid){
+        const tabBtn=document.createElement("div");
+        tabBtn.className="task-tab-btn active";
+        tabBtn.id = "tab_" + tid;
+        tabBtn.textContent=`${tid} (0%)` ;
+
+        for(const b of document.querySelectorAll(".task-tab-btn")) {
+            b.classList.remove("active");
+        }
+        document.getElementById("taskTabs").appendChild(tabBtn);
+
+        const contentDiv=document.createElement("table"); contentDiv.id='task_' + tid; contentDiv.className="table table-sm table-borderless";
+        contentDiv.innerHTML=`
+  <colgroup>
+    <col style="width:20%">
+    <col style="width:20%">
+    <col style="width:20%">
+    <col style="width:20%">
+    <col style="width:20%">
+  </colgroup>
+<thead><tr><th>文件</th><th>进度</th><th>大小</th><th>速度/平均速度</th><th>操作</th></tr></thead>
+<tbody></tbody>`;
+
+        document.getElementById("taskContent").innerHTML=""; document.getElementById("taskContent").appendChild(contentDiv);
+
+        const treeData=taskRoots
+            .map(src=>({
+                title: src.name,
+                folder:src.isDir,
+                lazy:src.isDir,
+                data: {
+                    path: src.name,
+                    size: src.size,
+                    pinyinDict: src.pinyinDict
+                }
+            }));
+
+        $(contentDiv).fancytree({
+            extensions: ["table", "filter"],
+            filter: {
+                autoExpand: true,
+                counter: true,
+                mode: "hide"
+            },
+            table:{
+                indent:20,
+                nodeColumnIdx:0,
+                scrollbar: true
+            },
+            source:treeData,
+            renderColumns:function(event,data){
+                if(!data.node.folder) {
+                    let tdList = $(data.node.tr).children("td");
+                    let transferred = taskTabs[tid] && taskTabs[tid].transferred && taskTabs[tid].transferred[data.node.data.path];
+                    let progress = 0;
+                    if(transferred) {
+                        progress = taskTabs[tid].transferred[data.node.data.path];
+                    }
+                    tdList[1].innerHTML=`<span class="progress-container"><div class="progress-bar" style="width:${progress}%"></div></span>`;
+                    tdList[2].textContent= data.node.folder ? "" : (transferred ? data.node.data.size : 0) + "/" + data.node.data.size;
+                    tdList[3].textContent= 0 + "/" + 0;
+                    tdList[4].innerHTML=`<span class="action-buttons">
+        <button class="pause">⏸</button>
+        <button class="resume">▶️</button>
+        <button class="stop">⏹</button>
+    </span>`;
+                }
+            },
+            lazyLoad:function(event,data){
+                data.result=[];
+                let path = data.node.data.path;
+                let os = downloading ? remotePanel.os : localPanel.os;
+                window.goListDir(joinPath(srcPath, path, os), downloading, false).then(res => {
+                    for (const re of res) {
+                        data.node.addChildren({
+                            title: re.name,
+                            folder: re.isDir,
+                            lazy: re.isDir,
+                            data: {
+                                path: joinPath(path, re.name, os),
+                                size: re.size,
+                                pinyinDict: re.pinyinDict
+                            }
+                        })
+                    }
+                    $(contentDiv).colResizable({ disable: true });
+                    setTimeout(() => {
+                        $(contentDiv).colResizable({
+                            liveDrag: true,
+                            gripInnerHtml: "<div class='grip'></div>",
+                            draggingClass: "dragging",
+                            resizeMode: 'fit',
+                        });
+                    }, 0);
+                });
+            },
+            expand: function(event, data) {
+                $(contentDiv).colResizable({ disable: true });
+                setTimeout(() => {
+                    $(contentDiv).colResizable({
+                        liveDrag: true,
+                        gripInnerHtml: "<div class='grip'></div>",
+                        draggingClass: "dragging",
+                        resizeMode: 'fit',
+                    });
+                }, 0);
+            },
+            init: function() {
+                // 这里延迟执行 colResizable
+                setTimeout(() => {
+                    $(contentDiv).colResizable({
+                        liveDrag: true,
+                        gripInnerHtml: "<div class='grip'></div>",
+                        draggingClass: "dragging",
+                        resizeMode: 'fit'
+                    });
+                }, 0);
+            }
+        });
+
+        $(contentDiv).on("click", "th", function() {
+            const tree = $.ui.fancytree.getTree(contentDiv);
+            const index = $(this).index();
+            const order = $(this).data("order") === "asc" ? "desc" : "asc";
+            $(this).data("order", order);
+
+            const root = tree.getRootNode();
+
+            root.sortChildren((a, b) => {
+                let va, vb;
+                switch (index) {
+                    case 0: va = a.title; vb = b.title; break;
+                    case 2: va = a.data.size || 0; vb = b.data.size || 0; break;
+                    default: return 0;
+                }
+
+                if (typeof va === "string")
+                    return order === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+                else
+                    return order === "asc" ? va - vb : vb - va;
+            }, true); // true 表示所有层级
+
+            tree.render(true);
+
+            if (order === "asc") {
+                (this).classList.remove(`desc`);
+                this.classList.add(`asc`);
+            } else {
+                (this).classList.remove(`asc`);
+                (this).classList.add(`desc`);
+            }
+        });
+
+        taskTabs[tid]= {
+            tree: $.ui.fancytree.getTree("#task_" + tid),
+            downloading: downloading,
+            targetPath: targetPath,
+        };
+
+        function formatDurationVerbose(seconds) {
+            const days = Math.floor(seconds / 86400);
+            const hours = Math.floor((seconds % 86400) / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+
+            const parts = [];
+            if (days) parts.push(`${days}d`);
+            if (hours) parts.push(`${hours}h`);
+            if (minutes) parts.push(`${minutes}m`);
+            if (secs) parts.push(`${secs}s`);
+
+            return parts.join(' ') || '0s';
+        }
+        function resetProgressTimer(){
+            if (progressTimer) {
+                clearTimeout(progressTimer);
+            }
+            progressTimer = setTimeout(() => {
+                let transferred, transferring;
+                let transferringDict = {};
+                let visible = {};
+                function mergeProgress() {
+                    if (!transferred || !transferring) {
+                        return
+                    }
+                    for (const elem of transferring) {
+                        let node = visible[elem.name];
+                        if (node) {
+                            let tdList = $(node.tr).children("td");
+                            tdList.eq(1).find(".progress-bar").css("width", elem.percentage + "%");
+                            tdList.eq(2).text(formatFileSize(elem.bytes) + "/" + formatFileSize(node.data.size));
+                            tdList.eq(3).text(formatFileSize(elem.speed) + "/" + formatFileSize(elem.speedAvg) + "/" + formatDurationVerbose(elem.eta));
+                            transferringDict[elem.name] = true;
+                        }
+                    }
+                    for (const elem of transferred) {
+                        let node = visible[elem.name];
+                        if(node) {
+                            if(!transferringDict[elem.name]) {
+                                let tdList = $(node.tr).children("td");
+                                tdList.eq(1).find(".progress-bar").css("width", "100%");
+                                tdList.eq(2).text(formatFileSize(node.data.size) + "/" + formatFileSize(node.data.size));
+                            }
+                        }
+                    }
+                }
+                fetch(`http://127.0.0.1:${activeTaskId}/core/stats`, {
+                    method: "POST"
+                })
+                    .then(res => res.json()) // 把 Response 转成 JSON
+                    .then(res => {
+                        if (typeof res === "string" || res instanceof String) {
+                            res = JSON.parse(res)
+                        }
+                        transferring = res.transferring;
+                        tabBtn.textContent=`${tid} (${Math.floor(res.bytes * 100 /res.totalBytes)}%)`
+                        mergeProgress();
+                    });
+                fetch(`http://127.0.0.1:${activeTaskId}/core/transferred`, {
+                    method: "POST"
+                })
+                    .then(res => res.json()) // 把 Response 转成 JSON
+                    .then(res => {
+                        if (typeof res === "string" || res instanceof String) {
+                            res = JSON.parse(res)
+                        }
+                        transferred = res.transferred;
+                        mergeProgress();
+                    });
+                let roots =taskTabs[activeTaskId].tree.getRootNode().children;
+                if(roots){
+                    walkVisible(roots, function (node) {
+                        visible[node.data.path] = node;
+                    });
+                }
+                if(!taskTabs[activeTaskId].percentage || taskTabs[activeTaskId].percentage < 100){
+                    resetProgressTimer();
+                }
+            }, 1000);
+        }
+        tabBtn.onclick=()=>{
+            for(const b of document.querySelectorAll(".task-tab-btn")) {
+                b.classList.remove("active");
+            }
+            tabBtn.classList.add("active");
+            document.getElementById("taskContent").innerHTML="";
+            document.getElementById("taskContent").appendChild(contentDiv);
+        };
+        activeTaskId = tid;
+        resetProgressTimer();
+    }
+
+    let remotePanel, localPanel;
+
+    function startTransfer(download){
+        let selected = download ? remotePanel.getSelectedNodes() : localPanel.getSelectedNodes();
+        if(!selected.length){
+            alert("请选择源"); return;
+        }
+        let srcPath = download ? remotePanel.currentPath : localPanel.currentPath;
+        let targetPath = download ? localPanel.currentPath : remotePanel.currentPath;
+        let selectedX = selected
+            .map(x => ({
+                name: x.name,
+                isDir: x.isDir
+            }))
+        goTransfer(remotePanel.currentPath, localPanel.currentPath, selectedX, download)
+            .then(res => {
+                addTransferTask(srcPath, targetPath, selected, download, res);
+            });
+    }
+
+    function finishTransfer(params) {
+        let tid = params.port, percentage = params.percentage;
+        let transferred = (params.copied ? params.copied : []).concat(params.skipped ? params.skipped : []);
+
+        console.log(`finishTransfer: percentage: ${percentage}`)
+        document.getElementById("tab_" + tid).textContent = `${tid} (${percentage}%)`
+        taskTabs[tid].percentage = percentage;
+        taskTabs[tid].transferred = {};
+        for(const elem of transferred) {
+            taskTabs[tid].transferred[elem] = 100;
+        }
+
+        if(tid === activeTaskId) {
+            if (progressTimer) {
+                clearTimeout(progressTimer);
+            }
+        }
+
+        walkVisible(taskTabs[tid].tree.getRootNode().children, function (node) {
+            if(!node.folder) {
+                let tdList = $(node.tr).children("td");
+                let transferred = taskTabs[tid] && taskTabs[tid].transferred && taskTabs[tid].transferred[node.data.path];
+                let progress = 0;
+                if(transferred) {
+                    progress = taskTabs[tid].transferred[node.data.path];
+                }
+                tdList[1].innerHTML=`<span class="progress-container"><div class="progress-bar" style="width:${progress}%"></div></span>`;
+                tdList[2].textContent= node.folder ? "" : (transferred ? node.data.size : 0) + "/" + node.data.size;
+            }
+        });
+
+        let downloading = taskTabs[params.port].downloading;
+        if (downloading || downloading === false) {
+            let targetPanel = downloading ? localPanel : remotePanel;
+            targetPanel.openDir(targetPanel.currentPath);
+        }
+    }
+
+    function finishTransferSubtask(params) {
+        if (!taskTabs[params.port]) {
+            return
+        }
+        let downloading = taskTabs[params.port].downloading;
+        if (downloading || downloading === false) {
+            let targetPanel = downloading ? localPanel : remotePanel;
+            let sourceOS = (downloading ? remotePanel : localPanel).os;
+            let transferred = (params.copied ? params.copied : []).concat(params.skipped ? params.skipped : [], params.dirMade ? params.dirMade : []);
+            let root = taskTabs[params.port].targetPath;
+            for(const elem of transferred) {
+                if(equalsPath(getParent(joinPath(root, elem), sourceOS), sourceOS, targetPanel.currentPath, targetPanel.os)) {
+                    targetPanel.openDir(targetPanel.currentPath);
+                    break;
+                }
+            }
+        }
+    }
+
+    function formatFileSize(bytes, decimals = 2) {
+        if (bytes === 0) return '0 B';
+
+        const k = 1024; // 1 KB = 1024 B
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+        const value = bytes / Math.pow(k, i);
+        return `${parseFloat(value.toFixed(decimals))} ${sizes[i]}`;
+    }
+
+    // 拖动分割条
+    function makeVerticalSplit(splitEl,leftEl,rightEl){
+        let startX,startWidthLeft,startWidthRight;
+        splitEl.addEventListener("mousedown", e=>{
+            startX=e.clientX; startWidthLeft=leftEl.offsetWidth; startWidthRight=rightEl.offsetWidth;
+            document.addEventListener("mousemove", moveHandler);
+            document.addEventListener("mouseup", upHandler);
+        });
+        function moveHandler(e){ const dx=e.clientX-startX; leftEl.style.flex="0 0 "+(startWidthLeft+dx)+"px"; rightEl.style.flex="0 0 "+(startWidthRight-dx)+"px"; }
+        function upHandler(){document.removeEventListener("mousemove",moveHandler);document.removeEventListener("mouseup",upHandler);}
+    }
+    function makeHorizontalSplit(splitEl,topEl,bottomEl){
+        let startY,startHeightTop,startHeightBottom;
+        splitEl.addEventListener("mousedown", e=>{
+            startY=e.clientY; startHeightTop=topEl.offsetHeight; startHeightBottom=bottomEl.offsetHeight;
+            document.addEventListener("mousemove", moveHandler);
+            document.addEventListener("mouseup", upHandler);
+        });
+        function moveHandler(e){ const dy=e.clientY-startY; topEl.style.flex="0 0 "+(startHeightTop+dy)+"px"; bottomEl.style.flex="0 0 "+(startHeightBottom-dy)+"px"; }
+        function upHandler(){document.removeEventListener("mousemove",moveHandler);document.removeEventListener("mouseup",upHandler);}
+    }
+    makeVerticalSplit(document.getElementById("splitter-vertical"),document.getElementById("remotePanel"),document.getElementById("localPanel"));
+    makeHorizontalSplit(document.getElementById("splitter-horizontal"),document.getElementById("main"),document.getElementById("tasks"));
+
+    function walkVisible(nodes, f) {
+        for (const node of nodes) {
+            f(node);
+            if (node.isExpanded() && node.children) {
+                walkVisible(node.children, f);
+            }
+        }
+    }
+
+    function isRoot(path) {
+        return /^[\\\/]*$/.test(path);
+    }
+
+    function getParent(path, os) {
+        if (os === "windows") {
+            let driverRootRegex = /^([a-zA-Z]+:)[\\/]*$/;
+            if(driverRootRegex.test(path)) {
+                return "/"
+            }
+            path = path.replace(/[^\\/]+[\\/]*$/, '');
+            let match = driverRootRegex.exec(path);
+            if (match) {
+                return match[1] + '\\';
+            }
+            return path;
+        } else {
+            path = path.replace(/[^/]+\/*$/, '');
+            if(isRoot(path)) {
+                return "/";
+            }
+            return path.replace(/\/*$/, '');
+        }
+    }
+
+    function joinPath(a, b, os) {
+        if (isRoot(a) && os === "windows") {
+            return b;
+        }
+        let sep = os === "windows" ? '\\' : '/';
+        return trimPathSuffix(a, os) + sep + trimPathPrefix(b, os);
+    }
+
+    function equalsPath(a, aos, b, bos) {
+        if (isRoot(a) && isRoot(b)) {
+            return true
+        }
+        return trimPathSuffix(a, aos) === trimPathSuffix(b, bos);
+    }
+
+    function trimPathSuffix(path, os) {
+        if (os === "windows") {
+            return path.replace(/[\\/]+$/, '')
+        }
+        return path.replace(/\/+$/, '');
+    }
+
+    function trimPathPrefix(path, os) {
+        if (os === "windows") {
+            return path.replace(/^[\\/]+/, '')
+        }
+        return path.replace(/^\/+/, '');
+    }
+</script>
+
+<script>
+    let localOS, remoteOS;
+    function initUI() {
+        if (localOS && remoteOS) {
+            remotePanel=new FilePanel("remotePanel",true, remoteOS);
+            localPanel=new FilePanel("localPanel",false, localOS);
+
+            // 点击聚焦
+            [remotePanel, localPanel].forEach(panel => {
+                const fl = panel.tbody.parentElement;
+                fl.setAttribute("tabindex", "0");
+                fl.addEventListener("click", () => fl.focus());
+            });
+
+            document.querySelectorAll(".fancytree-container").forEach(fc => {
+                fc.setAttribute("tabindex","0");
+                fc.addEventListener("click", () => fc.focus());
+            });
+        }
+    }
+    window.addEventListener('load', () => {
+        console.log("window.onload");
+        goOSInfo(false)
+            .then(os => {
+                localOS = os;
+                initUI();
+            })
+            .catch(err=>{console.error(err)});
+        goOSInfo(true)
+            .then(os => {
+                remoteOS = os;
+                initUI();
+            })
+            .catch(err=>{console.error(err)});
+        initUI();
+    })
+</script>
+
+<div id="floatingSearch" style="
+    position:absolute;
+    display:none;
+    z-index:9999;
+    background:#fff;
+    border:1px solid #ccc;
+    border-radius:4px;
+    padding:4px;
+    box-shadow:0 2px 6px rgba(0,0,0,.15);
+">
+    <input type="text" id="floatingSearchInput" placeholder="搜索..." style="width:200px; padding:2px 4px;"/>
+</div>
+
+<script>
+    (function(){
+        const floating = document.getElementById("floatingSearch");
+        const input = document.getElementById("floatingSearchInput");
+        let currentTarget = null;
+
+        function showSearch(target, initialKey="") {
+            currentTarget = target;
+
+            const rect = target.getBoundingClientRect();
+            const top = rect.top + window.scrollY;
+            const left = rect.left + window.scrollX;
+
+            floating.style.top = top + "px";
+            floating.style.left = left + "px";
+            floating.style.display = "block";
+
+            input.focus();
+            input.value = initialKey;
+            input.dispatchEvent(new Event("input"));
+        }
+
+        function hideSearch() {
+            if(!currentTarget) return;
+
+            // 恢复 FilePanel table
+            if(currentTarget.classList.contains("filelist")) {
+                const trs = currentTarget.querySelectorAll("tbody tr");
+                trs.forEach(tr => {
+                    tr.style.display="";
+                    const td = tr.querySelector("td:first-child");
+                    td.innerHTML = td.textContent;
+                });
+            }
+
+            // 恢复 Fancytree
+            if(currentTarget === document.getElementById('taskContent')) {
+                const tree = taskTabs[activeTaskId].tree;
+                tree.visit(n => {
+                    const titleEl = n.span.querySelector(".fancytree-title");
+                    if(titleEl) {
+                        titleEl.innerHTML = n.title; // 恢复原始文本
+                    }
+                });
+            }
+
+            floating.style.display = "none";
+            input.value = "";
+        }
+
+        function getFocusedTarget() {
+            const active = document.activeElement;
+            if (active.tagName === "INPUT") {
+                //新建文件夹、重命名时应该直接跳过
+                return null;
+            }
+            if(active.closest(".filelist")) return active.closest(".filelist");
+            if(active.closest(".fancytree-container")) return  document.getElementById('taskContent');
+            return null;
+        }
+
+        // 任意键触发搜索
+        document.addEventListener("keydown", e => {
+            if(e.ctrlKey || e.altKey || e.metaKey) return;
+            const target = getFocusedTarget();
+            if(!target) return;
+
+            if(e.key.length === 1) {
+                e.preventDefault();
+                showSearch(target, e.key);
+            }
+        });
+
+        // 输入框事件：ESC 隐藏
+        input.addEventListener("keydown", e => {
+            if(e.key === "Escape") {
+                hideSearch();
+                if(currentTarget) currentTarget.focus();
+            }
+        });
+
+        // 输入框失去焦点立即隐藏
+        input.addEventListener("blur", () => hideSearch());
+        input.addEventListener("input", e => {
+            debounce(() => {
+                onSearch(e);
+            });
+        });
+
+        function onSearch(e) {
+            const keyword = e.target.value.toLowerCase();
+            if (!currentTarget) return;
+
+            // ---------------- FilePanel 表格 ----------------
+            function literalRegex(s) {
+                return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            }
+            if (currentTarget.classList.contains("filelist")) {
+                const panel = [remotePanel, localPanel].find(p => p.container.contains(currentTarget));
+                if (panel) {
+                    const trs = Array.from(panel.tbody.querySelectorAll("tr"));
+                    let firstMatchRow = null;
+
+                    trs.forEach(tr => {
+                        const td = tr.querySelector("td:first-child");
+
+                        let textContent = td.textContent;
+                        if (!keyword) {
+                            td.innerHTML = textContent;
+                        } else {
+                            let search = fuzzySearch(textContent, keyword, tr[`__pinyinDict`]);
+                            if (!search || search.length === 0) {
+                                td.innerHTML = textContent;
+                            } else {
+                                let pos = search[0].pos;
+                                let length = search[0].length;
+                                td.innerHTML = `${textContent.substring(0, pos)}<mark>${textContent.substring(pos, pos + length)}</mark>${textContent.substring(pos + length, textContent.length)}`;
+
+                                if (!firstMatchRow) {
+                                    firstMatchRow = tr;
+                                }
+                            }
+                        }
+                    });
+
+                    // 自动滚动到第一条匹配行（考虑 sticky header 高度）
+                    if (firstMatchRow) {
+                        const container = panel.container.querySelector(".filelist");
+                        const header = container.querySelector("thead");
+                        const headerHeight = header ? header.offsetHeight : 0;
+
+                        const containerTop = container.scrollTop + headerHeight;
+                        const containerBottom = container.scrollTop + container.clientHeight;
+
+                        const trTop = firstMatchRow.offsetTop;
+                        const trBottom = firstMatchRow.offsetTop + firstMatchRow.offsetHeight;
+
+                        if (trBottom > containerBottom || trTop < containerTop) {
+                            // 滚动到该行，并考虑 header 遮挡
+                            container.scrollTop = trTop - headerHeight;
+                        }
+                    }
+                }
+            }
+            // ---------------- Fancytree ----------------
+            else if (currentTarget === document.getElementById("taskContent")) {
+                const tree = taskTabs[activeTaskId].tree;
+
+                let firstMatchNode = null;
+
+                tree.visit(node => {
+                    const titleEl = node.span.querySelector(".fancytree-title");
+                    if (!titleEl) return;
+
+                    const text = node.title;
+                    if (!keyword) {
+                        titleEl.innerHTML = text; // 清除高亮
+                    } else {
+                        let search = fuzzySearch(text, keyword, node.data.pinyinDict);
+                        if (!search || search.length === 0) {
+                            titleEl.innerHTML = text; // 清除高亮
+                        } else {
+                            let pos = search[0].pos;
+                            let length = search[0].length;
+                            titleEl.innerHTML = `${text.substring(0, pos)}<mark>${text.substring(pos, pos + length)}</mark>${text.substring(pos + length, text.length)}`;
+
+                            if (!firstMatchNode) {
+                                firstMatchNode = node;
+                            }
+                        }
+                    }
+                });
+
+                // 自动滚动到第一匹配节点（考虑 sticky header 高度）
+                if (firstMatchNode) {
+                    const container = currentTarget;
+                    const header = container.querySelector("thead");
+                    const headerHeight = header ? header.offsetHeight : 0;
+
+                    const nodeTop = firstMatchNode.tr.offsetTop;
+                    const nodeBottom = nodeTop + firstMatchNode.tr.offsetHeight;
+
+                    const containerTop = container.scrollTop + headerHeight;
+                    const containerBottom = container.scrollTop + container.clientHeight;
+
+                    if (nodeBottom > containerBottom || nodeTop < containerTop) {
+                        container.scrollTop = nodeTop - headerHeight;
+                    }
+                }
+            }
+        }
+
+        let debounceTimer;
+        function debounce(func) {
+            if (debounceTimer) {
+                clearTimeout(debounceTimer);
+            }
+            debounceTimer = setTimeout(func, 500);
+        }
+    })();
+</script>
+
+<script>
+    let pinyinVariantsDict;
+
+    /**
+     * 模糊搜索函数，使用递归实现
+     * @param {string} text 源文本
+     * @param {string} keywordLowerCase 搜索关键词
+     * @returns {Array<{pos: number, length: number}>} 匹配结果数组
+     */
+    function fuzzySearch(text, keywordLowerCase, pinyin_dict_multi) {
+        if (!keywordLowerCase) {
+            return [];
+        }
+
+        const results = [];
+
+        // 递归搜索函数
+        function searchRecursive(textIndex, keywordIndex, currentMatches) {
+            // 匹配成功
+            if (keywordIndex === keywordLowerCase.length) {
+                results.push(...currentMatches);
+                return;
+            }
+
+            // text遍历完毕但keyword还有剩余，匹配失败
+            if (textIndex === text.length) {
+                return;
+            }
+
+            const char = text[textIndex];
+            const variants = getPinyinVariants(char, pinyin_dict_multi);
+
+            // 遍历所有可能的匹配形式
+            for (const variant of variants) {
+                if (keywordLowerCase.startsWith(variant, keywordIndex)) {
+                    // 如果当前形式匹配，则继续递归搜索
+                    const newMatches = [...currentMatches, {
+                        pos: textIndex,
+                        length: 1 // 汉字或字母都算1个字符
+                    }];
+                    searchRecursive(textIndex + 1, keywordIndex + variant.length, newMatches);
+                }
+            }
+        }
+
+        // 从text的每个位置开始搜索，并处理结果合并
+        for(let i = 0; i < text.length; i++) {
+            searchRecursive(i, 0, []);
+        }
+
+        // 优化：合并连续的匹配段
+        if (results.length === 0) {
+            return [];
+        }
+        results.sort((a, b) => a.pos - b.pos);
+        const mergedResults = [];
+        if (results.length > 0) {
+            let current = results[0];
+            for (let i = 1; i < results.length; i++) {
+                const next = results[i];
+                if (current.pos + current.length === next.pos) {
+                    current.length += next.length;
+                } else {
+                    mergedResults.push(current);
+                    current = next;
+                }
+            }
+            mergedResults.push(current);
+        }
+
+        return mergedResults;
+    }
+
+    function getPinyinVariants(char, pinyin_dict_multi) {
+        let variants;
+        if (!pinyinVariantsDict) {
+            pinyinVariantsDict = {};
+        }
+        variants = pinyinVariantsDict[char];
+        if(!variants) {
+            variants = [char.toLowerCase()];
+            if (pinyin_dict_multi) {
+                const pinyins = pinyin_dict_multi[char.codePointAt(0)];
+                if (pinyins) {
+                    pinyins.forEach(pinyin => {
+                        if (pinyin.length >= 1) {
+                            variants.push(pinyin); // 全拼
+                            variants.push(pinyin.charAt(0)); // 首字母
+                        }
+                        if (pinyin.length > 2) {
+                            let ch0 = pinyin.charAt(0);
+                            if ((ch0 === 'z' || ch0 === 'c' || ch0 === 's') && pinyin.charAt(1) === 'h') {
+                                variants.push(pinyin.substring(0, 2));
+                            }
+                        }
+                    });
+                }
+            }
+            variants = pinyinVariantsDict[char] = [...new Set(variants)]; // 去重
+        }
+        return variants;
+    }
+</script>
+
+</body>
+</html>

@@ -3,12 +3,10 @@ package com.orbit;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.database.Cursor;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
 import android.preference.PreferenceManager;
 import android.provider.DocumentsContract;
-import android.util.Log;
 
 import androidx.documentfile.provider.DocumentFile;
 
@@ -46,7 +44,7 @@ public class AndroidWebdavProvider implements FSProvider {
         Collection<Map<String, Object>> children = stream
                 .map(child -> {
                     Map<String, Object> properties = new HashMap<>();
-                    properties.put("name", new java.io.File(s, child.getName()).getPath());
+                    properties.put("name", child.getName());
                     properties.put("size", child.length());
                     properties.put("mod-time", child.lastModified());
                     properties.put("dir", child.isDirectory());
@@ -66,18 +64,23 @@ public class AndroidWebdavProvider implements FSProvider {
     @Override
     public File openFile(String s, long l) throws Exception {
         Uri uri = getRootUri();
-        DocumentFile file = findDocumentFile(uri, s);
-        File result = new File();
-        result.setFileInfo(s, file.length(), file.lastModified(), file.isDirectory());
-        if(!file.isDirectory()) {
-            ParcelFileDescriptor pfd = context.getContentResolver().openFileDescriptor(file.getUri(), convertGoFlagsToMode((int) l));
+        DocumentFile docFile = findDocumentFile(uri, s);
+        FileInfo info = new FileInfo();
+        info.setName(docFile.getName());
+        info.setSize(docFile.length());
+        info.setModTime(docFile.lastModified());
+        info.setIsDir(docFile.isDirectory());
+        File file = new File();
+        file.setFileInfo(info);
+        if(!docFile.isDirectory()) {
+            ParcelFileDescriptor pfd = context.getContentResolver().openFileDescriptor(docFile.getUri(), convertGoFlagsToMode((int) l));
             // 获取原始 FD (int)
             int fd = pfd.detachFd();
-            result.setFileDescriptor(fd);
+            file.setFileDescriptor(fd);
         } else {
-            result.setFileDescriptor(-1);
+            file.setFileDescriptor(-1);
         }
-        return result;
+        return file;
     }
 
     @Override
@@ -92,16 +95,19 @@ public class AndroidWebdavProvider implements FSProvider {
         Uri rootUri = getRootUri();
         String oldParentPath = new java.io.File(oldPath).getParent();
         String newParentPath = new java.io.File(newPath).getParent();
-        Uri newParentUri = findDocumentUri(rootUri, newParentPath);
-        ContentResolver resolver = context.getContentResolver();
+        String oldName = new java.io.File(oldPath).getName();
         if(!newParentPath.equals(oldParentPath)) {
-            Uri oldUri = findDocumentUri(rootUri, oldPath);
-            Uri oldParentUri = findDocumentUri(rootUri, oldParentPath);
-            DocumentsContract.moveDocument(resolver, oldUri, oldParentUri, newParentUri);
+            DocumentFile oldParentFile = findDocumentFile(rootUri, oldParentPath);
+            DocumentFile oldFile = oldParentFile.findFile(oldName);
+            DocumentFile newParentFile = findDocumentFile(rootUri, newParentPath);
+            ContentResolver resolver = context.getContentResolver();
+            DocumentsContract.moveDocument(resolver, oldFile.getUri(), oldParentFile.getUri(), newParentFile.getUri());
         }
-        String newName = new java.io.File(newPath).getName();
-        Uri newUri = findDocumentUri(rootUri, newPath);
-        DocumentsContract.renameDocument(resolver, newUri, newName);
+        if(!new java.io.File(newPath).getName().equals(oldName)) {
+            DocumentFile oldFile = findDocumentFile(rootUri, oldName);
+            String newName = new java.io.File(newPath).getName();
+            oldFile.renameTo(newName);
+        }
     }
 
     @Override
@@ -123,87 +129,27 @@ public class AndroidWebdavProvider implements FSProvider {
         return rootUri;
     }
 
-    private Uri findDocumentUri(Uri rootUri, String relativePath) {
-        if (rootUri == null || relativePath == null || relativePath.isEmpty()) {
+    private DocumentFile findDocumentFile(Uri rootUri, String path) {
+        if (rootUri == null || path == null || path.isBlank()) {
             throw new RuntimeException();
         }
 
-        String[] parts = relativePath.split("/+"); // 按 / 分割路径
-        Uri currentUri = rootUri;
+        DocumentFile currentFile = DocumentFile.fromTreeUri(context, rootUri);
+        String pathStr = path.replaceFirst("^\\s*/+", "");
+        //java的split有点扯，所以先特殊处理
+        if(pathStr.isEmpty()) {
+            return currentFile;
+        }
+
+        String[] parts = pathStr.split("/+"); // 按 / 分割路径
 
         for (String part : parts) {
-            if (part.isEmpty()) {
-                continue;
-            }
-
-            currentUri = findChildByName(currentUri, part);
-            if (currentUri == null) {
+            currentFile = currentFile.findFile(part);
+            if (currentFile == null) {
                 throw new RuntimeException();
             }
         }
-
-        return currentUri;
-    }
-
-    /**
-     * 根据 rootUri（用户授权的 SAF 根目录）和相对路径找到对应的 DocumentFile
-     *
-     * @param rootUri    SAF 授权的根目录 Uri
-     * @param relativePath 相对路径，例如 "a/b/c.txt"
-     * @return DocumentFile 对象，找不到返回 null
-     */
-    private DocumentFile findDocumentFile(Uri rootUri, String relativePath) {
-        Uri pathUri = findDocumentUri(rootUri, relativePath);
-        return DocumentFile.fromTreeUri(context, pathUri);
-    }
-
-    /**
-     * 在指定父目录 Uri 下查找名字为 name 的子文件或子文件夹
-     *
-     * @param parentUri 父目录 Uri
-     * @param name      子文件/文件夹名
-     * @return 子项 Uri，找不到返回 null
-     */
-    private Uri findChildByName(Uri parentUri, String name) {
-        Cursor cursor = null;
-        try {
-            // 构建当前目录的子文件 Uri
-            Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
-                    parentUri,
-                    DocumentsContract.getTreeDocumentId(parentUri)
-            );
-
-            // 查询名字匹配的文件/文件夹
-            cursor = context.getContentResolver().query(
-                    childrenUri,
-                    new String[]{
-                            DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                            DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                            DocumentsContract.Document.COLUMN_MIME_TYPE
-                    },
-                    DocumentsContract.Document.COLUMN_DISPLAY_NAME + "=?",
-                    new String[]{name},
-                    null
-            );
-
-            if (cursor != null) {
-                Log.d("WebDAV", "查询目标名字: " + name + " | 结果总数: " + cursor.getCount());
-                while (cursor.moveToNext()) {
-                    Log.d("WebDAV", "Cursor当前指向的名字: " + cursor.getString(1) + " | ID: " + cursor.getString(0));
-                    if (name.equals(cursor.getString(1))) {
-                        // 只有名字完全匹配才返回
-                        String docId = cursor.getString(0);
-                        return DocumentsContract.buildDocumentUriUsingTree(parentUri, docId);
-                    }
-                }
-                cursor.close();
-            }
-            throw new RuntimeException();
-        } finally {
-            if (cursor != null) {
-                cursor.close();
-            }
-        }
+        return currentFile;
     }
 
     /**

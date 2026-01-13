@@ -1,6 +1,7 @@
 package com.orbit;
 
 import android.content.Context;
+import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
 import android.webkit.WebView;
@@ -37,17 +38,27 @@ public class AndroidWebViewProvider implements WebViewProvider {
     @Override
     public void createAndStart(String id, String title, String url, String html, String jsInit, String bindings) {
         mainHandler.post(() -> {
-            WebViweContext ref = activityMap.get(id);
-            if (ref != null && ref.webView.get() != null) {
-                WebView webView = ref.webView.get();
-                WebViewCompat.addDocumentStartJavaScript(webView, injectBindings(bindings), Collections.singleton("*"));
-                webView.loadUrl(url);
+            if(id.equals("500") && OrbitApplication.activity.getClass().getName().contains("SplashActivity")) {
+                OrbitApplication.activity.finish();
             }
+            Intent i;
+            if(id.equals("500")) {
+                i = new Intent(context, MainActivity.class);
+            } else {
+                i = new Intent(context, FileTransferActivity.class);
+            }
+            i.putExtra("ID", id);
+            i.putExtra("URL", url);
+            i.putExtra("HTML", html);
+            i.putExtra("BINDINGS", bindings);
+            context.startActivity(i);
         });
     }
 
     @Override
-    public void postToUI(Runnable r) { mainHandler.post(r::run); }
+    public void postToUI(Runnable r) {
+        mainHandler.post(r::run);
+    }
 
     @Override
     public void evaluateJS(String id, String js) {
@@ -68,16 +79,6 @@ public class AndroidWebViewProvider implements WebViewProvider {
                 ref.callback.run();
             }
         });
-    }
-
-    public static String injectBindings(String names) {
-        return Arrays.stream(names.split(","))
-                .map(String::trim)
-                .map(AndroidWebViewProvider::injectBinding)
-                .collect(Collectors.joining());
-    }
-    private static String injectBinding(String name) {
-        return String.format("window.%s = (...args) => _android_bridge.callGo('%s', JSON.stringify(args));", name, name);
     }
 
     private static class WebViweContext {
