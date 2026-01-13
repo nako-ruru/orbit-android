@@ -23,6 +23,7 @@ import aar.Aar;
 public class OrbitApplication  extends Application {
 
     private boolean isInitialized;
+    public static Activity activity;
 
     @Override
     public void onCreate() {
@@ -33,6 +34,7 @@ public class OrbitApplication  extends Application {
         registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
             @Override
             public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
+                OrbitApplication.activity = activity;
                 Log.i("OrbitApplication", "onActivityCreated: " + activity);
                 if (!isInitialized) {
                     test(activity, id);
@@ -46,6 +48,7 @@ public class OrbitApplication  extends Application {
 
             @Override
             public void onActivityResumed(@NonNull Activity activity) {
+                Log.i("OrbitApplication", "onActivityResumed: " + activity);
             }
 
             @Override
@@ -62,6 +65,7 @@ public class OrbitApplication  extends Application {
 
             @Override
             public void onActivityDestroyed(@NonNull Activity activity) {
+                Log.i("OrbitApplication", "onActivityDestroyed: " + activity);
             }
         });
     }
@@ -78,6 +82,7 @@ public class OrbitApplication  extends Application {
 
         List<String> fixedIpList = new ArrayList<>();
         Random random = new Random();
+        /*
         for(int i = 0; i < 256; i++) {
             int v;
             for (;;) {
@@ -88,19 +93,19 @@ public class OrbitApplication  extends Application {
             }
             String ip = String.format("10.133.%d.%d", i, v);
             fixedIpList.add(ip);
-        }
+        }*/
         fixedIpList.add("10.249.128.128");
         String[] fixedIpArray = fixedIpList.toArray(new String[0]);
         AndroidTunProvider tunProvider = new AndroidTunProvider(context, fixedIpArray);
         Aar.registerTunProvider(tunProvider);
+
         new Thread(() -> {
             try {
-//                tunProvider.getTunId();
+                tunProvider.getTunId();
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         }).start();
-
         // 2. 在子线程中启动 Go 逻辑，避免阻塞主线程（UI 线程）
         new Thread(() -> {
             try {

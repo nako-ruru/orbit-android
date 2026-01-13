@@ -17,6 +17,7 @@ import android.webkit.WebView;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.webkit.WebViewCompat;
 
 import com.connect_screen.mirror.MirrorMainActivity;
 import com.connect_screen.mirror.State;
@@ -24,6 +25,10 @@ import com.connect_screen.mirror.SunshineService;
 import com.connect_screen.mirror.TouchpadAccessibilityService;
 
 import org.lsposed.hiddenapibypass.HiddenApiBypass;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.stream.Collectors;
 
 import aar.Aar;
 
@@ -66,38 +71,14 @@ public class MainActivity extends AppCompatActivity {
         mWebView.addJavascriptInterface(new Object() {
             @JavascriptInterface
             public String callGo(String name, String args) {
-                return aar.Aar.callBinding(mId, name, args);
+                String v = Aar.callBinding(mId, name, args);
+                return v;
             }
         }, "_android_bridge");
 
+        WebViewCompat.addDocumentStartJavaScript(mWebView, injectBindings(getIntent().getStringExtra("BINDINGS")), Collections.singleton("*"));
+        mWebView.loadUrl(getIntent().getStringExtra("URL"));
         setContentView(mWebView);
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * Dispatch onPause() to fragments.
-     */
-    @Override
-    protected void onPause() {
-        super.onPause();
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * Dispatch onResume() to fragments.  Note that for better inter-operation
-     * with older versions of the platform, at the point of this call the
-     * fragments attached to the activity are <em>not</em> resumed.
-     */
-    @Override
-    protected void onResume() {
-        super.onResume();
-    }
-
-    public void detach(String name) {
-        String js = String.format("delete windows['%s']", name);
-        mWebView.evaluateJavascript(js, null);
     }
 
     @Override
@@ -112,7 +93,16 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
-    public WebView getWebView() { return mWebView; }
+
+    public static String injectBindings(String names) {
+        return Arrays.stream(names.split(","))
+                .map(String::trim)
+                .map(MainActivity::injectBinding)
+                .collect(Collectors.joining());
+    }
+    private static String injectBinding(String name) {
+        return String.format("window.%s = (...args) => _android_bridge.callGo('%s', JSON.stringify(args));", name, name);
+    }
 
     @Override
     protected void onDestroy() {
