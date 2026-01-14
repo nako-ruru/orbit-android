@@ -2,6 +2,7 @@ package com.orbit;
 
 import android.app.Activity;
 import android.app.Application;
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 
@@ -98,6 +99,9 @@ public class OrbitApplication  extends Application {
         String[] fixedIpArray = fixedIpList.toArray(new String[0]);
         AndroidTunProvider tunProvider = new AndroidTunProvider(context, fixedIpArray);
         Aar.registerTunProvider(tunProvider);
+
+        Intent intent = new Intent(context, StreamerService.class);
+        context.startForegroundService(intent);
 
         new Thread(() -> {
             try {
