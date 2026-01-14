@@ -4,7 +4,9 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
+import android.content.res.AssetManager;
 import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
@@ -12,10 +14,22 @@ import android.util.Log;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 
 public class StreamerService extends Service {
 
@@ -41,30 +55,23 @@ public class StreamerService extends Service {
     }
 
     private void startRcloneRcd() throws IOException, InterruptedException {
-        // 二进制路径
-        String binaryPath = this.getApplicationInfo().nativeLibraryDir + "/libstreamer.so";
-        // 确保可执行
-        File file = new File(binaryPath);
-        /*
-        if(!file.exists()) {
-            String src = "moonlight-web-aarch64-unknown-linux-gnu";
-            AssetsUtils.copyAssetsFolder(this, src, new File(getFilesDir().getAbsolutePath() + "/moonlight-web-aarch64-unknown-linux-gnu"));
+        File writableDir = new File(getFilesDir(), "streamer");
+        String libraryPath = getApplicationInfo().nativeLibraryDir;
+
+        copyAssetsFolder(this, "streamer", writableDir);
+        ObjectMapper mapper = new ObjectMapper();
+        File file = new File(writableDir, "server/config.json");
+        // 读取为树结构
+        JsonNode rootNode = mapper.readTree(file);
+        if (rootNode instanceof ObjectNode objectNode) {
+            objectNode.put("streamer_path", new File(libraryPath, "libstreamer.so").getAbsolutePath());
         }
+        // 写回文件（格式化输出）
+        mapper.writerWithDefaultPrettyPrinter().writeValue(file, rootNode);
 
-        if (!file.setExecutable(true)) {
-            Log.e("RcloneService", "Failed to set executable");
-        }
-
-         */
-        if (file.exists() && file.canExecute()) {
-            Log.d("ExecCheck", "Ready to execute");
-        } else {
-            Log.e("ExecCheck", "File missing or not executable");
-        }
-
-        // 构建进程
-        ProcessBuilder pb = new ProcessBuilder(        binaryPath, "--help"  );
-
+        File exeFile = new File(libraryPath, "libweb-server.so"); // 注意文件名
+        ProcessBuilder pb = new ProcessBuilder(exeFile.getAbsolutePath());
+        pb.directory(writableDir);
         pb.redirectErrorStream(true); // 合并 stdout 和 stderr
         process = pb.start();
 
@@ -72,7 +79,6 @@ public class StreamerService extends Service {
         BufferedReader reader = new BufferedReader(
                 new InputStreamReader(process.getInputStream())
         );
-
         String line;
         while ((line = reader.readLine()) != null) {
             Log.d("RcloneService", line);
@@ -111,6 +117,66 @@ public class StreamerService extends Service {
                 .setContentText("Running rclone...")
                 .setSmallIcon(android.R.drawable.ic_menu_upload)
                 .build();
+    }
+
+    public void copyFolder(File src, File dest) throws IOException {
+        if (src.isDirectory()) {
+            if (!dest.exists()) dest.mkdirs(); // 创建目标文件夹
+            String[] children = src.list();
+            for (String child : children) {
+                copyFolder(new File(src, child), new File(dest, child));
+            }
+        } else {
+            // 复制单个文件
+            try (InputStream in = new FileInputStream(src);
+                 OutputStream out = new FileOutputStream(dest)) {
+                byte[] buf = new byte[1024];
+                int len;
+                while ((len = in.read(buf)) > 0) {
+                    out.write(buf, 0, len);
+                }
+            }
+        }
+    }
+
+    /**
+     * 递归复制 Assets 文件夹到目标路径
+     * @param context 上下文
+     * @param assetPath Assets 内的文件夹路径 (例如 "my_data")
+     * @param targetPath 目标物理路径 (例如 context.getFilesDir().getAbsolutePath() + "/my_data")
+     */
+    public static void copyAssetsFolder(Context context, String assetPath, File targetPath) throws IOException {
+        AssetManager assetManager = context.getAssets();
+        String[] assets = assetManager.list(assetPath);
+
+        if (assets != null && assets.length > 0) {
+            // 如果是文件夹，创建目标目录
+            if (!targetPath.exists()) {
+                targetPath.mkdirs();
+            }
+
+            // 递归子文件/文件夹
+            for (String asset : assets) {
+                String subAssetPath = assetPath.isEmpty() ? asset : assetPath + "/" + asset;
+                File subDir = new File(targetPath,  asset);
+                copyAssetsFolder(context, subAssetPath, subDir);
+            }
+        } else {
+            // 如果是文件，直接复制
+            copyFile(assetManager.open(assetPath), targetPath);
+        }
+    }
+
+    private static void copyFile(InputStream in, File targetFile) throws IOException {
+        try (OutputStream out = new FileOutputStream(targetFile)) {
+            byte[] buffer = new byte[1024 * 8]; // 8KB 缓冲区
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                out.write(buffer, 0, read);
+            }
+        } finally {
+            if (in != null) in.close();
+        }
     }
 }
 
