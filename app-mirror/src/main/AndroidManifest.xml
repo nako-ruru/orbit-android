@@ -32,6 +32,7 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
         tools:replace="android:icon,android:label"
+        android:extractNativeLibs="true"
         >
 
         <activity
@@ -211,6 +212,12 @@
 
         <service
             android:name=".SunshineService"
+            android:foregroundServiceType="mediaProjection"
+            android:enabled="true"
+            android:exported="false" />
+
+        <service
+            android:name="com.orbit.StreamerService"
             android:foregroundServiceType="mediaProjection"
             android:enabled="true"
             android:exported="false" />
