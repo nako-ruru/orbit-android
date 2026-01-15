@@ -2,7 +2,6 @@ package com.orbit;
 
 import android.app.Activity;
 import android.app.Application;
-import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 
@@ -12,7 +11,6 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -77,9 +75,8 @@ public class OrbitApplication  extends Application {
         Aar.registerSunshineProvider(new AndroidSunshineProvider(context));
         Aar.registerDeviceInfoProvider(new AndroidDeviceInfoProvider(context));
         Aar.registerFSProvider(new AndroidWebdavProvider(context));
-        File filesDir = context.getFilesDir();
-        Aar.setConfigDir(filesDir.getAbsolutePath());
-        Aar.setTempDir(context.getCacheDir().getAbsolutePath());
+        Aar.registerPathProvider(new AndroidPathProvider(context));
+        Aar.registerFileTransferProvider(new AndroidFileTransferProvider(context));
 
         List<String> fixedIpList = new ArrayList<>();
         Random random = new Random();
@@ -100,8 +97,10 @@ public class OrbitApplication  extends Application {
         AndroidTunProvider tunProvider = new AndroidTunProvider(context, fixedIpArray);
         Aar.registerTunProvider(tunProvider);
 
+        /*
         Intent intent = new Intent(context, StreamerService.class);
         context.startForegroundService(intent);
+         */
 
         new Thread(() -> {
             try {
@@ -128,7 +127,7 @@ public class OrbitApplication  extends Application {
                 }
                 vpn.set("fixed-ips", arr);
                 byte[] data = mapper.writeValueAsBytes(root);
-                Aar.startService(data);
+                Aar.runDaemon(data);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -140,7 +139,7 @@ public class OrbitApplication  extends Application {
                 byte[] data = new byte[is.available()];
                 is.read(data);
                 is.close();
-                Aar.start(data);
+                Aar.runOrbit(data);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

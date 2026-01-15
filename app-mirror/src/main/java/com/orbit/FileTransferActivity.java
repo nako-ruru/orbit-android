@@ -20,6 +20,10 @@ public class FileTransferActivity  extends AppCompatActivity {
     private String mId;
     private WebView mWebView;
 
+    public FileTransferActivity() {
+        super();
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         Log.i("LIFECYCLE", "GoWebViewActivity.onCreate");
