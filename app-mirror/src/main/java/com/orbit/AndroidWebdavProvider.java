@@ -23,9 +23,10 @@ import java.util.stream.Stream;
 import aar.FSProvider;
 import aar.File;
 import aar.FileInfo;
+import aar.WebdavProvider;
 
 // version is set by maven via filtering
-public class AndroidWebdavProvider implements FSProvider {
+public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
 
     private final Context context;
 

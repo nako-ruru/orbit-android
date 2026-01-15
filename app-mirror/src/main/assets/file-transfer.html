@@ -762,6 +762,7 @@
     let remotePanel, localPanel;
 
     function startTransfer(download){
+        console.log(`startTransfer: 1: ${download}`);
         let selected = download ? remotePanel.getSelectedNodes() : localPanel.getSelectedNodes();
         if(!selected.length){
             alert("请选择源"); return;
@@ -773,9 +774,15 @@
                 name: x.name,
                 isDir: x.isDir
             }))
+        console.log(`startTransfer: 2: ${download}`);
         goTransfer(remotePanel.currentPath, localPanel.currentPath, selectedX, download)
             .then(res => {
+                console.log(`startTransfer: 3: ${res}`);
                 addTransferTask(srcPath, targetPath, selected, download, res);
+            })
+            .catch(e => {
+                console.log(`startTransfer: 4`);
+                console.error("err: ", e);
             });
     }
 
