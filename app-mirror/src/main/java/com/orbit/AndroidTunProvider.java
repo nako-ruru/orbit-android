@@ -28,6 +28,9 @@ public class AndroidTunProvider implements TunProvider {
 
     @Override
     public long getTunId() throws Exception {
+        if(true) {
+            return 0;
+        }
         synchronized (lock) {
             // 1. 检查权限：如果返回不为 null，说明需要用户点击系统确认
             if (VpnService.prepare(context) != null) {

@@ -140,12 +140,6 @@
                 android:resource="@xml/device_filter"/>
         </activity>
 
-        <activity
-            android:name="com.orbit.ProjectionPermissionActivity"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar"
-            android:excludeFromRecents="true"
-            android:exported="false" />
-
         <activity android:name="com.orbit.TransparentProxyActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:excludeFromRecents="true"

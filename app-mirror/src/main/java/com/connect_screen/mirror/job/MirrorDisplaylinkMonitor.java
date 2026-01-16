@@ -57,6 +57,13 @@ public class MirrorDisplaylinkMonitor {
         IntentFilter attachedFilter = new IntentFilter(UsbManager.ACTION_USB_DEVICE_ATTACHED);
         context.registerReceiver(usbAttachedReceiver, attachedFilter, null, null, Context.RECEIVER_EXPORTED);
     }
+
+    public static void release(Context context) {
+        context.unregisterReceiver(usbDetachedReceiver);
+        context.unregisterReceiver(usbAttachedReceiver);
+        registered = false;
+    }
+
     public static void handleDisplaylink(Context context, UsbDevice device) {
         if (device == null) {
             return;

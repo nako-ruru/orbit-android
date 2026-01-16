@@ -13,6 +13,7 @@ import com.connect_screen.mirror.State;
 import com.connect_screen.mirror.SunshineService;
 import com.connect_screen.mirror.TouchpadAccessibilityService;
 import com.connect_screen.mirror.shizuku.ShizukuUtils;
+import com.orbit.MainActivity;
 
 public class ExitAll {
     public static void execute(Context context, boolean restart) {
@@ -51,7 +52,7 @@ public class ExitAll {
         if (!wasSunshineStarted && !ShizukuUtils.hasPermission() && TouchpadAccessibilityService.getInstance() != null) {
             // 对于 typec 直连，但是只用无障碍的用户不退无障碍
             if (State.getCurrentActivity() != null) {
-                State.getCurrentActivity().finish();
+//                State.getCurrentActivity().finish();
             }
             return;
         }
@@ -61,6 +62,17 @@ public class ExitAll {
         }
         if (context != null) {
             context.stopService(new Intent(context, SunshineService.class));
+        }
+        if (false) {
+            new Thread(() -> {
+                try {
+                    Thread.sleep(15 * 1000L);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                MainActivity.activity.startMediaProjectionService();
+            }).start();
+            return;
         }
         // 退出应用进程
         System.exit(0);

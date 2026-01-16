@@ -7,14 +7,19 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 import aar.Aar;
@@ -64,7 +69,9 @@ public class OrbitApplication  extends Application {
 
             @Override
             public void onActivityDestroyed(@NonNull Activity activity) {
-                Log.i("OrbitApplication", "onActivityDestroyed: " + activity);
+                Log.d("Tracker", activity.getClass().getSimpleName() + " 被销毁");
+                Log.d("Tracker", "是否因为配置更改重启: " + activity.isChangingConfigurations());
+
             }
         });
     }
@@ -112,21 +119,16 @@ public class OrbitApplication  extends Application {
         // 2. 在子线程中启动 Go 逻辑，避免阻塞主线程（UI 线程）
         new Thread(() -> {
             try {
+                Map<String, Object> requireModified = new HashMap<>();
+                requireModified.put("vpn.fixed-ips", fixedIpList);
+                String nativeLibraryDir = context.getApplicationInfo().nativeLibraryDir;
+                requireModified.put("streamer.path", new File(nativeLibraryDir, "libweb-server.so").getAbsoluteFile());
+                requireModified.put("streamer.streamer-path", new File(nativeLibraryDir, "libstreamer.so").getAbsoluteFile());
+                requireModified.put("streamer.workspace", new File(context.getFilesDir(), "streamer").getAbsoluteFile());
                 // 读取配置文件
                 InputStream is = context.getAssets().open("daemon.yml");
-                YAMLMapper mapper = new YAMLMapper();
-                ObjectNode root = (ObjectNode) mapper.readTree(is);
+                byte[] data = OrbitApplication.updateConfig(is, requireModified);
                 is.close();
-                ObjectNode vpn = (ObjectNode) root.get("vpn");
-                if (vpn == null) {
-                    vpn = root.set("vpn", vpn);
-                }
-                ArrayNode arr = mapper.createArrayNode();
-                for (String ip : fixedIpList) {
-                    arr.add(ip);
-                }
-                vpn.set("fixed-ips", arr);
-                byte[] data = mapper.writeValueAsBytes(root);
                 Aar.runDaemon(data);
             } catch (IOException e) {
                 throw new RuntimeException(e);
@@ -144,5 +146,52 @@ public class OrbitApplication  extends Application {
                 throw new RuntimeException(e);
             }
         }).start();
+    }
+
+
+    /**
+     * 修改任意层次的配置
+     * @param in 输入流（可以是 JSON 或 YAML）
+     * @param values 修改项，key 支持点号分隔层级，如 "server.port"
+     * @return 修改后的 YAML 字符串
+     */
+    public static byte[] updateConfig(InputStream in, Map<String, Object> values) throws IOException {
+        ObjectMapper yamlMapper = new YAMLMapper();
+
+        // 1. 解析为 JsonNode 树
+        JsonNode root = yamlMapper.readTree(in);
+
+        // 2. 遍历 values 进行批量修改
+        for (Map.Entry<String, Object> entry : values.entrySet()) {
+            updateHierarchicalValue(yamlMapper, root, entry.getKey(), entry.getValue());
+        }
+
+        // 3. 写回字符串
+        return yamlMapper.writeValueAsBytes(root);
+    }
+
+    /**
+     * 递归或循环查找并修改节点
+     */
+    private static void updateHierarchicalValue(ObjectMapper yamlMapper, JsonNode root, String path, Object newValue) {
+        String[] keys = path.split("\\.");
+        JsonNode currentNode = root;
+
+        // 遍历路径，直到找到最后一个 key 的父节点
+        for (int i = 0; i < keys.length - 1; i++) {
+            currentNode = currentNode.path(keys[i]);
+            if (currentNode.isMissingNode() || !currentNode.isObject()) {
+                throw new RuntimeException("路径不存在或不是对象结构: " + keys[i]);
+            }
+        }
+
+        // 找到最后一个节点所在的 ObjectNode
+        if (currentNode instanceof ObjectNode) {
+            ObjectNode parentNode = (ObjectNode) currentNode;
+            String lastKey = keys[keys.length - 1];
+
+            // 使用 valueToTree 自动处理各种数据类型 (String, Integer, Boolean, List, Map 等)
+            parentNode.set(lastKey, yamlMapper.valueToTree(newValue));
+        }
     }
 }
