@@ -20,7 +20,7 @@ public class ExitAll {
         if (SunshineService.instance != null) {
             SunshineService.instance.releaseWakeLock();
         }
-        boolean wasSunshineStarted = SunshineServer.exitServer();
+        boolean wasSunshineStarted = false ;//SunshineServer.exitServer();
         CreateVirtualDisplay.restoreAspectRatio();
         InputRouting.moveImeToDefault();
         SunshineAudio.restoreVolume(context);
@@ -31,7 +31,7 @@ public class ExitAll {
         }
         State.setMediaProjection(null);
         // 重启应用
-        if (restart) {
+        if (false) {
             PackageManager packageManager = context.getPackageManager();
             Intent intent = packageManager.getLaunchIntentForPackage(BuildConfig.APPLICATION_ID);
             ComponentName componentName = intent.getComponent();
@@ -56,14 +56,7 @@ public class ExitAll {
             }
             return;
         }
-        if (TouchpadAccessibilityService.getInstance() != null && ShizukuUtils.hasPermission()) {
-            // 下次可自动获取
-            TouchpadAccessibilityService.getInstance().disableSelf();
-        }
-        if (context != null) {
-            context.stopService(new Intent(context, SunshineService.class));
-        }
-        if (false) {
+        if (true) {
             new Thread(() -> {
                 try {
                     Thread.sleep(15 * 1000L);
@@ -73,6 +66,13 @@ public class ExitAll {
                 MainActivity.activity.startMediaProjectionService();
             }).start();
             return;
+        }
+        if (TouchpadAccessibilityService.getInstance() != null && ShizukuUtils.hasPermission()) {
+            // 下次可自动获取
+            TouchpadAccessibilityService.getInstance().disableSelf();
+        }
+        if (context != null) {
+            context.stopService(new Intent(context, SunshineService.class));
         }
         // 退出应用进程
         System.exit(0);
