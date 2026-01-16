@@ -69,6 +69,7 @@ public class SunshineService extends Service {
 
     @Override
     public void onCreate() {
+        Log.i("SunshineService", "onCreate: 0");
         super.onCreate();
         instance = this;
         createNotificationChannel();
@@ -85,6 +86,7 @@ public class SunshineService extends Service {
         } catch (Exception e) {
             // ignore
         }
+        //MirrorDisplaylinkMonitor.release(this);
         State.unbindUserService();
     }
 
@@ -97,6 +99,7 @@ public class SunshineService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        Log.i("SunshineService", "onStartCommand: 0");
         if (intent != null && intent.hasExtra("data")) {
             MediaProjectionManager mediaProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
             Intent data = intent.getParcelableExtra("data");
@@ -123,6 +126,7 @@ public class SunshineService extends Service {
         probeH265();
 
         // 将网络初始化操作移到后台线程
+        Log.i("SunshineService", "onStartCommand: 1");
         new Thread(() -> {
             try {
                 SunshineServer.setFileStatePath(SunshineService.this.getFilesDir().getAbsolutePath() + "/sunshine_state.json");
@@ -147,9 +151,11 @@ public class SunshineService extends Service {
                         }
                     }
                 }
+                Log.i("SunshineService", "onStartCommand: 2");
                 new Thread(() -> { 
                     try {
                         SunshineServer.start();
+                        Log.i("SunshineService", "onStartCommand: 3");
                         for (JmDNS server : dnsServers) {
                             server.close();
                         }

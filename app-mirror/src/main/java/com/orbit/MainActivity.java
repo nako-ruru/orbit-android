@@ -1,5 +1,6 @@
 package com.orbit;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -15,6 +16,8 @@ import android.util.Log;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.webkit.WebViewCompat;
@@ -28,9 +31,11 @@ import org.lsposed.hiddenapibypass.HiddenApiBypass;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Random;
 import java.util.stream.Collectors;
 
 import aar.Aar;
+import rikka.shizuku.Shizuku;
 
 public class MainActivity extends AppCompatActivity {
     private String mId;
@@ -39,6 +44,44 @@ public class MainActivity extends AppCompatActivity {
     public static final int X = 555555;
 
     public static MainActivity activity;
+
+
+
+    // 这里的 StartActivityForResult 是通用契约，也可以自定义契约
+    ActivityResultLauncher<Intent> myLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                int resultCode = result.getResultCode();
+                Intent data = result.getData();
+                if (resultCode == RESULT_OK && data != null) {
+                    State.log("用户授予了投屏权限");
+                    if (SunshineService.instance == null) {
+                        Intent sunshineServiceIntent = new Intent(this, SunshineService.class);
+                        sunshineServiceIntent.putExtra("data", data);
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startForegroundService(sunshineServiceIntent);
+                        } else {
+                            startService(sunshineServiceIntent);
+                        }
+                        State.log("启动 SunshineService 服务");
+                    } else {
+                        MediaProjectionManager mediaProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+                        State.setMediaProjection(mediaProjectionManager.getMediaProjection(RESULT_OK, data));
+                        State.getMediaProjection().registerCallback(new MediaProjection.Callback() {
+                            @Override
+                            public void onStop() {
+                                super.onStop();
+                                State.log("MediaProjection onStop 回调");
+                            }
+                        }, null);
+                        State.resumeJob();
+                    }
+                } else {
+                    State.log("用户拒绝了投屏权限");
+//                refresh();
+                    State.resumeJob();
+                }
+            });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,14 +96,14 @@ public class MainActivity extends AppCompatActivity {
         // 检查 SunshineService 是否已经在运行，如果没有运行才启动
         Log.i("GoWebViewActivity", "SunshineService.instance" + SunshineService.instance);
         if (SunshineService.instance == null) {
-//            startMediaProjectionService();
+            startMediaProjectionService();
         } else {
             State.log("SunshineService 服务已在运行");
         }
 
         {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-            startActivityForResult(intent, X);
+//            startActivityForResult(intent, X);
         }
 
         mId = "500";
@@ -109,6 +152,7 @@ public class MainActivity extends AppCompatActivity {
         super.onDestroy();
         AndroidWebViewProvider.unbind(mId);
         Aar.notifyWebviewExit(mId);
+        SunshineService.instance = null;
     }
 
     @Override
@@ -119,6 +163,11 @@ public class MainActivity extends AppCompatActivity {
         } else {
             State.log("未知权限请求代码: " + requestCode);
         }
+    }
+
+    public static int REQUEST_CODE_MEDIA_PROJECTION ; // 定义一个请求码
+    static {
+        REQUEST_CODE_MEDIA_PROJECTION = 5000;
     }
 
     @Override
@@ -155,8 +204,7 @@ public class MainActivity extends AppCompatActivity {
 //                refresh();
                 State.resumeJob();
             }
-        }
-        else if (requestCode == X) {
+        } else if (requestCode == X) {
             if (resultCode == RESULT_OK) {
                 Uri uri = data.getData();
                 getContentResolver().takePersistableUriPermission(
@@ -168,10 +216,10 @@ public class MainActivity extends AppCompatActivity {
                 prefs.edit().putString("dir_uri", uri.toString()).apply();
             }
         }
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+//        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
     }
 
-    public void startMediaProjectionService() {
+        public void startMediaProjectionService() {
         MediaProjectionManager mediaProjectionManager = (MediaProjectionManager) this.getSystemService(Context.MEDIA_PROJECTION_SERVICE);
         if (mediaProjectionManager != null) {
             Intent captureIntent = null;
@@ -180,13 +228,20 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 captureIntent = mediaProjectionManager.createScreenCaptureIntent();
             }
-            Log.i("GoWebViewActivity", "GoWebViewActivity activity: " + activity);
             if (activity != null) {
+                Log.i("GoWebViewActivity", "activity: " + REQUEST_CODE_MEDIA_PROJECTION + ", " + captureIntent);
+//                myLauncher.launch(captureIntent);
                 activity.startActivityForResult(captureIntent, MirrorMainActivity.REQUEST_CODE_MEDIA_PROJECTION);
                 TouchpadAccessibilityService.grantPermissionByClick(activity);
             }
         } else {
             throw new RuntimeException("无法获取 MediaProjectionManager 服务");
         }
+    }
+    @Override
+    public void finish() {
+        // 强制打印当前的调用栈，不要管系统怎么调的
+        Log.e("TraceFinish", "MainActivity finish 被调用", new Throwable());
+        super.finish();
     }
 }
