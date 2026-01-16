@@ -1,10 +1,8 @@
 package com.orbit;
 
-import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.pm.ActivityInfo;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionConfig;
 import android.media.projection.MediaProjectionManager;
@@ -31,11 +29,9 @@ import org.lsposed.hiddenapibypass.HiddenApiBypass;
 
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Random;
 import java.util.stream.Collectors;
 
 import aar.Aar;
-import rikka.shizuku.Shizuku;
 
 public class MainActivity extends AppCompatActivity {
     private String mId;
@@ -46,9 +42,7 @@ public class MainActivity extends AppCompatActivity {
     public static MainActivity activity;
 
 
-
-    // 这里的 StartActivityForResult 是通用契约，也可以自定义契约
-    ActivityResultLauncher<Intent> myLauncher = registerForActivityResult(
+    ActivityResultLauncher<Intent> projectionLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
             result -> {
                 int resultCode = result.getResultCode();
@@ -82,6 +76,24 @@ public class MainActivity extends AppCompatActivity {
                     State.resumeJob();
                 }
             });
+
+    ActivityResultLauncher<Intent> asfLauncher = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                int resultCode = result.getResultCode();
+                if (resultCode == RESULT_OK) {
+                    Intent data = result.getData();
+                    Uri uri = data.getData();
+                    getContentResolver().takePersistableUriPermission(
+                            uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION |
+                                    Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    );
+                    SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+                    prefs.edit().putString("dir_uri", uri.toString()).apply();
+                }
+            }
+    );
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -165,61 +177,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    public static int REQUEST_CODE_MEDIA_PROJECTION ; // 定义一个请求码
-    static {
-        REQUEST_CODE_MEDIA_PROJECTION = 5000;
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        Log.i("GoWebViewActivity", String.format("int requestCode: %d, int resultCode: %d", requestCode, resultCode));
-        if (requestCode == MirrorMainActivity.REQUEST_CODE_MEDIA_PROJECTION) {
-            if (resultCode == RESULT_OK && data != null) {
-                State.log("用户授予了投屏权限");
-                if (SunshineService.instance == null) {
-                    Intent sunshineServiceIntent = new Intent(this, SunshineService.class);
-                    sunshineServiceIntent.putExtra("data", data);
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        startForegroundService(sunshineServiceIntent);
-                    } else {
-                        startService(sunshineServiceIntent);
-                    }
-                    State.log("启动 SunshineService 服务");
-                } else {
-                    MediaProjectionManager mediaProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
-                    State.setMediaProjection(mediaProjectionManager.getMediaProjection(RESULT_OK, data));
-                    State.getMediaProjection().registerCallback(new MediaProjection.Callback() {
-                        @Override
-                        public void onStop() {
-                            super.onStop();
-                            State.log("MediaProjection onStop 回调");
-                        }
-                    }, null);
-                    State.resumeJob();
-                }
-            } else {
-                State.log("用户拒绝了投屏权限");
-//                refresh();
-                State.resumeJob();
-            }
-        } else if (requestCode == X) {
-            if (resultCode == RESULT_OK) {
-                Uri uri = data.getData();
-                getContentResolver().takePersistableUriPermission(
-                        uri,
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION |
-                                Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                );
-                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-                prefs.edit().putString("dir_uri", uri.toString()).apply();
-            }
-        }
-//        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-    }
-
-        public void startMediaProjectionService() {
+    public void startMediaProjectionService() {
         MediaProjectionManager mediaProjectionManager = (MediaProjectionManager) this.getSystemService(Context.MEDIA_PROJECTION_SERVICE);
         if (mediaProjectionManager != null) {
             Intent captureIntent = null;
@@ -228,12 +186,8 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 captureIntent = mediaProjectionManager.createScreenCaptureIntent();
             }
-            if (activity != null) {
-                Log.i("GoWebViewActivity", "activity: " + REQUEST_CODE_MEDIA_PROJECTION + ", " + captureIntent);
-//                myLauncher.launch(captureIntent);
-                activity.startActivityForResult(captureIntent, MirrorMainActivity.REQUEST_CODE_MEDIA_PROJECTION);
-                TouchpadAccessibilityService.grantPermissionByClick(activity);
-            }
+            projectionLauncher.launch(captureIntent);
+            TouchpadAccessibilityService.grantPermissionByClick(activity);
         } else {
             throw new RuntimeException("无法获取 MediaProjectionManager 服务");
         }
