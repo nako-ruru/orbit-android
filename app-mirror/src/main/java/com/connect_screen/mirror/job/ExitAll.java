@@ -4,23 +4,19 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.os.Handler;
-import android.util.Log;
 
 import com.connect_screen.mirror.BuildConfig;
-import com.connect_screen.mirror.PureBlackActivity;
 import com.connect_screen.mirror.State;
 import com.connect_screen.mirror.SunshineService;
 import com.connect_screen.mirror.TouchpadAccessibilityService;
 import com.connect_screen.mirror.shizuku.ShizukuUtils;
-import com.orbit.MainActivity;
 
 public class ExitAll {
     public static void execute(Context context, boolean restart) {
         if (SunshineService.instance != null) {
             SunshineService.instance.releaseWakeLock();
         }
-        boolean wasSunshineStarted = false ;//SunshineServer.exitServer();
+        boolean wasSunshineStarted = SunshineServer.exitServer();
         CreateVirtualDisplay.restoreAspectRatio();
         InputRouting.moveImeToDefault();
         SunshineAudio.restoreVolume(context);
@@ -31,7 +27,7 @@ public class ExitAll {
         }
         State.setMediaProjection(null);
         // 重启应用
-        if (false) {
+        if (restart) {
             PackageManager packageManager = context.getPackageManager();
             Intent intent = packageManager.getLaunchIntentForPackage(BuildConfig.APPLICATION_ID);
             ComponentName componentName = intent.getComponent();
@@ -52,19 +48,8 @@ public class ExitAll {
         if (!wasSunshineStarted && !ShizukuUtils.hasPermission() && TouchpadAccessibilityService.getInstance() != null) {
             // 对于 typec 直连，但是只用无障碍的用户不退无障碍
             if (State.getCurrentActivity() != null) {
-//                State.getCurrentActivity().finish();
+                State.getCurrentActivity().finish();
             }
-            return;
-        }
-        if (true) {
-            new Thread(() -> {
-                try {
-                    Thread.sleep(15 * 1000L);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-                MainActivity.activity.startMediaProjectionService();
-            }).start();
             return;
         }
         if (TouchpadAccessibilityService.getInstance() != null && ShizukuUtils.hasPermission()) {
