@@ -5,3 +5,4 @@ rclone:
 pinyin-path: '{{.project}}/pkg/filetransfer/pinyin.txt'
 webview:
   external-url: 'android_asset/file-transfer.html'
+predefined-access-tokens: [tom, 123456, jerry, abcdef, admin, root123]

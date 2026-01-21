@@ -1,5 +1,5 @@
 vars:
-  base_ip: '[2408:8207:78b3:45b0:b0ee:1525:6645:e756]'
+  base_ip: '[2408:8207:78b3:45b0:6d74:3d77:879e:a751]'
 log-dir: console
 desktop-signal-url: ws://{{.base_ip}}:6700/ws/desktop
 api: http://{{.base_ip}}:6700
@@ -22,7 +22,4 @@ daemon:
   display-name: Orbit Daemon
   desc: Orbit Daemon
 file-transfer:
-  predefined-access-tokens:
-    tom: 123456
-    jerry: abcdef
-    admin: root123
+  predefined-access-tokens: [tom, 123456, jerry, abcdef, admin, root123]
