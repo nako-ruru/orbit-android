@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.util.Base64;
 import android.util.Log;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -34,6 +35,7 @@ public class FileTransferActivity  extends AppCompatActivity {
         mWebView = new WebView(this);
         AndroidWebViewProvider.bind(mId, mWebView, this::finish);
 
+        mWebView.setWebChromeClient(new WebChromeClient());
         mWebView.getSettings().setJavaScriptEnabled(true);
         mWebView.getSettings().setDomStorageEnabled(true);
         mWebView.addJavascriptInterface(new Object() {

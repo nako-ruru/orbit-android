@@ -7,6 +7,7 @@ import android.net.Uri;
 import android.os.ParcelFileDescriptor;
 import android.preference.PreferenceManager;
 import android.provider.DocumentsContract;
+import android.webkit.MimeTypeMap;
 
 import androidx.documentfile.provider.DocumentFile;
 
@@ -58,14 +59,27 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
     @Override
     public void mkdir(String s) throws Exception {
         Uri uri = getRootUri();
-        DocumentFile file = findDocumentFile(uri, new java.io.File(s).getParent());
-        file.createDirectory(s);
+        java.io.File parentFile = new java.io.File(s);
+        DocumentFile parentDocFile = findDocumentFile(uri, parentFile.getParent());
+        if(parentDocFile.findFile(parentFile.getName()) == null) {
+            parentDocFile.createDirectory(parentFile.getName());
+        }
     }
 
     @Override
-    public File openFile(String s, long l) throws Exception {
+    public File openFile(String s, long goFlags) throws Exception {
         Uri uri = getRootUri();
-        DocumentFile docFile = findDocumentFile(uri, s);
+        DocumentFile docFile;
+        if ((goFlags & 64) != 0) {
+            DocumentFile parentDocFile = findDocumentFile(uri, new java.io.File(s).getParent());
+            String fileName = new java.io.File(s).getName();
+            docFile = parentDocFile.findFile(fileName);
+            if (docFile == null || !docFile.exists()) {
+                docFile = parentDocFile.createFile(getMimeType(fileName), fileName); // 真正的创建动作
+            }
+        } else {
+            docFile = findDocumentFile(uri, s);
+        }
         FileInfo info = new FileInfo();
         info.setName(docFile.getName());
         info.setSize(docFile.length());
@@ -74,7 +88,7 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
         File file = new File();
         file.setFileInfo(info);
         if(!docFile.isDirectory()) {
-            ParcelFileDescriptor pfd = context.getContentResolver().openFileDescriptor(docFile.getUri(), convertGoFlagsToMode((int) l));
+            ParcelFileDescriptor pfd = context.getContentResolver().openFileDescriptor(docFile.getUri(), convertGoFlagsToMode((int) goFlags));
             // 获取原始 FD (int)
             int fd = pfd.detachFd();
             file.setFileDescriptor(fd);
@@ -126,6 +140,9 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
     private Uri getRootUri() {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         String rootUriStr = prefs.getString("dir_uri", null);
+        if(rootUriStr == null || rootUriStr.isBlank()) {
+            throw new RuntimeException();
+        }
         Uri rootUri = Uri.parse(rootUriStr);
         return rootUri;
     }
@@ -175,5 +192,14 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
 
         // 默认 O_RDONLY (0)
         return "r";
+    }
+
+    private static String getMimeType(String fileName) {
+        String extension = MimeTypeMap.getFileExtensionFromUrl(fileName);
+        if (extension != null) {
+            String mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.toLowerCase());
+            if (mime != null) return mime;
+        }
+        return "application/octet-stream"; // 兜底方案
     }
 }
