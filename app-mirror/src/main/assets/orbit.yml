@@ -1,5 +1,5 @@
 vars:
-  base_ip: '[2408:8207:78b3:45b0:b0ee:1525:6645:e756]'
+  base_ip: '192.168.3.18'
   project: /mnt/project/orbit
 clipboard-signal-url: 'ws://{{.base_ip}}:6700/ws/clipboard'
 api: http://{{.base_ip}}:6700

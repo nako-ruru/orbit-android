@@ -10,7 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 import { TransportChannelId } from "../api_bindings.js";
 import { showErrorPopup } from "../component/error.js";
 import { buildAudioPipeline } from "./audio/pipeline.js";
-import { BIG_BUFFER } from "./buffer.js";
+import { BIG_BUFFER, ByteBuffer } from "./buffer.js";
 import { defaultStreamInputConfig, StreamInput } from "./input.js";
 import { Logger } from "./log.js";
 import { gatherPipeInfo, getPipe } from "./pipeline/index.js";
@@ -162,6 +162,12 @@ export class Stream {
                 this.eventTarget.dispatchEvent(event);
                 this.input.onStreamStart(capabilities, [width, height]);
                 this.stats.setVideoInfo(format !== null && format !== void 0 ? format : "Unknown", width, height, fps);
+                // HDR state will be set when server sends HdrModeUpdate message
+                // Don't initialize from settings.hdr because that's just the user's preference,
+                // not the actual HDR state (which depends on host support, display, and codec)
+                if (this.settings.hdr) {
+                    this.debugLog("HDR requested by user, waiting for host confirmation...");
+                }
                 // we should allow streaming without audio
                 if (!this.audioPlayer) {
                     showErrorPopup("Failed to find supported audio player -> audio is missing.");
@@ -232,6 +238,98 @@ export class Stream {
         this.transport = transport;
         this.input.setTransport(this.transport);
         this.stats.setTransport(this.transport);
+        const rtt = this.transport.getChannel(TransportChannelId.RTT);
+        if (rtt.type == "data") {
+            rtt.addReceiveListener((data) => {
+                const buffer = new ByteBuffer(data.byteLength);
+                buffer.putU8Array(new Uint8Array(data));
+                buffer.flip();
+                const ty = buffer.getU8();
+                if (ty == 0) {
+                    rtt.send(data);
+                }
+            });
+        }
+        else {
+            this.debugLog("Failed to get rtt as data transport channel. Cannot respond to rtt packets");
+        }
+        // Setup GENERAL channel listener for HDR mode updates
+        const generalChannel = this.transport.getChannel(TransportChannelId.GENERAL);
+        this.debugLog(`[GENERAL] Setting up GENERAL channel listener, type=${generalChannel.type}`);
+        if (generalChannel.type === "data") {
+            generalChannel.addReceiveListener((data) => {
+                this.onGeneralChannelMessage(data);
+            });
+            this.debugLog(`[GENERAL] GENERAL channel listener registered`);
+        }
+        else {
+            this.debugLog(`[GENERAL] Cannot register listener, channel type is not 'data'`);
+        }
+    }
+    onGeneralChannelMessage(data) {
+        this.debugLog(`[GENERAL] Received message on GENERAL channel, size=${data.byteLength}`);
+        const buffer = new Uint8Array(data);
+        if (buffer.length < 2) {
+            this.debugLog(`[GENERAL] Message too short: ${buffer.length} bytes`);
+            return;
+        }
+        const textLength = (buffer[0] << 8) | buffer[1];
+        if (buffer.length < 2 + textLength) {
+            this.debugLog(`[GENERAL] Message incomplete: expected ${2 + textLength} bytes, got ${buffer.length}`);
+            return;
+        }
+        const text = new TextDecoder().decode(buffer.slice(2, 2 + textLength));
+        this.debugLog(`[GENERAL] Parsed message: ${text}`);
+        try {
+            const message = JSON.parse(text);
+            this.handleGeneralMessage(message);
+        }
+        catch (err) {
+            this.debugLog(`Failed to parse general message: ${err}`);
+        }
+    }
+    handleGeneralMessage(message) {
+        if ("HdrModeUpdate" in message) {
+            const hdrUpdate = message.HdrModeUpdate;
+            if (hdrUpdate) {
+                const enabled = hdrUpdate.enabled;
+                this.debugLog(`HDR mode ${enabled ? "enabled" : "disabled"}`);
+                this.setHdrMode(enabled);
+            }
+        }
+        else if ("ConnectionStatusUpdate" in message) {
+            const statusUpdate = message.ConnectionStatusUpdate;
+            if (statusUpdate) {
+                const status = statusUpdate.status;
+                const event = new CustomEvent("stream-info", {
+                    detail: { type: "connectionStatus", status }
+                });
+                this.eventTarget.dispatchEvent(event);
+            }
+        }
+    }
+    setHdrMode(enabled) {
+        this.stats.setHdrEnabled(enabled);
+        if (this.videoRenderer) {
+            if ("setHdrMode" in this.videoRenderer && typeof this.videoRenderer.setHdrMode === "function") {
+                this.videoRenderer.setHdrMode(enabled);
+            }
+        }
+    }
+    sendGeneralMessage(message) {
+        var _a;
+        const general = (_a = this.transport) === null || _a === void 0 ? void 0 : _a.getChannel(TransportChannelId.GENERAL);
+        if (!general || general.type != "data") {
+            return false;
+        }
+        const text = JSON.stringify(message);
+        const buffer = BIG_BUFFER;
+        buffer.reset();
+        buffer.putU16(text.length);
+        buffer.putUtf8Raw(text);
+        buffer.flip();
+        general.send(buffer.getRemainingBuffer().buffer);
+        return true;
     }
     tryWebRTCTransport() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -376,6 +474,13 @@ export class Stream {
                 videoRenderer.mount(this.divElement);
                 video.addReceiveListener((data) => {
                     videoRenderer.submitPacket(data);
+                    // data pipeline support requesting idrs over video channel
+                    if (videoRenderer.pollRequestIdr()) {
+                        const buffer = new ByteBuffer(1);
+                        buffer.putU8(0);
+                        buffer.flip();
+                        video.send(buffer.getRemainingBuffer().buffer);
+                    }
                 });
                 this.videoRenderer = videoRenderer;
             }
@@ -437,6 +542,7 @@ export class Stream {
     }
     startStream(videoCodecSupport) {
         return __awaiter(this, void 0, void 0, function* () {
+            var _a;
             const message = {
                 StartStream: {
                     bitrate: this.settings.bitrate,
@@ -448,10 +554,21 @@ export class Stream {
                     video_supported_formats: createSupportedVideoFormatsBits(videoCodecSupport),
                     video_colorspace: "Rec709",
                     video_color_range_full: false,
+                    hdr: (_a = this.settings.hdr) !== null && _a !== void 0 ? _a : false,
                 }
             };
             this.debugLog(`Starting stream with info: ${JSON.stringify(message)}`);
             this.debugLog(`Stream video codec info: ${JSON.stringify(videoCodecSupport)}`);
+            // Log HDR requirements if HDR is requested
+            if (this.settings.hdr) {
+                const hasHdrCodec = videoCodecSupport.H265_MAIN10 || videoCodecSupport.AV1_MAIN10;
+                if (!hasHdrCodec) {
+                    this.debugLog(`Warning: HDR requested but no 10-bit codec available. HDR requires H265_MAIN10 or AV1_MAIN10 support.`);
+                }
+                else {
+                    this.debugLog(`HDR codec available: H265_MAIN10=${videoCodecSupport.H265_MAIN10}, AV1_MAIN10=${videoCodecSupport.AV1_MAIN10}`);
+                }
+            }
             this.sendWsMessage(message);
         });
     }
@@ -495,6 +612,15 @@ export class Stream {
             const json = JSON.parse(message);
             this.onMessage(json);
         }
+    }
+    stop() {
+        if (!this.sendGeneralMessage("Stop")) {
+            return Promise.resolve(false);
+        }
+        // Wait for the message to get sent
+        return new Promise((resolve, _reject) => {
+            setTimeout(() => resolve(true), 100);
+        });
     }
     // -- Class Api
     addInfoListener(listener) {

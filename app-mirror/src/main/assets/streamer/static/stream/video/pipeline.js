@@ -14,7 +14,7 @@ import { VideoDecoderPipe } from "./video_decoder_pipe.js";
 import { DepacketizeVideoPipe } from "./depackitize_video_pipe.js";
 import { VideoMediaStreamTrackGeneratorPipe } from "./media_stream_track_generator_pipe.js";
 import { andVideoCodecs, hasAnyCodec } from "../video.js";
-import { buildPipeline, gatherPipeInfo } from "../pipeline/index.js";
+import { buildPipeline, gatherPipeInfo, globalObject } from "../pipeline/index.js";
 import { workerPipe } from "../pipeline/worker_pipe.js";
 import { WorkerDataSendPipe, WorkerVideoFrameReceivePipe, WorkerVideoTrackReceivePipe, WorkerVideoTrackSendPipe } from "../pipeline/worker_io.js";
 import { OffscreenCanvasVideoRenderer } from "./offscreen_canvas.js";
@@ -133,14 +133,21 @@ export function buildVideoPipeline(type, settings, logger) {
                 continue pipelineLoop;
             }
             // Build that pipeline
+            logger === null || logger === void 0 ? void 0 : logger.debug(`Trying to build pipeline: ${pipeline.pipes.map(pipe => pipe.name).join(" -> ")} -> ${pipeline.renderer.name} (renderer)`);
             const videoRenderer = buildPipeline(pipeline.renderer, { pipes: pipeline.pipes }, logger);
             if (!videoRenderer) {
-                logger === null || logger === void 0 ? void 0 : logger.debug("Failed to build video pipeline");
-                return { videoRenderer: null, supportedCodecs: null, error: true };
+                logger === null || logger === void 0 ? void 0 : logger.debug(`Failed to build video pipeline: ${pipeline.pipes.map(pipe => pipe.name).join(" -> ")} -> ${pipeline.renderer.name} (renderer)`);
+                continue pipelineLoop;
             }
+            logger === null || logger === void 0 ? void 0 : logger.debug(`Successfully built video pipeline: ${pipeline.pipes.map(pipe => pipe.name).join(" -> ")} -> ${pipeline.renderer.name} (renderer)`);
             return { videoRenderer: videoRenderer, supportedCodecs, error: false };
         }
-        logger === null || logger === void 0 ? void 0 : logger.debug("No supported video renderer found!");
+        let message = "No supported video renderer found! Tried all available pipelines.";
+        const globalObj = globalObject();
+        if (type == "data" && "isSecureContext" in globalObj && !globalObj.isSecureContext) {
+            message += " If you want to stream using Web Sockets the website must be in a Secure Context!";
+        }
+        logger === null || logger === void 0 ? void 0 : logger.debug(message);
         return { videoRenderer: null, supportedCodecs: null, error: true };
     });
 }

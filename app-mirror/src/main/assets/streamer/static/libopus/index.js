@@ -1,4 +1,4 @@
-// Take a look at 
+// Take a look at https://github.com/MrCreativ3001/libopus-js
 export const OPUS_OK = 0;
 export const OPUS_BAD_ARG = -1;
 export const OPUS_BUFFER_TOO_SMALL = -2;

@@ -13,7 +13,6 @@ export class AudioBufferPipe {
     static getInfo() {
         return __awaiter(this, void 0, void 0, function* () {
             return {
-                // TODO: what does this require?
                 environmentSupported: "AudioBufferSourceNode" in globalObject()
             };
         });

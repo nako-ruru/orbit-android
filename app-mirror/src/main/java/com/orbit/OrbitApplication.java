@@ -2,6 +2,7 @@ package com.orbit;
 
 import android.app.Activity;
 import android.app.Application;
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 
@@ -112,6 +113,7 @@ public class OrbitApplication  extends Application {
         Aar.registerFSProvider(new AndroidWebdavProvider(context));
         Aar.registerPathProvider(new AndroidPathProvider(context));
         Aar.registerFileTransferProvider(new AndroidFileTransferProvider(context));
+        Aar.registerStreamerProvider(new AndroidStreamerProvider(context));
 
         List<String> fixedIpList = new ArrayList<>();
         Random random = new Random();
@@ -132,11 +134,10 @@ public class OrbitApplication  extends Application {
         AndroidTunProvider tunProvider = new AndroidTunProvider(context, fixedIpArray);
         Aar.registerTunProvider(tunProvider);
 
-        /*
         Intent intent = new Intent(context, StreamerService.class);
         context.startForegroundService(intent);
-         */
 
+        /*
         new Thread(() -> {
             try {
                 tunProvider.getTunId();
@@ -144,6 +145,7 @@ public class OrbitApplication  extends Application {
                 throw new RuntimeException(e);
             }
         }).start();
+         */
         // 2. 在子线程中启动 Go 逻辑，避免阻塞主线程（UI 线程）
         new Thread(() -> {
             try {

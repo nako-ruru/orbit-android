@@ -10,7 +10,34 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 import { ByteBuffer } from "../buffer.js";
 import { globalObject } from "../pipeline/index.js";
 import { addPipePassthrough } from "../pipeline/pipes.js";
-import { andVideoCodecs, emptyVideoCodecs, maybeVideoCodecs, VIDEO_DECODER_CODECS } from "../video.js";
+import { emptyVideoCodecs, maybeVideoCodecs } from "../video.js";
+export const VIDEO_DECODER_CODECS_IN_BAND = {
+    // avc1 = out of band config, avc3 = in band with sps, pps, idr
+    "H264": "avc3.42E01E",
+    "H264_HIGH8_444": "avc3.640032",
+    // hvc1 = out of band config, hev1 = in band with sps, pps, idr
+    "H265": "hev1.1.6.L93.B0",
+    "H265_MAIN10": "hev1.2.4.L120.90",
+    "H265_REXT8_444": "hev1.6.6.L93.90",
+    "H265_REXT10_444": "hev1.6.10.L120.90",
+    // av1 doesn't have in band and out of band distinction
+    "AV1_MAIN8": "av01.0.04M.08",
+    "AV1_MAIN10": "av01.0.04M.10",
+    "AV1_HIGH8_444": "av01.0.08M.08",
+    "AV1_HIGH10_444": "av01.0.08M.10"
+};
+const VIDEO_DECODER_CODECS_OUT_OF_BAND = {
+    "H264": "avc1.42E01E",
+    "H264_HIGH8_444": "avc1.640032",
+    "H265": "hvc1.1.6.L93.B0",
+    "H265_MAIN10": "hvc1.2.4.L120.90",
+    "H265_REXT8_444": "hvc1.6.6.L93.90",
+    "H265_REXT10_444": "hvc1.6.10.L120.90",
+    "AV1_MAIN8": "av01.0.04M.08",
+    "AV1_MAIN10": "av01.0.04M.10",
+    "AV1_HIGH8_444": "av01.0.08M.08",
+    "AV1_HIGH10_444": "av01.0.08M.10"
+};
 function detectCodecs() {
     return __awaiter(this, void 0, void 0, function* () {
         if (!("isConfigSupported" in VideoDecoder)) {
@@ -19,25 +46,17 @@ function detectCodecs() {
         const codecs = emptyVideoCodecs();
         for (const codec in codecs) {
             // TODO: parallelize await?
-            const supported = yield VideoDecoder.isConfigSupported({
-                codec: VIDEO_DECODER_CODECS[codec]
+            const supportedInBand = yield VideoDecoder.isConfigSupported({
+                codec: VIDEO_DECODER_CODECS_IN_BAND[codec]
             });
-            codecs[codec] = supported.supported ? true : false;
+            const supportedOutOfBand = yield VideoDecoder.isConfigSupported({
+                codec: VIDEO_DECODER_CODECS_OUT_OF_BAND[codec]
+            });
+            codecs[codec] = supportedInBand.supported || supportedOutOfBand.supported ? true : false;
         }
-        return andVideoCodecs(codecs, {
-            H264: true,
-            // TODO: Firefox, Safari say they can play this codec, but they can't
-            H264_HIGH8_444: false,
-            H265: true,
-            H265_MAIN10: true,
-            H265_REXT8_444: true,
-            H265_REXT10_444: true,
-            // TODO: implement av1 stream translator?
-            AV1_MAIN8: false,
-            AV1_MAIN10: false,
-            AV1_HIGH8_444: false,
-            AV1_HIGH10_444: false
-        });
+        // TODO: Firefox, Safari say they can play this codec, but they can't
+        codecs.H264_HIGH8_444 = false;
+        return codecs;
     });
 }
 function getIfConfigSupported(config) {
@@ -48,16 +67,6 @@ function getIfConfigSupported(config) {
         }
         return null;
     });
-}
-const START_CODE_SHORT = new Uint8Array([0x00, 0x00, 0x01]); // 3-byte start code
-const START_CODE_LONG = new Uint8Array([0x00, 0x00, 0x00, 0x01]); // 4-byte start code
-function startsWith(buffer, position, check) {
-    for (let i = 0; i < check.length; i++) {
-        if (buffer[position + i] != check[i]) {
-            return false;
-        }
-    }
-    return true;
 }
 export class VideoDecoderPipe {
     static getInfo() {
@@ -70,8 +79,13 @@ export class VideoDecoderPipe {
         });
     }
     constructor(base, logger) {
+        this.fps = 0;
         this.errored = false;
+        this.config = null;
         this.translator = null;
+        this.decoderSetupFinished = false;
+        this.requestedIdr = false;
+        this.needsKeyFrame = true;
         this.bufferedUnits = [];
         this.implementationName = `video_decoder -> ${base.implementationName}`;
         this.logger = logger !== null && logger !== void 0 ? logger : null;
@@ -83,60 +97,74 @@ export class VideoDecoderPipe {
         addPipePassthrough(this);
     }
     onError(error) {
-        var _a, _b, _c;
+        var _a;
         this.errored = true;
         (_a = this.logger) === null || _a === void 0 ? void 0 : _a.debug(`VideoDecoder has an error ${"toString" in error ? error.toString() : `${error}`}`, { type: "fatal" });
-        (_b = this.logger) === null || _b === void 0 ? void 0 : _b.debug(`VideoDecoder config: ${JSON.stringify((_c = this.translator) === null || _c === void 0 ? void 0 : _c.getCurrentConfig())}`);
         console.error(error);
     }
     onOutput(frame) {
         this.base.submitFrame(frame);
     }
-    setup(setup) {
-        var arguments_1 = arguments;
+    trySetConfig(codec) {
         return __awaiter(this, void 0, void 0, function* () {
-            var _a, _b, _c, _d, _e;
-            const codec = VIDEO_DECODER_CODECS[setup.codec];
-            if (!codec) {
-                (_a = this.logger) === null || _a === void 0 ? void 0 : _a.debug("Failed to get codec configuration for WebCodecs VideoDecoder", { type: "fatal" });
-                return;
-            }
-            let translator;
-            if (setup.codec == "H264" || setup.codec == "H264_HIGH8_444") {
-                translator = new H264StreamVideoTranslator((_b = this.logger) !== null && _b !== void 0 ? _b : undefined);
-            }
-            else if (setup.codec == "H265" || setup.codec == "H265_MAIN10" || setup.codec == "H265_REXT8_444" || setup.codec == "H265_REXT10_444") {
-                translator = new H265StreamVideoTranslator((_c = this.logger) !== null && _c !== void 0 ? _c : undefined);
-            }
-            else if (setup.codec == "AV1_MAIN8" || setup.codec == "AV1_MAIN10" || setup.codec == "AV1_HIGH8_444" || setup.codec == "AV1_HIGH10_444") {
-                this.errored = true;
-                (_d = this.logger) === null || _d === void 0 ? void 0 : _d.debug("Av1 stream translator is not implemented currently!", { type: "fatalDescription" });
-                return;
-            }
-            else {
-                this.errored = true;
-                (_e = this.logger) === null || _e === void 0 ? void 0 : _e.debug(`Failed to find stream translator for codec ${setup.codec}`);
-                return;
-            }
-            let config;
-            if (!config) {
-                config = yield getIfConfigSupported({
+            if (!this.config) {
+                this.config = yield getIfConfigSupported({
                     codec,
                     hardwareAcceleration: "prefer-hardware",
                     optimizeForLatency: true
                 });
             }
-            if (!config) {
-                config = yield getIfConfigSupported({
+            if (!this.config) {
+                this.config = yield getIfConfigSupported({
                     codec,
                     optimizeForLatency: true
                 });
             }
-            if (!config) {
-                config = { codec };
+            if (!this.config) {
+                this.config = yield getIfConfigSupported({
+                    codec,
+                });
             }
-            translator.setBaseConfig(config);
-            this.translator = translator;
+        });
+    }
+    setup(setup) {
+        var arguments_1 = arguments;
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a, _b, _c, _d, _e, _f, _g;
+            this.fps = setup.fps;
+            const codec = VIDEO_DECODER_CODECS_IN_BAND[setup.codec];
+            yield this.trySetConfig(codec);
+            if (!this.config) {
+                if (setup.codec == "H264" || setup.codec == "H264_HIGH8_444") {
+                    this.translator = new H264StreamVideoTranslator((_a = this.logger) !== null && _a !== void 0 ? _a : undefined);
+                    const codec = VIDEO_DECODER_CODECS_OUT_OF_BAND[setup.codec];
+                    yield this.trySetConfig(codec);
+                }
+                else if (setup.codec == "H265" || setup.codec == "H265_MAIN10" || setup.codec == "H265_REXT8_444" || setup.codec == "H265_REXT10_444") {
+                    this.translator = new H265StreamVideoTranslator((_b = this.logger) !== null && _b !== void 0 ? _b : undefined);
+                    const codec = VIDEO_DECODER_CODECS_OUT_OF_BAND[setup.codec];
+                    yield this.trySetConfig(codec);
+                }
+                else if (setup.codec == "AV1_MAIN8" || setup.codec == "AV1_MAIN10" || setup.codec == "AV1_HIGH8_444" || setup.codec == "AV1_HIGH10_444") {
+                    this.errored = true;
+                    (_c = this.logger) === null || _c === void 0 ? void 0 : _c.debug("Av1 stream translator is not implemented currently!", { type: "fatalDescription" });
+                    return;
+                }
+                else {
+                    this.errored = true;
+                    (_d = this.logger) === null || _d === void 0 ? void 0 : _d.debug(`Failed to find stream translator for codec ${setup.codec}`);
+                    return;
+                }
+            }
+            if (!this.config) {
+                this.errored = true;
+                (_e = this.logger) === null || _e === void 0 ? void 0 : _e.debug(`Failed to setup VideoDecoder for codec ${setup.codec} because of missing config`);
+                return;
+            }
+            (_f = this.translator) === null || _f === void 0 ? void 0 : _f.setBaseConfig(this.config);
+            (_g = this.logger) === null || _g === void 0 ? void 0 : _g.debug(`VideoDecoder config: ${JSON.stringify(this.config)}`);
+            this.reset();
+            this.decoderSetupFinished = true;
             if ("setup" in this.base && typeof this.base.setup == "function") {
                 return yield this.base.setup(...arguments_1);
             }
@@ -148,9 +176,8 @@ export class VideoDecoderPipe {
             console.debug("Cannot submit video decode unit because the stream errored");
             return;
         }
-        if (!this.translator) {
+        if (!this.decoderSetupFinished) {
             this.bufferedUnits.push(unit);
-            console.debug("Cannot submit video decode unit because no video translator is currently set. Buffering frame until one is set!");
             return;
         }
         if (this.bufferedUnits.length > 0) {
@@ -159,22 +186,79 @@ export class VideoDecoderPipe {
                 this.submitDecodeUnit(bufferedUnit);
             }
         }
-        const value = this.translator.submitDecodeUnit(unit);
-        if (value.error) {
-            this.errored = true;
-            (_a = this.logger) === null || _a === void 0 ? void 0 : _a.debug("VideoDecoder has errored!");
-            return;
+        if (this.translator) {
+            const value = this.translator.submitDecodeUnit(unit);
+            if (value.error) {
+                this.errored = true;
+                (_a = this.logger) === null || _a === void 0 ? void 0 : _a.debug("VideoDecoder has errored!");
+                return;
+            }
+            const { configure, chunk } = value;
+            if (!chunk) {
+                console.debug("No chunk received!");
+                return;
+            }
+            if (configure) {
+                console.debug("Resetting video decoder config with", configure);
+                this.decoder.reset();
+                this.decoder.configure(configure);
+                // This likely is an idr
+                this.requestedIdr = false;
+            }
+            this.decoder.decode(chunk);
         }
-        const { configure, chunk } = value;
-        if (!chunk) {
-            console.debug("No chunk received!");
-            return;
+        else {
+            if (unit.type != "key" && this.needsKeyFrame) {
+                return;
+            }
+            this.needsKeyFrame = false;
+            this.requestedIdr = false;
+            const chunk = new EncodedVideoChunk({
+                type: unit.type,
+                data: unit.data,
+                timestamp: unit.timestampMicroseconds,
+                duration: unit.durationMicroseconds
+            });
+            this.decoder.decode(chunk);
         }
-        if (configure) {
+    }
+    reset() {
+        var _a;
+        if (!this.translator) {
             this.decoder.reset();
-            this.decoder.configure(configure);
+            this.needsKeyFrame = true;
+            if (this.config) {
+                this.decoder.configure(this.config);
+            }
+            else {
+                (_a = this.logger) === null || _a === void 0 ? void 0 : _a.debug("Failed to configure VideoDecoder because of missing config", { type: "fatal" });
+            }
         }
-        this.decoder.decode(chunk);
+        else if (this.config) {
+            this.translator.setBaseConfig(this.config);
+        }
+    }
+    pollRequestIdr() {
+        let requestIdr = false;
+        const estimatedQueueDelayMs = this.decoder.decodeQueueSize * 1000 / this.fps;
+        if (estimatedQueueDelayMs > 200 && this.decoder.decodeQueueSize > 2) {
+            // We have more than 200ms second backlog in the decoder
+            // -> This decoder is ass, request idr, flush that decoder
+            if (!this.requestedIdr) {
+                requestIdr = true;
+                this.reset();
+            }
+            console.debug(`Requesting idr because of decode queue size(${this.decoder.decodeQueueSize}) and estimated delay of the queue: ${estimatedQueueDelayMs}`);
+        }
+        if ("pollRequestIdr" in this.base && typeof this.base.pollRequestIdr == "function") {
+            if (this.base.pollRequestIdr(...arguments)) {
+                requestIdr = true;
+            }
+        }
+        if (requestIdr) {
+            this.requestedIdr = true;
+        }
+        return requestIdr;
     }
     cleanup() {
         this.decoder.close();
@@ -188,6 +272,16 @@ export class VideoDecoderPipe {
 }
 VideoDecoderPipe.baseType = "videoframe";
 VideoDecoderPipe.type = "videodata";
+const START_CODE_SHORT = new Uint8Array([0x00, 0x00, 0x01]); // 3-byte start code
+const START_CODE_LONG = new Uint8Array([0x00, 0x00, 0x00, 0x01]); // 4-byte start code
+function startsWith(buffer, position, check) {
+    for (let i = 0; i < check.length; i++) {
+        if (buffer[position + i] != check[i]) {
+            return false;
+        }
+    }
+    return true;
+}
 class CodecStreamTranslator {
     constructor(logger) {
         this.decoderConfig = null;

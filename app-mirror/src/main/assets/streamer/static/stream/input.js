@@ -31,7 +31,7 @@ export function defaultStreamInputConfig() {
     return {
         mouseMode: "follow",
         mouseScrollMode: "highres",
-        touchMode: "pointAndDrag",
+        touchMode: "mouseRelative",
         controllerConfig: {
             invertAB: false,
             invertXY: false,
@@ -130,6 +130,20 @@ export class StreamInput {
     }
     onKeyUp(event) {
         this.sendKeyEvent(false, event);
+    }
+    onPaste(event) {
+        const data = event.clipboardData;
+        if (!data) {
+            return;
+        }
+        console.debug("PASTE", data);
+        const text = data.getData("text/plain");
+        if (text) {
+            console.debug("PASTE TEXT", text);
+            // Before sending text raise all keys
+            this.raiseAllKeys();
+            this.sendText(text);
+        }
     }
     sendKeyEvent(isDown, event) {
         const key = convertToKey(event);
@@ -628,6 +642,7 @@ export class StreamInput {
             if (state == oldGamepadState.oldState) {
                 continue;
             }
+            oldGamepadState.oldState = state;
             this.sendController(gamepadId, state);
         }
     }

@@ -37,10 +37,7 @@ public class MainActivity extends AppCompatActivity {
     private String mId;
     private WebView mWebView;
 
-    public static final int X = 555555;
-
     public static MainActivity activity;
-
 
     ActivityResultLauncher<Intent> projectionLauncher = registerForActivityResult(
             new ActivityResultContracts.StartActivityForResult(),
@@ -115,7 +112,7 @@ public class MainActivity extends AppCompatActivity {
 
         {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-//            startActivityForResult(intent, X);
+//            asfLauncher.launch(intent);
         }
 
         mId = "500";
@@ -131,7 +128,10 @@ public class MainActivity extends AppCompatActivity {
             }
         }, "_android_bridge");
 
-        WebViewCompat.addDocumentStartJavaScript(mWebView, injectBindings(getIntent().getStringExtra("BINDINGS")), Collections.singleton("*"));
+        String bindings = getIntent().getStringExtra("BINDINGS");
+        if(bindings != null && !bindings.isBlank()) {
+            WebViewCompat.addDocumentStartJavaScript(mWebView, injectBindings(bindings), Collections.singleton("*"));
+        }
         mWebView.loadUrl(getIntent().getStringExtra("URL"));
         setContentView(mWebView);
     }

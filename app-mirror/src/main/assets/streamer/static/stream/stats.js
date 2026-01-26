@@ -20,11 +20,13 @@ function num(value, suffix) {
 export function streamStatsToText(statsData) {
     let text = `stats:
 video information: ${statsData.videoCodec}, ${statsData.videoWidth}x${statsData.videoHeight}, ${statsData.videoFps} fps
+HDR: ${statsData.hdrEnabled === true ? "Enabled" : statsData.hdrEnabled === false ? "Disabled" : "Unknown"}
 video pipeline: ${statsData.videoPipeline}
 audio pipeline: ${statsData.audioPipeline}
 streamer round trip time: ${num(statsData.streamerRttMs, "ms")} (variance: ${num(statsData.streamerRttVarianceMs, "ms")})
 host processing latency min/max/avg: ${num(statsData.minHostProcessingLatencyMs, "ms")} / ${num(statsData.maxHostProcessingLatencyMs, "ms")} / ${num(statsData.avgHostProcessingLatencyMs, "ms")}
 streamer processing latency min/max/avg: ${num(statsData.minStreamerProcessingTimeMs, "ms")} / ${num(statsData.maxStreamerProcessingTimeMs, "ms")} / ${num(statsData.avgStreamerProcessingTimeMs, "ms")}
+streamer to browser rtt (ws only): ${num(statsData.browserRtt, "ms")}
 `;
     for (const key in statsData.transport) {
         const value = statsData.transport[key];
@@ -50,6 +52,7 @@ export class StreamStats {
             videoFps: null,
             videoPipeline: null,
             audioPipeline: null,
+            hdrEnabled: null,
             streamerRttMs: null,
             streamerRttVarianceMs: null,
             minHostProcessingLatencyMs: null,
@@ -58,6 +61,7 @@ export class StreamStats {
             minStreamerProcessingTimeMs: null,
             maxStreamerProcessingTimeMs: null,
             avgStreamerProcessingTimeMs: null,
+            browserRtt: null,
             transport: {}
         };
         this.buffer = BIG_BUFFER;
@@ -135,6 +139,9 @@ export class StreamStats {
             this.statsData.maxStreamerProcessingTimeMs = msg.Video.max_streamer_processing_time_ms;
             this.statsData.avgStreamerProcessingTimeMs = msg.Video.avg_streamer_processing_time_ms;
         }
+        else if ("BrowserRtt" in msg) {
+            this.statsData.browserRtt = msg.BrowserRtt.rtt_ms;
+        }
     }
     updateLocalStats() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -161,6 +168,9 @@ export class StreamStats {
     }
     setAudioPipelineName(name) {
         this.statsData.audioPipeline = name;
+    }
+    setHdrEnabled(enabled) {
+        this.statsData.hdrEnabled = enabled;
     }
     getCurrentStats() {
         const data = {};

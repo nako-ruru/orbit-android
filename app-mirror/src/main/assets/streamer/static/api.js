@@ -150,10 +150,10 @@ class StreamedJsonResponse {
     }
 }
 export function fetchApi(api_1, endpoint_1) {
-    return __awaiter(this, arguments, void 0, function* (api, endpoint, method = GET, init) {
+    return __awaiter(this, arguments, void 0, function* (api, endpoint, method = GET, init, timeout = API_TIMEOUT) {
         var _a;
         const [url, request] = buildRequest(api, endpoint, method, init);
-        request.signal = AbortSignal.timeout(API_TIMEOUT);
+        request.signal = AbortSignal.timeout(timeout);
         let response;
         try {
             response = yield fetch(url, request);
@@ -344,7 +344,7 @@ export function apiGetAppImage(api, query) {
         const response = yield fetchApi(api, "/app/image", GET, {
             query,
             response: "ignore"
-        });
+        }, 60000);
         return yield response.blob();
     });
 }

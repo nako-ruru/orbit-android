@@ -8,8 +8,20 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 import { globalObject } from "../pipeline/index.js";
-import { emptyVideoCodecs, maybeVideoCodecs, VIDEO_DECODER_CODECS } from "../video.js";
+import { emptyVideoCodecs, maybeVideoCodecs } from "../video.js";
 import { getStreamRectCorrected } from "./index.js";
+const VIDEO_DECODER_CODECS = {
+    "H264": "avc1.42E01E",
+    "H264_HIGH8_444": "avc1.640032",
+    "H265": "hvc1.1.6.L93.B0",
+    "H265_MAIN10": "hvc1.2.4.L120.90",
+    "H265_REXT8_444": "hvc1.6.6.L93.90",
+    "H265_REXT10_444": "hvc1.6.10.L120.90",
+    "AV1_MAIN8": "av01.0.04M.08",
+    "AV1_MAIN10": "av01.0.04M.10",
+    "AV1_HIGH8_444": "av01.0.08M.08",
+    "AV1_HIGH10_444": "av01.0.08M.10"
+};
 function detectCodecs() {
     if (!("canPlayType" in HTMLVideoElement.prototype)) {
         return maybeVideoCodecs();
@@ -47,6 +59,7 @@ export class VideoElementRenderer {
         this.oldTrack = null;
         this.stream = new MediaStream();
         this.size = null;
+        this.hdrEnabled = false;
         this.videoElement.classList.add("video-stream");
         this.videoElement.preload = "none";
         this.videoElement.controls = false;
@@ -85,6 +98,9 @@ export class VideoElementRenderer {
         this.stream.addTrack(track);
         this.oldTrack = track;
     }
+    pollRequestIdr() {
+        return false;
+    }
     mount(parent) {
         parent.appendChild(this.videoElement);
     }
@@ -108,6 +124,27 @@ export class VideoElementRenderer {
     }
     getBase() {
         return null;
+    }
+    setHdrMode(enabled) {
+        this.hdrEnabled = enabled;
+        // Request HDR display mode if supported
+        if (enabled && "requestHDR" in this.videoElement) {
+            try {
+                this.videoElement.requestHDR();
+            }
+            catch (err) {
+                console.warn("Failed to request HDR mode:", err);
+            }
+        }
+        // Set color space attributes for HDR
+        if (enabled) {
+            this.videoElement.setAttribute("color-gamut", "rec2020");
+            this.videoElement.setAttribute("transfer-function", "pq");
+        }
+        else {
+            this.videoElement.removeAttribute("color-gamut");
+            this.videoElement.removeAttribute("transfer-function");
+        }
     }
 }
 VideoElementRenderer.type = "videotrack";

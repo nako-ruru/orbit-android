@@ -1,5 +1,5 @@
 export const TRANSPORT_CHANNEL_OPTIONS = {
-    GENERAL: { reliable: true, ordered: true },
+    GENERAL: { reliable: true, ordered: true, serverCreated: true },
     STATS: { reliable: true, ordered: true },
     HOST_VIDEO: { reliable: false, ordered: true },
     HOST_AUDIO: { reliable: false, ordered: true },
@@ -25,4 +25,5 @@ export const TRANSPORT_CHANNEL_OPTIONS = {
     CONTROLLER13: { reliable: false, ordered: false },
     CONTROLLER14: { reliable: false, ordered: false },
     CONTROLLER15: { reliable: false, ordered: false },
+    RTT: { reliable: true, ordered: true }
 };

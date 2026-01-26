@@ -51,6 +51,7 @@ function startApp() {
         // Start and Mount App
         const app = new ViewerApp(api, hostId, appId);
         app.mount(rootElement);
+        window["app"] = app;
     });
 }
 // Prevent starting transition
@@ -128,6 +129,7 @@ class ViewerApp {
     addListeners(element) {
         element.addEventListener("keydown", this.onKeyDown.bind(this), { passive: false });
         element.addEventListener("keyup", this.onKeyUp.bind(this), { passive: false });
+        element.addEventListener("paste", this.onPaste.bind(this));
         element.addEventListener("mousedown", this.onMouseButtonDown.bind(this), { passive: false });
         element.addEventListener("mouseup", this.onMouseButtonUp.bind(this), { passive: false });
         element.addEventListener("mousemove", this.onMouseMove.bind(this), { passive: false });
@@ -208,8 +210,17 @@ class ViewerApp {
     onKeyDown(event) {
         var _a;
         this.onUserInteraction();
-        event.preventDefault();
-        (_a = this.stream) === null || _a === void 0 ? void 0 : _a.getInput().onKeyDown(event);
+        console.debug(event);
+        if (event.ctrlKey && event.code == "KeyV") {
+            // We are likely pasting -> don't send keys
+        }
+        else if (event.code == "F11") {
+            // Allow manual fullscreen
+        }
+        else {
+            event.preventDefault();
+            (_a = this.stream) === null || _a === void 0 ? void 0 : _a.getInput().onKeyDown(event);
+        }
         event.stopPropagation();
     }
     onKeyUp(event) {
@@ -235,6 +246,12 @@ class ViewerApp {
                 this.isTogglingFullscreenWithKeybind = "none";
             }))();
         }
+    }
+    onPaste(event) {
+        var _a;
+        this.onUserInteraction();
+        (_a = this.stream) === null || _a === void 0 ? void 0 : _a.getInput().onPaste(event);
+        event.stopPropagation();
     }
     // Mouse
     onMouseButtonDown(event) {
@@ -476,15 +493,22 @@ class ConnectionInfoModal {
         this.root = document.createElement("div");
         this.textTy = null;
         this.text = document.createElement("p");
+        this.options = document.createElement("div");
         this.debugDetailButton = document.createElement("button");
+        this.closeButton = document.createElement("button");
         this.debugDetail = ""; // We store this seperate because line breaks don't work when the element is not mounted on the dom
         this.debugDetailDisplay = document.createElement("div");
         this.root.classList.add("modal-video-connect");
         this.text.innerText = "Connecting";
         this.root.appendChild(this.text);
+        this.root.appendChild(this.options);
+        this.options.classList.add("modal-video-connect-options");
         this.debugDetailButton.innerText = "Show Logs";
         this.debugDetailButton.addEventListener("click", this.onDebugDetailClick.bind(this));
-        this.root.appendChild(this.debugDetailButton);
+        this.options.appendChild(this.debugDetailButton);
+        this.closeButton.innerText = "Close";
+        this.closeButton.addEventListener("click", this.onClose.bind(this));
+        this.options.appendChild(this.closeButton);
         this.debugDetailDisplay.classList.add("textlike");
         this.debugDetailDisplay.classList.add("modal-video-connect-debug");
     }
@@ -543,6 +567,9 @@ class ConnectionInfoModal {
             this.debugLog(text);
         }
     }
+    onClose() {
+        showModal(null);
+    }
     onFinish(abort) {
         return new Promise((resolve, reject) => {
             this.eventTarget.addEventListener("ml-connected", () => resolve(), { once: true, signal: abort });
@@ -565,6 +592,7 @@ class ViewerSidebar {
         this.lockMouseButton = document.createElement("button");
         this.fullscreenButton = document.createElement("button");
         this.statsButton = document.createElement("button");
+        this.exitStreamButton = document.createElement("button");
         this.app = app;
         // Configure divs
         this.div.classList.add("sidebar-stream");
@@ -620,6 +648,19 @@ class ViewerSidebar {
             }
         });
         this.buttonDiv.appendChild(this.statsButton);
+        // Close stream
+        this.exitStreamButton.innerText = "Exit";
+        this.exitStreamButton.addEventListener("click", () => __awaiter(this, void 0, void 0, function* () {
+            const stream = this.app.getStream();
+            if (stream) {
+                const success = yield stream.stop();
+                if (!success) {
+                    console.debug("Failed to close stream correctly");
+                }
+            }
+            window.close();
+        }));
+        this.buttonDiv.appendChild(this.exitStreamButton);
         // Select Mouse Mode
         this.mouseMode = new SelectComponent("mouseMode", [
             { value: "relative", name: "Relative" },

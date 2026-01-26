@@ -23,6 +23,9 @@ export class BaseCanvasVideoRenderer {
         });
     }
     cleanup() { }
+    pollRequestIdr() {
+        return false;
+    }
     onUserInteraction() {
         // Nothing
     }
@@ -57,6 +60,21 @@ export class CanvasVideoRenderer extends BaseCanvasVideoRenderer {
         this.context = null;
         this.animationFrameRequest = null;
         this.currentFrame = null;
+        this.hdrEnabled = false;
+    }
+    setHdrMode(enabled) {
+        this.hdrEnabled = enabled;
+        if (this.context) {
+            // Set HDR color space and transfer function
+            if ("colorSpace" in this.context) {
+                try {
+                    this.context.colorSpace = enabled ? "rec2020-pq" : "srgb";
+                }
+                catch (err) {
+                    console.warn("Failed to set canvas colorSpace:", err);
+                }
+            }
+        }
     }
     setup(setup) {
         const _super = Object.create(null, {
@@ -80,9 +98,20 @@ export class CanvasVideoRenderer extends BaseCanvasVideoRenderer {
     mount(parent) {
         super.mount(parent);
         if (!this.context) {
-            const context = this.canvas.getContext("2d");
-            if (context) {
+            const context = this.canvas.getContext("2d", {
+                colorSpace: this.hdrEnabled ? "rec2020-pq" : "srgb"
+            });
+            if (context && context instanceof CanvasRenderingContext2D) {
                 this.context = context;
+                // Apply HDR settings if already enabled
+                if (this.hdrEnabled && "colorSpace" in context) {
+                    try {
+                        context.colorSpace = "rec2020-pq";
+                    }
+                    catch (err) {
+                        console.warn("Failed to set canvas colorSpace:", err);
+                    }
+                }
             }
             else {
                 throw "Failed to get 2d context from canvas";

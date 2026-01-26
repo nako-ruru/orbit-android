@@ -21,7 +21,7 @@ export class DepacketizeVideoPipe {
         });
     }
     constructor(base, logger) {
-        this.frameDurationMicroseconds = 0;
+        this.lastTimestampMicroseconds = 0;
         this.buffer = new ByteBuffer(5);
         this.implementationName = `depacketize_video -> ${base.implementationName}`;
         this.base = base;
@@ -34,16 +34,17 @@ export class DepacketizeVideoPipe {
         this.buffer.flip();
         const frameType = this.buffer.getU8();
         const timestamp = this.buffer.getU32();
+        const duration = timestamp - this.lastTimestampMicroseconds;
         this.base.submitDecodeUnit({
             type: frameType == 0 ? "delta" : "key",
             data: array.slice(5).buffer,
-            durationMicroseconds: this.frameDurationMicroseconds,
+            durationMicroseconds: duration,
             timestampMicroseconds: timestamp,
         });
+        this.lastTimestampMicroseconds = timestamp;
         addPipePassthrough(this);
     }
     setup(setup) {
-        this.frameDurationMicroseconds = 1000000 / setup.fps;
         if ("setup" in this.base && typeof this.base.setup == "function") {
             return this.base.setup(...arguments);
         }

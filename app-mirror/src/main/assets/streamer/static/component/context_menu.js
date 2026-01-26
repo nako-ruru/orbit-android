@@ -13,8 +13,8 @@ export function setContextMenu(event, init) {
         showErrorPopup("cannot find the context menu element");
         return;
     }
-    contextMenuElement.style.setProperty("left", `${event.pageX}px`);
-    contextMenuElement.style.setProperty("top", `${event.pageY}px`);
+    contextMenuElement.style.setProperty("left", `${event.clientX}px`);
+    contextMenuElement.style.setProperty("top", `${event.clientY}px`);
     contextMenuList.clear();
     for (const element of (_a = init === null || init === void 0 ? void 0 : init.elements) !== null && _a !== void 0 ? _a : []) {
         contextMenuList.append(new ContextMenuElementComponent(element));

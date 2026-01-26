@@ -18,7 +18,7 @@ export class ContextDestinationNodeAudioPlayer extends AudioContextBasePipe {
         });
     }
     constructor(logger) {
-        super("node_audio_element (player)", null, logger);
+        super("node_audio_element", null, logger);
         this.destination = null;
         this.currentSource = null;
         this.addPipePassthrough();
