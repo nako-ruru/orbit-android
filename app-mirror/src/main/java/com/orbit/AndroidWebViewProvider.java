@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.webkit.WebView;
 
 import androidx.webkit.WebViewCompat;
@@ -37,14 +38,18 @@ public class AndroidWebViewProvider implements WebViewProvider {
 
     @Override
     public void createAndStart(String id, String title, String url, String html, String jsInit, String bindings) {
-        mainHandler.post(() -> {
+        Log.i("AndroidWebViewProvider", "createAndStart");
+        mainHandler.postDelayed(() -> {
+            Log.i("AndroidWebViewProvider", "createAndStart: mainHandler.post");
             if(id.equals("500") && OrbitApplication.activity.getClass().getName().contains("SplashActivity")) {
                 OrbitApplication.activity.finish();
             }
             Intent i;
             if(id.equals("500")) {
+                Log.i("AndroidWebViewProvider", "createAndStart: 3");
                 i = new Intent(context, MainActivity.class);
             } else {
+                Log.i("AndroidWebViewProvider", "createAndStart: 4");
                 i = new Intent(context, FileTransferActivity.class);
             }
             i.putExtra("ID", id);
@@ -52,7 +57,8 @@ public class AndroidWebViewProvider implements WebViewProvider {
             i.putExtra("HTML", html);
             i.putExtra("BINDINGS", bindings);
             context.startActivity(i);
-        });
+            Log.i("AndroidWebViewProvider", "createAndStart: 5");
+        }, 3000);
     }
 
     @Override

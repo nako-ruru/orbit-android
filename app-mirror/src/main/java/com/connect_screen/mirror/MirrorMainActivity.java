@@ -156,6 +156,7 @@ public class MirrorMainActivity extends AppCompatActivity implements IMainActivi
 
         // 初始化主界面控件
         initHomeControls();
+        SunshineService.instance = null;
     }
 
     private void ensureAccessiblityServiceStarted() {
@@ -237,6 +238,7 @@ public class MirrorMainActivity extends AppCompatActivity implements IMainActivi
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        Log.e("TraceFinish", "MirrorMainActivity onDestroy 被调用", new Throwable());
 //        Shizuku.removeRequestPermissionResultListener(REQUEST_PERMISSION_RESULT_LISTENER);
 //        State.setCurrentActivity(null);
     }

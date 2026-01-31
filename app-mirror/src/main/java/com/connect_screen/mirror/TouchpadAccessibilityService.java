@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Handler;
 import android.provider.Settings;
+import android.util.Log;
 import android.util.SparseArray;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityWindowInfo;
@@ -287,9 +288,13 @@ public class TouchpadAccessibilityService extends AccessibilityService {
     public static void grantPermissionByClick(Context context) {
         if (TouchpadAccessibilityService.isAccessibilityServiceEnabled(context)) {
             Intent serviceIntent = new Intent(context, TouchpadAccessibilityService.class);
+            Log.i("TouchpadAccessibilityService", "grantPermissionByClick: 1");
             context.startService(serviceIntent);
         } else if (ShizukuUtils.hasPermission()) {
+            Log.i("TouchpadAccessibilityService", "grantPermissionByClick: 2");
             TouchpadAccessibilityService.startServiceByShizuku(context);
+        } else {
+            Log.i("TouchpadAccessibilityService", "grantPermissionByClick: 3");
         }
         new Thread(() -> {
             java.util.concurrent.atomic.AtomicBoolean granted = new java.util.concurrent.atomic.AtomicBoolean(false);

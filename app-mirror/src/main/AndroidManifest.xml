@@ -21,6 +21,8 @@
     <uses-permission android:name="android.permission.BIND_VPN_SERVICE" />
     <!-- Android 14+ 必须显式声明这个特定类型的权限 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <application
         android:name="com.orbit.OrbitApplication"
@@ -107,7 +109,7 @@
         <!-- 2. 真正的业务窗口：禁止外部启动，必须由 Go 的 StartActivity 唤醒 -->
         <activity
             android:name="com.orbit.MainActivity"
-            android:launchMode="singleTask"
+            android:launchMode="standard"
             android:exported="false"
             android:icon="@mipmap/ic_mirror"
             android:configChanges="orientation|screenSize|keyboardHidden"
@@ -145,6 +147,13 @@
             android:excludeFromRecents="true"
             android:noHistory="true"
             android:launchMode="singleTask" />
+        <!-- 必须配置在独立进程 -->
+        <activity
+            android:name="com.orbit.RestartHandlerActivity"
+            android:process=":restart"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:launchMode="singleInstance"
+            android:excludeFromRecents="true" />
         
         <service
             android:name=".FloatingButtonService"
@@ -154,6 +163,7 @@
         <service
             android:name=".TouchpadAccessibilityService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:stopWithTask="false"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
@@ -215,7 +225,10 @@
             android:foregroundServiceType="mediaProjection"
             android:enabled="true"
             android:exported="false" />
-
+        <service
+            android:name="com.orbit.RestartAppUtil$MyJobSchedulerService"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:exported="true" />
     </application>
 
     <queries>
