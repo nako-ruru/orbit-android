@@ -11,3 +11,8 @@ local.properties
 /app/release
 /hidden-api-stub/bin
 /app-mirror/libs/orbit-sources.jar
+/binary_cache
+/perf.data
+/python3
+/report.html
+/thread_dump.txt

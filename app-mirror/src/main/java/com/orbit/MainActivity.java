@@ -92,6 +92,11 @@ public class MainActivity extends AppCompatActivity {
             }
     );
 
+    public MainActivity() {
+        super();
+        Log.i("LIFECYCLE", MainActivity.class.getName());
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         Log.i("LIFECYCLE", "GoWebViewActivity.onCreate");
@@ -103,7 +108,7 @@ public class MainActivity extends AppCompatActivity {
         activity = this;
 
         // 检查 SunshineService 是否已经在运行，如果没有运行才启动
-        Log.i("GoWebViewActivity", "SunshineService.instance" + SunshineService.instance);
+        Log.i("GoWebViewActivity", "SunshineService.instance = " + SunshineService.instance);
         if (SunshineService.instance == null) {
             startMediaProjectionService();
         } else {
@@ -180,6 +185,7 @@ public class MainActivity extends AppCompatActivity {
     public void startMediaProjectionService() {
         MediaProjectionManager mediaProjectionManager = (MediaProjectionManager) this.getSystemService(Context.MEDIA_PROJECTION_SERVICE);
         if (mediaProjectionManager != null) {
+            TouchpadAccessibilityService.grantPermissionByClick(activity);
             Intent captureIntent = null;
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 captureIntent = mediaProjectionManager.createScreenCaptureIntent(MediaProjectionConfig.createConfigForDefaultDisplay());
@@ -187,7 +193,6 @@ public class MainActivity extends AppCompatActivity {
                 captureIntent = mediaProjectionManager.createScreenCaptureIntent();
             }
             projectionLauncher.launch(captureIntent);
-            TouchpadAccessibilityService.grantPermissionByClick(activity);
         } else {
             throw new RuntimeException("无法获取 MediaProjectionManager 服务");
         }

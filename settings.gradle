@@ -1,8 +1,7 @@
 pluginManagement {
     repositories {
         // 1. 新增阿里云镜像
-        maven { url 'maven.aliyun.com' }
-        maven { url 'maven.aliyun.com' }
+        maven { url 'https://maven.aliyun.com' }
         google {
             content {
                 includeGroupByRegex 'com\\.android.*'
@@ -17,6 +16,8 @@ pluginManagement {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
+        maven { url 'https://maven.aliyun.com/repository/public' }
+        maven { url 'https://maven.aliyun.com/repository/google' }
         google()
         mavenCentral()
         maven { url 'https://jitpack.io' }
