@@ -41,7 +41,7 @@ public class StreamerService extends Service {
 
         new Thread(() -> {
             try {
-                startRcloneRcd();
+                startWebServer();
             } catch (IOException |InterruptedException e) {
                 throw new RuntimeException(e);
             }
@@ -50,7 +50,7 @@ public class StreamerService extends Service {
         return START_STICKY;
     }
 
-    private void startRcloneRcd() throws IOException, InterruptedException {
+    private void startWebServer() throws IOException, InterruptedException {
         File writableDir = new File(getFilesDir(), "streamer");
         String libraryPath = getApplicationInfo().nativeLibraryDir;
 

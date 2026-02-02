@@ -3,7 +3,6 @@ package com.connect_screen.mirror.job;
 import static android.opengl.GLES11Ext.GL_TEXTURE_EXTERNAL_OES;
 
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.graphics.SurfaceTexture;
 import android.hardware.display.DisplayManager;
@@ -20,7 +19,6 @@ import android.opengl.EGLDisplay;
 import android.opengl.GLES20;
 
 import com.connect_screen.mirror.FloatingButtonService;
-import com.connect_screen.mirror.MirrorSettingsActivity;
 import com.connect_screen.mirror.Pref;
 import com.connect_screen.mirror.State;
 import com.connect_screen.mirror.SunshineService;
