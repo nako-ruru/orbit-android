@@ -31,7 +31,7 @@ export function setLocalStreamSettings(settings) {
 }
 export class StreamSettingsComponent {
     constructor(settings) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p;
         this.divElement = document.createElement("div");
         this.sidebarHeader = document.createElement("h2");
         this.streamHeader = document.createElement("h2");
@@ -146,9 +146,15 @@ export class StreamSettingsComponent {
         });
         this.canvasRenderer.addChangeListener(this.onSettingsChange.bind(this));
         this.canvasRenderer.mount(this.divElement);
+        // Canvas VSync (Canvas only: sync draw to display refresh to reduce tearing; off = lower latency)
+        this.canvasVsync = new InputComponent("canvasVsync", "checkbox", "Canvas VSync (reduce tearing)", {
+            checked: (_h = settings === null || settings === void 0 ? void 0 : settings.canvasVsync) !== null && _h !== void 0 ? _h : defaultSettings_.canvasVsync
+        });
+        this.canvasVsync.addChangeListener(this.onSettingsChange.bind(this));
+        this.canvasVsync.mount(this.divElement);
         // HDR
         this.hdr = new InputComponent("hdr", "checkbox", "Enable HDR", {
-            checked: (_h = settings === null || settings === void 0 ? void 0 : settings.hdr) !== null && _h !== void 0 ? _h : defaultSettings_.hdr
+            checked: (_j = settings === null || settings === void 0 ? void 0 : settings.hdr) !== null && _j !== void 0 ? _j : defaultSettings_.hdr
         });
         this.hdr.addChangeListener(this.onSettingsChange.bind(this));
         this.hdr.mount(this.divElement);
@@ -163,7 +169,7 @@ export class StreamSettingsComponent {
         // Audio Sample Queue Size
         this.audioSampleQueueSize = new InputComponent("audioSampleQueueSize", "number", "Audio Sample Queue Size", {
             defaultValue: defaultSettings_.audioSampleQueueSize.toString(),
-            value: (_j = settings === null || settings === void 0 ? void 0 : settings.audioSampleQueueSize) === null || _j === void 0 ? void 0 : _j.toString()
+            value: (_k = settings === null || settings === void 0 ? void 0 : settings.audioSampleQueueSize) === null || _k === void 0 ? void 0 : _k.toString()
         });
         this.audioSampleQueueSize.addChangeListener(this.onSettingsChange.bind(this));
         this.audioSampleQueueSize.mount(this.divElement);
@@ -201,7 +207,7 @@ export class StreamSettingsComponent {
         this.controllerSendIntervalOverride = new InputComponent("controllerSendIntervalOverride", "number", "Override Controller State Send Interval", {
             hasEnableCheckbox: true,
             defaultValue: "20",
-            value: (_k = settings === null || settings === void 0 ? void 0 : settings.controllerConfig.sendIntervalOverride) === null || _k === void 0 ? void 0 : _k.toString(),
+            value: (_l = settings === null || settings === void 0 ? void 0 : settings.controllerConfig.sendIntervalOverride) === null || _l === void 0 ? void 0 : _l.toString(),
             numberSlider: {
                 range_min: 10,
                 range_max: 120
@@ -223,7 +229,7 @@ export class StreamSettingsComponent {
             { value: "websocket", name: "Web Socket (Experimental)" },
         ], {
             displayName: "Data Transport",
-            preSelectedOption: (_l = settings === null || settings === void 0 ? void 0 : settings.dataTransport) !== null && _l !== void 0 ? _l : defaultSettings_.dataTransport
+            preSelectedOption: (_m = settings === null || settings === void 0 ? void 0 : settings.dataTransport) !== null && _m !== void 0 ? _m : defaultSettings_.dataTransport
         });
         this.dataTransport.addChangeListener(this.onSettingsChange.bind(this));
         this.dataTransport.mount(this.divElement);
@@ -237,12 +243,12 @@ export class StreamSettingsComponent {
             { value: "old", name: "Old" }
         ], {
             displayName: "Style",
-            preSelectedOption: (_m = settings === null || settings === void 0 ? void 0 : settings.pageStyle) !== null && _m !== void 0 ? _m : defaultSettings_.pageStyle
+            preSelectedOption: (_o = settings === null || settings === void 0 ? void 0 : settings.pageStyle) !== null && _o !== void 0 ? _o : defaultSettings_.pageStyle
         });
         this.pageStyle.addChangeListener(this.onSettingsChange.bind(this));
         this.pageStyle.mount(this.divElement);
         this.useSelectElementPolyfill = new InputComponent("useSelectElementPolyfill", "checkbox", "Use Custom Dropdown Implementation (Experimental)", {
-            checked: (_o = settings === null || settings === void 0 ? void 0 : settings.useSelectElementPolyfill) !== null && _o !== void 0 ? _o : defaultSettings_.useSelectElementPolyfill
+            checked: (_p = settings === null || settings === void 0 ? void 0 : settings.useSelectElementPolyfill) !== null && _p !== void 0 ? _p : defaultSettings_.useSelectElementPolyfill
         });
         this.useSelectElementPolyfill.addChangeListener(this.onSettingsChange.bind(this));
         this.useSelectElementPolyfill.mount(this.divElement);
@@ -280,6 +286,7 @@ export class StreamSettingsComponent {
         settings.videoCodec = this.videoCodec.getValue();
         settings.forceVideoElementRenderer = this.forceVideoElementRenderer.isChecked();
         settings.canvasRenderer = this.canvasRenderer.isChecked();
+        settings.canvasVsync = this.canvasVsync.isChecked();
         settings.playAudioLocal = this.playAudioLocal.isChecked();
         settings.audioSampleQueueSize = parseInt(this.audioSampleQueueSize.getValue());
         settings.mouseScrollMode = this.mouseScrollMode.getValue();

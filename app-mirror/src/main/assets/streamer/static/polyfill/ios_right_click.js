@@ -3,6 +3,7 @@
 const RIGHT_CLICK_TIME_MS = 400;
 const RIGHT_CLICK_MAX_MOVE = 40;
 let rightClickEnabled = false;
+let timer;
 /// This might or might not disable all touch events and will likely simulate click / contextmenu events
 export function setTouchContextMenuEnabled(enabled) {
     if ((navigator === null || navigator === void 0 ? void 0 : navigator.vendor) == "Apple Computer, Inc.") {
@@ -12,6 +13,9 @@ export function setTouchContextMenuEnabled(enabled) {
 const touchTracker = new Map();
 function onTouchStart(event) {
     var _a;
+    if (!rightClickEnabled) {
+        return;
+    }
     for (const touch of event.changedTouches) {
         touchTracker.set(touch.identifier, {
             originX: touch.clientX,
@@ -21,42 +25,40 @@ function onTouchStart(event) {
             oldX: touch.clientX,
             oldY: touch.clientY
         });
+        const eventInit = {
+            clientX: touch.clientX,
+            clientY: touch.clientY,
+            force: touch.force,
+            pageX: touch.pageX,
+            pageY: touch.pageY,
+            radiusX: touch.radiusX,
+            radiusY: touch.radiusY,
+            rotationAngle: touch.rotationAngle,
+            screenX: touch.screenX,
+            screenY: touch.screenY,
+            target: touch.target,
+            // Other
+            bubbles: true,
+            cancellable: true
+        };
+        const contextMenuEvent = new MouseEvent("contextmenu", eventInit);
+        timer = setTimeout(() => {
+            touch === null || touch === void 0 ? void 0 : touch.target.dispatchEvent(contextMenuEvent);
+        }, RIGHT_CLICK_TIME_MS);
     }
-    if (!rightClickEnabled) {
-        return;
-    }
-    event.preventDefault();
-    event.stopImmediatePropagation();
 }
 function onTouchMove(event) {
-    var _a, _b;
     if (!rightClickEnabled) {
         return;
     }
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    for (const touch of event.changedTouches) {
-        const tracker = touchTracker.get(touch.identifier);
-        if (!tracker) {
-            continue;
-        }
-        const deltaX = tracker.oldX - touch.clientX;
-        const deltaY = tracker.oldY - touch.clientY;
-        const element = (_b = (_a = tracker.startTarget) === null || _a === void 0 ? void 0 : _a.closest(".scrollable")) !== null && _b !== void 0 ? _b : window;
-        element.scrollBy({
-            top: deltaY,
-            left: deltaX,
-            behavior: "instant"
-        });
-        tracker.oldX = touch.clientX;
-        tracker.oldY = touch.clientY;
-    }
+    clearTimeout(timer);
 }
 function onTouchEnd(event) {
     if (!rightClickEnabled) {
         removeTouch(event);
         return;
     }
+    clearTimeout(timer);
     event.stopImmediatePropagation();
     for (const touch of event.changedTouches) {
         const touchStart = touchTracker.get(touch.identifier);
@@ -80,22 +82,12 @@ function onTouchEnd(event) {
             bubbles: true,
             cancellable: true
         };
-        if (touch.clientX - touchStart.originX < RIGHT_CLICK_MAX_MOVE
-            && touch.clientY - touchStart.originY < RIGHT_CLICK_MAX_MOVE) {
+        if (Math.abs(touch.clientX - touchStart.originX) < RIGHT_CLICK_MAX_MOVE
+            && Math.abs(touch.clientY - touchStart.originY) < RIGHT_CLICK_MAX_MOVE) {
             if (timeDiff > RIGHT_CLICK_TIME_MS) {
                 // dispatch fake context menu event
                 const contextMenuEvent = new MouseEvent("contextmenu", eventInit);
                 touch === null || touch === void 0 ? void 0 : touch.target.dispatchEvent(contextMenuEvent);
-            }
-            else {
-                // dispatch click
-                const clickEvent = new MouseEvent("click", eventInit);
-                if ("target" in touch) {
-                    touch.target.dispatchEvent(clickEvent);
-                    if ("focus" in touch.target && typeof touch.target.focus == "function") {
-                        touch.target.focus();
-                    }
-                }
             }
         }
     }

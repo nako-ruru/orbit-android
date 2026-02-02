@@ -7,7 +7,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import { CanvasVideoRenderer } from "./canvas.js";
 import { VideoElementRenderer } from "./video_element.js";
 import { VideoMediaStreamTrackProcessorPipe } from "./media_stream_track_processor_pipe.js";
 import { VideoDecoderPipe } from "./video_decoder_pipe.js";
@@ -17,44 +16,46 @@ import { andVideoCodecs, hasAnyCodec } from "../video.js";
 import { buildPipeline, gatherPipeInfo, globalObject } from "../pipeline/index.js";
 import { workerPipe } from "../pipeline/worker_pipe.js";
 import { WorkerDataSendPipe, WorkerVideoFrameReceivePipe, WorkerVideoTrackReceivePipe, WorkerVideoTrackSendPipe } from "../pipeline/worker_io.js";
-import { OffscreenCanvasVideoRenderer } from "./offscreen_canvas.js";
+import { OffscreenCanvasRenderer } from "./offscreen_canvas.js";
+import { MainCanvasRenderer } from "./canvas.js";
+import { CanvasFrameDrawPipe } from "./canvas_frame.js";
 const VIDEO_RENDERERS = [
     VideoElementRenderer,
-    CanvasVideoRenderer,
-    OffscreenCanvasVideoRenderer,
+    MainCanvasRenderer,
+    OffscreenCanvasRenderer,
 ];
 export const WorkerVideoMediaStreamProcessorPipe = workerPipe("WorkerVideoMediaStreamProcessorPipe", { pipes: ["WorkerVideoTrackReceivePipe", "VideoMediaStreamTrackProcessorPipe", "WorkerVideoFrameSendPipe"] });
-export const WorkerVideoMediaStreamProcessorCanvasPipe = workerPipe("WorkerVideoMediaStreamProcessorCanvasPipe", { pipes: ["WorkerVideoTrackReceivePipe", "VideoMediaStreamTrackProcessorPipe", "WorkerOffscreenCanvasSendPipe"] });
+export const WorkerVideoMediaStreamProcessorCanvasPipe = workerPipe("WorkerVideoMediaStreamProcessorCanvasPipe", { pipes: ["WorkerVideoTrackReceivePipe", "VideoMediaStreamTrackProcessorPipe", "CanvasFrameDrawPipe", "WorkerOffscreenCanvasSendPipe"] });
 export const WorkerDataToVideoTrackPipe = workerPipe("WorkerVideoFrameToTrackPipe", { pipes: ["WorkerDataReceivePipe", "DepacketizeVideoPipe", "VideoDecoderPipe", "VideoTrackGeneratorPipe", "WorkerVideoTrackSendPipe"] });
 const FORCE_CANVAS_PIPELINES = [
     // -- track
     // Convert track -> video frame -> canvas, Chromium
-    { input: "videotrack", pipes: [VideoMediaStreamTrackProcessorPipe], renderer: CanvasVideoRenderer },
+    { input: "videotrack", pipes: [VideoMediaStreamTrackProcessorPipe, CanvasFrameDrawPipe], renderer: MainCanvasRenderer },
     // Convert track -> video frame (in worker) -> canvas (in worker), Safari
-    { input: "videotrack", pipes: [WorkerVideoTrackSendPipe, WorkerVideoMediaStreamProcessorCanvasPipe], renderer: OffscreenCanvasVideoRenderer },
+    { input: "videotrack", pipes: [WorkerVideoTrackSendPipe, WorkerVideoMediaStreamProcessorCanvasPipe], renderer: OffscreenCanvasRenderer },
     // Convert track -> video frame (in worker) -> canvas, Safari
-    { input: "videotrack", pipes: [WorkerVideoTrackSendPipe, WorkerVideoMediaStreamProcessorPipe, WorkerVideoFrameReceivePipe], renderer: CanvasVideoRenderer },
+    { input: "videotrack", pipes: [WorkerVideoTrackSendPipe, WorkerVideoMediaStreamProcessorPipe, WorkerVideoFrameReceivePipe, CanvasFrameDrawPipe], renderer: MainCanvasRenderer },
     // -- data
     // Convert data -> video frame -> canvas, Default (should be supported everywhere)
-    { input: "data", pipes: [DepacketizeVideoPipe, VideoDecoderPipe], renderer: CanvasVideoRenderer },
+    { input: "data", pipes: [DepacketizeVideoPipe, VideoDecoderPipe, CanvasFrameDrawPipe], renderer: MainCanvasRenderer },
 ];
 const PIPELINES = [
     // -- track
     // Convert track -> video element, Default (should be supported everywhere)
     { input: "videotrack", pipes: [], renderer: VideoElementRenderer },
     // Convert track -> video frame -> canvas, Chromium
-    { input: "videotrack", pipes: [VideoMediaStreamTrackProcessorPipe], renderer: CanvasVideoRenderer },
+    { input: "videotrack", pipes: [VideoMediaStreamTrackProcessorPipe, CanvasFrameDrawPipe], renderer: MainCanvasRenderer },
     // Convert track -> video frame (in worker) -> canvas (in worker), Safari
-    { input: "videotrack", pipes: [WorkerVideoTrackSendPipe, WorkerVideoMediaStreamProcessorCanvasPipe], renderer: OffscreenCanvasVideoRenderer },
+    { input: "videotrack", pipes: [WorkerVideoTrackSendPipe, WorkerVideoMediaStreamProcessorCanvasPipe, CanvasFrameDrawPipe], renderer: OffscreenCanvasRenderer },
     // Convert track -> video frame (in worker) -> canvas, Safari
-    { input: "videotrack", pipes: [WorkerVideoTrackSendPipe, WorkerVideoMediaStreamProcessorPipe, WorkerVideoFrameReceivePipe], renderer: CanvasVideoRenderer },
+    { input: "videotrack", pipes: [WorkerVideoTrackSendPipe, WorkerVideoMediaStreamProcessorPipe, WorkerVideoFrameReceivePipe], renderer: MainCanvasRenderer },
     // -- data
     // Convert data -> video frame (in worker) -> track (in worker, VideoTrackGenerator) -> video element, Safari
     { input: "data", pipes: [WorkerDataSendPipe, WorkerDataToVideoTrackPipe, WorkerVideoTrackReceivePipe], renderer: VideoElementRenderer },
     // Convert data -> video frame -> track (MediaStreamTrackGenerator) -> video element, Chromium
     { input: "data", pipes: [DepacketizeVideoPipe, VideoDecoderPipe, VideoMediaStreamTrackGeneratorPipe], renderer: VideoElementRenderer },
-    // Convert data -> video frame -> canvas, Firefox / Fallback
-    { input: "data", pipes: [DepacketizeVideoPipe, VideoDecoderPipe], renderer: CanvasVideoRenderer },
+    // Convert data -> video frame -> canvas, Default (should be supported everywhere)
+    { input: "data", pipes: [DepacketizeVideoPipe, VideoDecoderPipe, CanvasFrameDrawPipe], renderer: MainCanvasRenderer },
 ];
 export function buildVideoPipeline(type, settings, logger) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -134,7 +135,8 @@ export function buildVideoPipeline(type, settings, logger) {
             }
             // Build that pipeline
             logger === null || logger === void 0 ? void 0 : logger.debug(`Trying to build pipeline: ${pipeline.pipes.map(pipe => pipe.name).join(" -> ")} -> ${pipeline.renderer.name} (renderer)`);
-            const videoRenderer = buildPipeline(pipeline.renderer, { pipes: pipeline.pipes }, logger);
+            const rendererOptions = { drawOnSubmit: !settings.canvasVsync };
+            const videoRenderer = buildPipeline(pipeline.renderer, { pipes: pipeline.pipes }, logger, rendererOptions);
             if (!videoRenderer) {
                 logger === null || logger === void 0 ? void 0 : logger.debug(`Failed to build video pipeline: ${pipeline.pipes.map(pipe => pipe.name).join(" -> ")} -> ${pipeline.renderer.name} (renderer)`);
                 continue pipelineLoop;

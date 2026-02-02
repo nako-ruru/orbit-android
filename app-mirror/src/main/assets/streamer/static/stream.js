@@ -211,7 +211,7 @@ class ViewerApp {
         var _a;
         this.onUserInteraction();
         console.debug(event);
-        if (event.ctrlKey && event.code == "KeyV") {
+        if (event.shiftKey && event.ctrlKey && event.code == "KeyV") {
             // We are likely pasting -> don't send keys
         }
         else if (event.code == "F11") {
@@ -658,7 +658,12 @@ class ViewerSidebar {
                     console.debug("Failed to close stream correctly");
                 }
             }
-            window.close();
+            if (window.matchMedia('(display-mode: standalone)').matches) {
+                history.back();
+            }
+            else {
+                window.close();
+            }
         }));
         this.buttonDiv.appendChild(this.exitStreamButton);
         // Select Mouse Mode

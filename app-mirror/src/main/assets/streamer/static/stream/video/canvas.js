@@ -10,16 +10,117 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 import { globalObject } from "../pipeline/index.js";
 import { allVideoCodecs } from "../video.js";
 import { getStreamRectCorrected } from "./index.js";
+function getColorSpace(hdrEnabled) {
+    return hdrEnabled ? "rec2020-pq" : "srgb";
+}
 export class BaseCanvasVideoRenderer {
-    constructor(implementationName) {
-        this.canvas = document.createElement("canvas");
+    static createMainCanvas() {
+        const canvas = document.createElement("canvas");
+        canvas.classList.add("video-stream");
+        return canvas;
+    }
+    constructor(implementationName, options) {
+        this.div = ("document" in globalObject()) ? globalObject().document.createElement("div") : null;
+        this.canvas = null;
+        this.isTransferred = false;
+        this.context = null;
+        this.hdrEnabled = false;
         this.videoSize = null;
+        this.options = null;
         this.implementationName = implementationName;
-        this.canvas.classList.add("video-stream");
+        this.options = options !== null && options !== void 0 ? options : null;
+    }
+    setCanvas(canvas, isTransferred) {
+        this.isTransferred = isTransferred !== null && isTransferred !== void 0 ? isTransferred : false;
+        this.canvas = canvas;
+        if (this.div && canvas instanceof HTMLCanvasElement) {
+            this.div.appendChild(canvas);
+        }
+    }
+    setHdrMode(enabled) {
+        this.hdrEnabled = enabled;
+        // Update existing context
+        if (this.context) {
+            // Set HDR color space and transfer function
+            if ("colorSpace" in this.context) {
+                try {
+                    this.context.colorSpace = getColorSpace(enabled);
+                }
+                catch (err) {
+                    console.warn("Failed to set canvas colorSpace:", err);
+                }
+            }
+        }
+    }
+    useCanvasContext(type) {
+        var _a;
+        if (!this.canvas) {
+            return {
+                context: null,
+                error: "noCanvas",
+            };
+        }
+        if (!this.context) {
+            const options = {
+                colorSpace: getColorSpace(this.hdrEnabled),
+                // https://developer.mozilla.org/en-US/docs/Web/API/OffscreenCanvas/getContext#desynchronized
+                desynchronized: (_a = this.options) === null || _a === void 0 ? void 0 : _a.drawOnSubmit
+            };
+            if (type == "webgl") {
+                this.context = this.canvas.getContext("webgl", options);
+            }
+            else if (type == "webgl2") {
+                this.context = this.canvas.getContext("webgl2", options);
+            }
+            else if (type == "2d") {
+                this.context = this.canvas.getContext("2d", options);
+            }
+            if (!this.context) {
+                return {
+                    context: null,
+                    error: "creationFailed",
+                };
+            }
+        }
+        if (type == "webgl" && (this.context instanceof WebGLRenderingContext || this.context instanceof WebGL2RenderingContext)) {
+            return {
+                error: null,
+                context: this.context
+            };
+        }
+        else if (type == "webgl2" && this.context instanceof WebGL2RenderingContext) {
+            return {
+                error: null,
+                context: this.context
+            };
+        }
+        else if (type == "2d" && (this.context instanceof OffscreenCanvasRenderingContext2D || this.context instanceof CanvasRenderingContext2D)) {
+            return {
+                error: null,
+                context: this.context
+            };
+        }
+        return {
+            context: null,
+            error: "otherContextInUse"
+        };
+    }
+    setCanvasSize(width, height) {
+        if (this.canvas && !this.isTransferred) {
+            this.canvas.width = width;
+            this.canvas.height = height;
+        }
+    }
+    commitFrame() {
+        if (this.canvas && "commit" in this.canvas && typeof this.canvas.commit == "function") {
+            // Signal finished, not supported in all browsers
+            this.canvas.commit();
+        }
     }
     setup(setup) {
         return __awaiter(this, void 0, void 0, function* () {
             this.videoSize = [setup.width, setup.height];
+            this.setCanvasSize(setup.width, setup.height);
         });
     }
     cleanup() { }
@@ -30,14 +131,23 @@ export class BaseCanvasVideoRenderer {
         // Nothing
     }
     mount(parent) {
-        parent.appendChild(this.canvas);
+        if (!this.div) {
+            throw "Cannot mount div inside a worker!";
+        }
+        parent.appendChild(this.div);
     }
     unmount(parent) {
-        parent.removeChild(this.canvas);
+        if (!this.div) {
+            throw "Cannot unmount div inside a worker!";
+        }
+        parent.removeChild(this.div);
     }
     getStreamRect() {
-        if (!this.videoSize) {
+        if (!this.videoSize || !this.canvas) {
             return new DOMRect();
+        }
+        if (!(this.canvas instanceof HTMLCanvasElement)) {
+            throw "Cannot get client bounding rect of OffscreenCanvas!";
         }
         return getStreamRectCorrected(this.canvas.getBoundingClientRect(), this.videoSize);
     }
@@ -45,7 +155,7 @@ export class BaseCanvasVideoRenderer {
         return null;
     }
 }
-export class CanvasVideoRenderer extends BaseCanvasVideoRenderer {
+export class MainCanvasRenderer extends BaseCanvasVideoRenderer {
     static getInfo() {
         return __awaiter(this, void 0, void 0, function* () {
             // no link
@@ -55,26 +165,10 @@ export class CanvasVideoRenderer extends BaseCanvasVideoRenderer {
             };
         });
     }
-    constructor() {
-        super("canvas");
-        this.context = null;
-        this.animationFrameRequest = null;
-        this.currentFrame = null;
-        this.hdrEnabled = false;
-    }
-    setHdrMode(enabled) {
-        this.hdrEnabled = enabled;
-        if (this.context) {
-            // Set HDR color space and transfer function
-            if ("colorSpace" in this.context) {
-                try {
-                    this.context.colorSpace = enabled ? "rec2020-pq" : "srgb";
-                }
-                catch (err) {
-                    console.warn("Failed to set canvas colorSpace:", err);
-                }
-            }
-        }
+    constructor(logger, options) {
+        super("canvas", options);
+        logger === null || logger === void 0 ? void 0 : logger.debug(`Applying canvas options: ${JSON.stringify(options)}`);
+        this.setCanvas(BaseCanvasVideoRenderer.createMainCanvas());
     }
     setup(setup) {
         const _super = Object.create(null, {
@@ -82,57 +176,13 @@ export class CanvasVideoRenderer extends BaseCanvasVideoRenderer {
         });
         return __awaiter(this, void 0, void 0, function* () {
             yield _super.setup.call(this, setup);
-            if (this.animationFrameRequest == null) {
-                this.animationFrameRequest = requestAnimationFrame(this.onAnimationFrame.bind(this));
-            }
         });
     }
     cleanup() {
         super.cleanup();
-        this.context = null;
-        if (this.animationFrameRequest != null) {
-            cancelAnimationFrame(this.animationFrameRequest);
-            this.animationFrameRequest = null;
-        }
     }
     mount(parent) {
         super.mount(parent);
-        if (!this.context) {
-            const context = this.canvas.getContext("2d", {
-                colorSpace: this.hdrEnabled ? "rec2020-pq" : "srgb"
-            });
-            if (context && context instanceof CanvasRenderingContext2D) {
-                this.context = context;
-                // Apply HDR settings if already enabled
-                if (this.hdrEnabled && "colorSpace" in context) {
-                    try {
-                        context.colorSpace = "rec2020-pq";
-                    }
-                    catch (err) {
-                        console.warn("Failed to set canvas colorSpace:", err);
-                    }
-                }
-            }
-            else {
-                throw "Failed to get 2d context from canvas";
-            }
-        }
-    }
-    submitFrame(frame) {
-        var _a;
-        (_a = this.currentFrame) === null || _a === void 0 ? void 0 : _a.close();
-        this.currentFrame = frame;
-    }
-    onAnimationFrame() {
-        const frame = this.currentFrame;
-        if (frame && this.context) {
-            this.canvas.width = frame.displayWidth;
-            this.canvas.height = frame.displayHeight;
-            // Clear the canvas before drawing the new frame to prevent artifacts
-            this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
-            this.context.drawImage(frame, 0, 0, this.canvas.width, this.canvas.height);
-        }
-        this.animationFrameRequest = requestAnimationFrame(this.onAnimationFrame.bind(this));
     }
 }
-CanvasVideoRenderer.type = "videoframe";
+MainCanvasRenderer.type = "canvas";

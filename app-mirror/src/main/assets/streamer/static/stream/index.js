@@ -197,6 +197,7 @@ export class Stream {
             else if ("Setup" in message) {
                 const iceServers = message.Setup.ice_servers;
                 this.iceServers = iceServers;
+                this.debugLog(`window.isSecureContext: ${window.isSecureContext}`);
                 this.debugLog(`Using WebRTC Ice Servers: ${createPrettyList(iceServers.map(server => server.urls).reduce((list, url) => list.concat(url), []))}`);
                 yield this.startConnection();
             }
@@ -449,7 +450,8 @@ export class Stream {
             const videoSettings = {
                 supportedVideoCodecs: andVideoCodecs(codecHint, transportCodecSupport),
                 canvasRenderer: this.settings.canvasRenderer,
-                forceVideoElementRenderer: this.settings.forceVideoElementRenderer
+                forceVideoElementRenderer: this.settings.forceVideoElementRenderer,
+                canvasVsync: this.settings.canvasVsync
             };
             let pipelineCodecSupport;
             const video = this.transport.getChannel(TransportChannelId.HOST_VIDEO);

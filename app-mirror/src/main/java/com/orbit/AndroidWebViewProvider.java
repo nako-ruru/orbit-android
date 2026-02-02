@@ -7,15 +7,10 @@ import android.os.Looper;
 import android.util.Log;
 import android.webkit.WebView;
 
-import androidx.webkit.WebViewCompat;
-
 import java.lang.ref.WeakReference;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 import aar.*;
 import aar.Runnable;
@@ -39,7 +34,7 @@ public class AndroidWebViewProvider implements WebViewProvider {
     @Override
     public void createAndStart(String id, String title, String url, String html, String jsInit, String bindings) {
         Log.i("AndroidWebViewProvider", "createAndStart");
-        mainHandler.postDelayed(() -> {
+        mainHandler.post(() -> {
             Log.i("AndroidWebViewProvider", "createAndStart: mainHandler.post");
             if(id.equals("500") && OrbitApplication.activity.getClass().getName().contains("SplashActivity")) {
                 OrbitApplication.activity.finish();
@@ -58,7 +53,7 @@ public class AndroidWebViewProvider implements WebViewProvider {
             i.putExtra("BINDINGS", bindings);
             context.startActivity(i);
             Log.i("AndroidWebViewProvider", "createAndStart: 5");
-        }, 3000);
+        });
     }
 
     @Override

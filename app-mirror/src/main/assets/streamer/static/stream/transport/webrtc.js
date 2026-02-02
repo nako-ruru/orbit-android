@@ -201,7 +201,7 @@ export class WebRTCTransport {
             }
             this.wasConnected = true;
         }
-        else if ((this.peer.connectionState == "failed" || this.peer.connectionState == "closed" || this.peer.connectionState == "disconnected") && this.peer.iceGatheringState == "complete") {
+        else if ((this.peer.connectionState == "failed" || this.peer.connectionState == "closed") && this.peer.iceGatheringState == "complete") {
             type = "fatal";
         }
         if (this.peer.connectionState == "failed" || this.peer.connectionState == "closed") {

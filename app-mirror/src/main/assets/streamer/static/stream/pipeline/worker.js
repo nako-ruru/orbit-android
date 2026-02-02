@@ -71,6 +71,7 @@ function onMessage(message) {
             postMessage(response);
         }
         else if ("createPipeline" in message) {
+            logger.debug(`Trying to build pipeline in worker, Pipes: ${JSON.stringify(message.createPipeline.pipes)}`, { type: "fatal" });
             const pipeline = message.createPipeline;
             const newPipeline = buildPipeline(WorkerMessageSender, pipeline, logger);
             if (newPipeline && "onWorkerMessage" in newPipeline && typeof newPipeline.onWorkerMessage == "function") {
@@ -79,6 +80,7 @@ function onMessage(message) {
             else {
                 logger.debug("Failed to build worker pipeline!", { type: "fatal" });
             }
+            logger.debug(`Successfully build pipeline in worker: ${currentPipeline === null || currentPipeline === void 0 ? void 0 : currentPipeline.implementationName}`);
             let base = newPipeline;
             let newBase = newPipeline === null || newPipeline === void 0 ? void 0 : newPipeline.getBase();
             while ((newBase = base === null || base === void 0 ? void 0 : base.getBase()) && !(newBase instanceof WorkerMessageSender)) {
@@ -96,7 +98,12 @@ function onMessage(message) {
             if ("canvas" in message.input) {
                 // Filter out the canvas, the last pipe needs that
                 if (canvasPipe) {
+                    logger.debug("Received OffscreenCanvas in worker");
                     canvasPipe.setContext(message.input.canvas);
+                }
+                else {
+                    pipelineErrored = true;
+                    logger.debug("Failed to set OffscreenCanvas in the worker because the worker doesn't contain a compatible pipe at the end of the pipeline!", { type: "fatal" });
                 }
             }
             else {
@@ -105,7 +112,7 @@ function onMessage(message) {
                 }
                 else {
                     pipelineErrored = true;
-                    logger.debug("Failed to submit worker pipe input because the worker wasn't assigned a pipeline!");
+                    logger.debug(`Failed to submit worker pipe input because the worker wasn't assigned a pipeline! Message: ${JSON.stringify(message)}`);
                 }
             }
         }

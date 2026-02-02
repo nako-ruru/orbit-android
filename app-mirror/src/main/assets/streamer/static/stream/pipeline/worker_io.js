@@ -7,6 +7,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+import { BaseCanvasVideoRenderer } from "../video/canvas.js";
 import { globalObject } from "./index.js";
 import { addPipePassthrough } from "./pipes.js";
 class WorkerReceiverPipe {
@@ -114,32 +115,25 @@ export class WorkerOffscreenCanvasSendPipe extends WorkerSenderPipe {
     constructor(base, logger) {
         super(base, logger);
         this.implementationName = "offscreen_canvas_send";
-        this.canvas = null;
-        this.context = null;
+        this.renderer = new BaseCanvasVideoRenderer("offscreen_canvas", {
+            drawOnSubmit: true
+        });
         addPipePassthrough(this);
     }
     setContext(canvas) {
-        var _a;
         // This is called from the WorkerPipe
-        this.canvas = canvas;
-        this.context = canvas.getContext("2d");
-        if (!this.context) {
-            (_a = this.logger) === null || _a === void 0 ? void 0 : _a.debug("Failed to get OffscreenCanvasContext2D", { type: "fatal" });
-        }
+        this.renderer.setCanvas(canvas);
     }
-    submitFrame(frame) {
-        if (this.canvas && this.context) {
-            this.canvas.width = frame.displayWidth;
-            this.canvas.height = frame.displayHeight;
-            this.context.clearRect(0, 0, frame.displayWidth, frame.displayHeight);
-            this.context.drawImage(frame, 0, 0, frame.displayWidth, frame.displayHeight);
-            if ("commit" in this.canvas && typeof this.canvas.commit == "function") {
-                // Signal finished, not supported in all browsers
-                this.canvas.commit();
-            }
-        }
-        frame.close();
+    useCanvasContext(type) {
+        // @ts-ignore
+        return this.renderer.useCanvasContext(type);
+    }
+    setCanvasSize(width, height) {
+        this.renderer.setCanvasSize(width, height);
+    }
+    commitFrame() {
+        this.renderer.commitFrame();
     }
 }
 WorkerOffscreenCanvasSendPipe.baseType = "workerinput";
-WorkerOffscreenCanvasSendPipe.type = "videoframe";
+WorkerOffscreenCanvasSendPipe.type = "canvas";

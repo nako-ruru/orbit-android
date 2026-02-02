@@ -156,7 +156,6 @@ public class MirrorMainActivity extends AppCompatActivity implements IMainActivi
 
         // 初始化主界面控件
         initHomeControls();
-        SunshineService.instance = null;
     }
 
     private void ensureAccessiblityServiceStarted() {

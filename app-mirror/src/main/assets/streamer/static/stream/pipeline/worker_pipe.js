@@ -7,7 +7,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import { OffscreenCanvasVideoRenderer } from "../video/offscreen_canvas.js";
+import { OffscreenCanvasRenderer } from "../video/offscreen_canvas.js";
 import { globalObject, pipelineToString } from "./index.js";
 import { addPipePassthrough } from "./pipes.js";
 export function createPipelineWorker() {
@@ -61,6 +61,10 @@ export class WorkerPipe {
             createPipeline: this.pipeline
         };
         this.worker.postMessage(message);
+        this.worker.onerror = (event) => {
+            var _a;
+            (_a = this.logger) === null || _a === void 0 ? void 0 : _a.debug(`Worker errored because of: ${event.error}`);
+        };
         addPipePassthrough(this);
     }
     onWorkerMessage(input, transfer) {
@@ -84,8 +88,8 @@ export class WorkerPipe {
             result = this.base.mount(...arguments);
         }
         // The OffscreenCanvas needs to transfer it's canvas into the worker, do that here
-        if (this.base instanceof OffscreenCanvasVideoRenderer && this.base.offscreen) {
-            (_a = this.logger) === null || _a === void 0 ? void 0 : _a.debug("TESTING: TRANSFERRED");
+        if (this.base instanceof OffscreenCanvasRenderer && this.base.offscreen) {
+            (_a = this.logger) === null || _a === void 0 ? void 0 : _a.debug("Transferred OffscreenCanvas into worker");
             const canvas = this.base.offscreen;
             this.onWorkerMessage({ canvas }, [canvas]);
             this.base.transferred = true;

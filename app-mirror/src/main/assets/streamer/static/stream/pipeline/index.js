@@ -13,6 +13,7 @@ import { AudioDecoderPcmPipe } from "../audio/audio_decoder_pcm_pipe.js";
 import { AudioDecoderPipe } from "../audio/audio_decoder_pipe.js";
 import { DepacketizeAudioPipe } from "../audio/depacketize_pipe.js";
 import { AudioMediaStreamTrackGeneratorPipe } from "../audio/media_stream_track_generator_pipe.js";
+import { CanvasFrameDrawPipe } from "../video/canvas_frame.js";
 import { DepacketizeVideoPipe } from "../video/depackitize_video_pipe.js";
 import { VideoMediaStreamTrackGeneratorPipe } from "../video/media_stream_track_generator_pipe.js";
 import { VideoMediaStreamTrackProcessorPipe } from "../video/media_stream_track_processor_pipe.js";
@@ -50,9 +51,9 @@ export function getPipe(pipe) {
         return pipe;
     }
 }
-export function buildPipeline(base, pipeline, logger) {
+export function buildPipeline(base, pipeline, logger, rendererOptions) {
     let previousPipeStatic = base;
-    let pipe = new base(logger);
+    let pipe = new base(logger, rendererOptions);
     for (let index = pipeline.pipes.length - 1; index >= 0; index--) {
         const currentPipeValue = pipeline.pipes[index];
         const currentPipe = getPipe(currentPipeValue);
@@ -108,6 +109,7 @@ export function pipes() {
         VideoMediaStreamTrackProcessorPipe,
         VideoDecoderPipe,
         VideoTrackGeneratorPipe,
+        CanvasFrameDrawPipe,
         // Video Worker pipes
         WorkerVideoMediaStreamProcessorPipe,
         WorkerOffscreenCanvasSendPipe,

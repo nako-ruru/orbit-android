@@ -9,6 +9,8 @@ import android.media.projection.MediaProjectionManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.preference.PreferenceManager;
 import android.util.Log;
 import android.webkit.JavascriptInterface;
@@ -16,7 +18,6 @@ import android.webkit.WebView;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.webkit.WebViewCompat;
 
@@ -107,19 +108,6 @@ public class MainActivity extends AppCompatActivity {
 
         activity = this;
 
-        // 检查 SunshineService 是否已经在运行，如果没有运行才启动
-        Log.i("GoWebViewActivity", "SunshineService.instance = " + SunshineService.instance);
-        if (SunshineService.instance == null) {
-            startMediaProjectionService();
-        } else {
-            State.log("SunshineService 服务已在运行");
-        }
-
-        {
-            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-//            asfLauncher.launch(intent);
-        }
-
         mId = "500";
         mWebView = new WebView(this);
         AndroidWebViewProvider.bind(mId, mWebView, this::finish);
@@ -139,6 +127,34 @@ public class MainActivity extends AppCompatActivity {
         }
         mWebView.loadUrl(getIntent().getStringExtra("URL"));
         setContentView(mWebView);
+    }
+
+    private final Handler mHandler = new Handler(Looper.getMainLooper());
+
+    private final Runnable mPermissionAction = () -> {
+        if(!isFinishing() && !isDestroyed() && hasWindowFocus()) {
+            runOnUiThread(() -> {
+                // 检查 SunshineService 是否已经在运行，如果没有运行才启动
+                Log.i("GoWebViewActivity", "SunshineService.instance = " + SunshineService.instance);
+                if (SunshineService.instance == null) {
+                    startMediaProjectionService();
+                } else {
+                    State.log("SunshineService 服务已在运行");
+                }
+
+                {
+                    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+//            asfLauncher.launch(intent);
+                }
+            });
+        }
+    };
+
+    @Override
+    protected void onPostResume() {
+        super.onPostResume();
+        mHandler.removeCallbacks(mPermissionAction);
+        mHandler.postDelayed(mPermissionAction, 1 * 1000);
     }
 
     @Override
@@ -167,9 +183,10 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        // 彻底销毁，防止 Activity 销毁后任务还跑出来导致的内存泄漏
+        mHandler.removeCallbacksAndMessages(null);
         AndroidWebViewProvider.unbind(mId);
         Aar.notifyWebviewExit(mId);
-        SunshineService.instance = null;
     }
 
     @Override

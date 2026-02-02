@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 import { globalObject } from "../pipeline/index.js";
 import { BaseCanvasVideoRenderer } from "./canvas.js";
-export class OffscreenCanvasVideoRenderer extends BaseCanvasVideoRenderer {
+export class OffscreenCanvasRenderer extends BaseCanvasVideoRenderer {
     static getInfo() {
         return __awaiter(this, void 0, void 0, function* () {
             return {
@@ -18,9 +18,14 @@ export class OffscreenCanvasVideoRenderer extends BaseCanvasVideoRenderer {
         });
     }
     constructor() {
-        super("offscreen_canvas");
+        super("offscreen_canvas", {
+        // This won't make any difference because the rendering is done offscreen
+        // drawOnSubmit: true
+        });
+        this.mainCanvas = BaseCanvasVideoRenderer.createMainCanvas();
         this.transferred = false;
         this.offscreen = null;
+        this.setCanvas(this.mainCanvas, true);
     }
     setup(setup) {
         const _super = Object.create(null, {
@@ -33,7 +38,7 @@ export class OffscreenCanvasVideoRenderer extends BaseCanvasVideoRenderer {
     mount(parent) {
         super.mount(parent);
         if (!this.offscreen && !this.transferred) {
-            this.offscreen = this.canvas.transferControlToOffscreen();
+            this.offscreen = this.mainCanvas.transferControlToOffscreen();
             // The transfer happens in the WorkerPipe
         }
     }
@@ -43,4 +48,4 @@ export class OffscreenCanvasVideoRenderer extends BaseCanvasVideoRenderer {
         }
     }
 }
-OffscreenCanvasVideoRenderer.type = "workeroutput";
+OffscreenCanvasRenderer.type = "workeroutput";
