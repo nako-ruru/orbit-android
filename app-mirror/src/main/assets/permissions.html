@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>无人值守授权中心</title>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header h1 { margin: 0; font-size: 24px; color: #38bdf8; }
+        .header p { margin: 5px 0; color: #94a3b8; font-size: 14px; }
+
+        /* 横屏双栏网格布局 */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr); /* 两列 */
+            gap: 15px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        .card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px solid #334155;
+            transition: all 0.3s;
+        }
+
+        .card.granted { border-left: 5px solid #22c55e; }
+        .card.denied { border-left: 5px solid #ef4444; }
+
+        .info { flex: 1; margin-right: 15px; }
+        .info .title { font-weight: bold; font-size: 16px; display: flex; align-items: center; }
+        .info .desc { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+
+        .status-icon { margin-right: 8px; width: 18px; height: 18px; }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+            min-width: 80px;
+        }
+
+        .btn-go { background: #38bdf8; color: #0f172a; }
+        .btn-ok { background: #334155; color: #94a3b8; cursor: default; }
+
+        /* 隐藏滚动条但保留功能 */
+        .grid-container::-webkit-scrollbar { width: 5px; }
+        .grid-container::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>无人值守授权配置</h1>
+    <p>请确保以下所有权限均显示为“已开启”，否则受控端无法正常工作</p>
+</div>
+
+<div class="grid-container" id="permissionGrid">
+    <!-- 权限 Item 示例 -->
+    <!-- 运行时权限 -->
+    <div class="card denied" id="p-mic">
+        <div class="info">
+            <div class="title">录音/麦克风</div>
+            <div class="desc">用于远程监听环境声音</div>
+        </div>
+        <button class="btn btn-go" onclick="auth('mic')">去授权</button>
+    </div>
+
+    <!-- 特权：无障碍 -->
+    <div class="card denied" id="p-accessibility">
+        <div class="info">
+            <div class="title">无障碍服务</div>
+            <div class="desc">核心控制：用于模拟点击和手势操作</div>
+        </div>
+        <button class="btn btn-go" onclick="auth('accessibility')">去授权</button>
+    </div>
+
+    <!-- 特权：悬浮窗 -->
+    <div class="card denied" id="p-overlay">
+        <div class="info">
+            <div class="title">悬浮窗权限</div>
+            <div class="desc">用于在后台保持界面交互和状态显示</div>
+        </div>
+        <button class="btn btn-go" onclick="auth('overlay')">去授权</button>
+    </div>
+
+    <!-- 特权：VPN -->
+    <div class="card denied" id="p-vpn">
+        <div class="info">
+            <div class="title">VPN 转发</div>
+            <div class="desc">用于内网穿透和稳定的数据传输</div>
+        </div>
+        <button class="btn btn-go" onclick="auth('vpn')">去授权</button>
+    </div>
+
+    <!-- 特权：所有文件 -->
+    <div class="card denied" id="p-files">
+        <div class="info">
+            <div class="title">所有文件访问</div>
+            <div class="desc">允许远程管理和传输设备文件</div>
+        </div>
+        <button class="btn btn-go" onclick="auth('files')">去授权</button>
+    </div>
+
+    <!-- 特权：精确闹钟 -->
+    <div class="card denied" id="p-alarm">
+        <div class="info">
+            <div class="title">精确闹钟/重启</div>
+            <div class="desc">确保应用在异常退出后能准时重启</div>
+        </div>
+        <button class="btn btn-go" onclick="auth('alarm')">去授权</button>
+    </div>
+</div>
+
+<script>
+    // 供 Java 调用：更新 UI 状态
+    function updatePermissionUI(json) {
+        // 假设 json = {"mic":true, "vpn":false, ...}
+        for (let key in json) {
+            const card = document.getElementById('p-' + key);
+            if (!card) continue;
+
+            const btn = card.querySelector('.btn');
+            if (json[key]) {
+                card.className = 'card granted';
+                btn.className = 'btn btn-ok';
+                btn.innerText = '已开启';
+                btn.onclick = null;
+            } else {
+                card.className = 'card denied';
+                btn.className = 'btn btn-go';
+                btn.innerText = '去授权';
+                btn.onclick = function() { auth(key); };
+            }
+        }
+    }
+
+    // 调用 Java 桥接
+    function auth(type) {
+        if (window.AndroidBridge) {
+            window.AndroidBridge.openPermissionPage(type);
+        } else {
+            alert('正在请求跳转至: ' + type);
+            // 模拟成功测试
+            // updatePermissionUI({[type]: true});
+        }
+    }
+</script>
+
+</body>
+</html>

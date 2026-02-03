@@ -6,6 +6,7 @@ import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.content.res.AssetManager;
 import android.os.Build;
 import android.os.IBinder;
@@ -14,6 +15,8 @@ import android.util.Log;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
+import com.connect_screen.mirror.SunshineService;
+import com.connect_screen.mirror.job.ExitAll;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -27,6 +30,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 
+import fi.iki.elonen.NanoHTTPD;
+
 public class StreamerService extends Service {
 
     private Process process;
@@ -37,7 +42,35 @@ public class StreamerService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        startForeground(1, buildNotification());
+        startForeground(1, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC | ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+
+        NanoHTTPD httpd = new NanoHTTPD(9723) {
+            @Override
+            public Response serve(IHTTPSession session) {
+                Log.d("TestServer", "serve");
+                // 获取 URL 路径，例如 /trigger
+                String uri = session.getUri();
+                // 获取参数，例如 ?cmd=open
+                java.util.Map<String, String> params = session.getParms();
+
+                if ("/trigger".equals(uri)) {
+                    String cmd = params.get("cmd");
+
+                    // --- 在这里执行你的测试逻辑 ---
+                    ExitAll.execute(StreamerService.this, true);
+
+                    return newFixedLengthResponse("Android 已接收指令: " + cmd);
+                }
+
+                return newFixedLengthResponse("Server 正在运行，但路径不匹配");
+            }
+        };
+        try {
+            httpd.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false);
+            Log.d("TestServer", "Server 已启动，监听端口 9723");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         new Thread(() -> {
             try {
