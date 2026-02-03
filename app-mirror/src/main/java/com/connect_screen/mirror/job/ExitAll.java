@@ -1,5 +1,6 @@
 package com.connect_screen.mirror.job;
 
+import android.app.ActivityOptions;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Context;
@@ -23,29 +24,43 @@ public class ExitAll {
 
         restartByAlarm(MainActivity.activity, SplashActivity.class);
     }
-
     public static void restartByAlarm(Context context, Class<?> cls) {
-        Log.i("ExitAll", "restartByAlarm: context: " + context);
-        Log.i("ExitAll", "restartByAlarm: context.getPackageManager(): " + context.getPackageManager());
-        // 1. 自动获取应用的启动入口（Launch Activity）
         Intent intent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
         if (intent != null) {
-            // 2. 清除任务栈，确保是一次彻头彻尾的“冷启动”
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
 
-            // 3. 处理 Android 12+ 的 PendingIntent Flag 崩溃问题
+            // 1. 设置 BAL 允许模式
+            ActivityOptions options = ActivityOptions.makeBasic();
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) { // Android 14+
+                options.setPendingIntentBackgroundActivityStartMode(
+                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED
+                );
+            }
+
+            // 2. 处理 PendingIntent Flags
             int flags = PendingIntent.FLAG_CANCEL_CURRENT;
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
                 flags |= PendingIntent.FLAG_IMMUTABLE;
             }
 
-            PendingIntent pIntent = PendingIntent.getActivity(context, 123456, intent, flags);
+            // 3. 【关键修改】在 getActivity 创建时就传入 options.toBundle()
+            // 这解决了日志中提到的 "missing opt in by PI creator" 问题
+            PendingIntent pIntent = PendingIntent.getActivity(
+                    context,
+                    123456,
+                    intent,
+                    flags,
+                    options.toBundle()
+            );
 
-            // 4. 设置闹钟并在 500ms 后触发
+            // 4. 设置闹钟 (不再手动调用 pIntent.send())
             AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-            alarmManager.set(AlarmManager.RTC, System.currentTimeMillis() + 500, pIntent);
+            if (alarmManager != null) {
+                // 注意：Android 12+ 对精准闹钟有权限限制，这里用 set 即可
+                alarmManager.set(AlarmManager.RTC, System.currentTimeMillis() + 500, pIntent);
+            }
 
-            // 5. 立即退出进程，释放所有资源（包括 C 库内存）
+            // 5. 退出进程
             android.os.Process.killProcess(android.os.Process.myPid());
             System.exit(0);
         }
