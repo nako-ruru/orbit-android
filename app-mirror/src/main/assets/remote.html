@@ -1152,16 +1152,16 @@
                     <button class="permission-btn go" onclick="authPermission('notification')">去授权</button>
                 </div>
 
-                <!-- 新增权限：设备管理 -->
-                <div class="permission-card denied" id="p-device-admin">
+                <!-- 特权：自启动 -->
+                <div class="permission-card denied" id="p-autostart">
                     <div class="permission-info">
                         <div class="permission-title">
-                            <span class="permission-status-icon">📱</span>
-                            设备管理员
+                            <span class="permission-status-icon">🚀</span>
+                            自启动权限
                         </div>
-                        <div class="permission-desc">允许远程锁定、擦除设备等管理操作</div>
+                        <div class="permission-desc">确保受控端在手机意外重启、电量耗尽关机再充电、或系统静默更新后，能够自动重新上线。如果不开启，设备重启后将处于离线状态，必须人工前往现场手动开启应用。</div>
                     </div>
-                    <button class="permission-btn go" onclick="authPermission('device_admin')">去授权</button>
+                    <button class="permission-btn go" onclick="authPermission('autostart')">去授权</button>
                 </div>
 
                 <!-- 特权：省电策略 -->
@@ -1811,7 +1811,7 @@
             'files': '所有文件访问',
             'alarm': '精确闹钟/重启',
             'notification': '通知监听',
-            'device_admin': '设备管理员',
+            'autostart': '自启动权限',
             'power': '省电策略'
         };
 

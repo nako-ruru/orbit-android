@@ -5,7 +5,7 @@ import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.util.Log;
+import android.os.Build;
 
 import com.connect_screen.mirror.TouchpadAccessibilityService;
 import com.connect_screen.mirror.shizuku.ShizukuUtils;
@@ -56,8 +56,13 @@ public class ExitAll {
             // 4. 设置闹钟 (不再手动调用 pIntent.send())
             AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
             if (alarmManager != null) {
-                // 注意：Android 12+ 对精准闹钟有权限限制，这里用 set 即可
-                alarmManager.set(AlarmManager.RTC, System.currentTimeMillis() + 500, pIntent);
+                long triggerAtMillis = System.currentTimeMillis() + 500;
+                // 5. 关键调用：即使省电模式也强制执行
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pIntent);
+                } else {
+                    alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerAtMillis, pIntent);
+                }
             }
 
             // 5. 退出进程

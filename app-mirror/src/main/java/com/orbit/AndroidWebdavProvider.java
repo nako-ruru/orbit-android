@@ -7,17 +7,24 @@ import android.net.Uri;
 import android.os.ParcelFileDescriptor;
 import android.preference.PreferenceManager;
 import android.provider.DocumentsContract;
+import android.util.Pair;
 import android.webkit.MimeTypeMap;
 
 import androidx.documentfile.provider.DocumentFile;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -37,28 +44,41 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
 
     @Override
     public byte[] listFiles(String s, long count) throws Exception {
-        Uri uri = getRootUri();
-        DocumentFile file = findDocumentFile(uri, s);
-        Stream<DocumentFile> stream = Arrays.stream(file.listFiles());
-        if(count > 0) {
-            stream = stream.limit(count);
+        Stream<Map<String, Object>> childStream;
+        if(s.matches("^\\s*/+\\s*$")) {
+            childStream = getMountDocumentFiles()
+                    .map(p -> {
+                        Map<String, Object> properties = new HashMap<>();
+                        properties.put("name", p.first);
+                        properties.put("size", p.second.length());
+                        properties.put("mod-time", p.second.lastModified());
+                        properties.put("dir", p.second.isDirectory());
+                        return properties;
+                    });
+        } else {
+            Uri uri = getRootUri(s);
+            DocumentFile file = findDocumentFile(uri, s);
+            Stream<DocumentFile> stream = Arrays.stream(file.listFiles());
+            if(count > 0) {
+                stream = stream.limit(count);
+            }
+            childStream = stream
+                    .map(child -> {
+                        Map<String, Object> properties = new HashMap<>();
+                        properties.put("name", child.getName());
+                        properties.put("size", child.length());
+                        properties.put("mod-time", child.lastModified());
+                        properties.put("dir", child.isDirectory());
+                        return properties;
+                    });
         }
-        Collection<Map<String, Object>> children = stream
-                .map(child -> {
-                    Map<String, Object> properties = new HashMap<>();
-                    properties.put("name", child.getName());
-                    properties.put("size", child.length());
-                    properties.put("mod-time", child.lastModified());
-                    properties.put("dir", child.isDirectory());
-                    return properties;
-                })
-                .collect(Collectors.toCollection(LinkedList::new));
+        Collection<Map<String, Object>> children = childStream.collect(Collectors.toCollection(LinkedList::new));
         return new ObjectMapper().writeValueAsBytes(children);
     }
 
     @Override
     public void mkdir(String s) throws Exception {
-        Uri uri = getRootUri();
+        Uri uri = getRootUri(s);
         java.io.File parentFile = new java.io.File(s);
         DocumentFile parentDocFile = findDocumentFile(uri, parentFile.getParent());
         if(parentDocFile.findFile(parentFile.getName()) == null) {
@@ -68,7 +88,7 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
 
     @Override
     public File openFile(String s, long goFlags) throws Exception {
-        Uri uri = getRootUri();
+        Uri uri = getRootUri(s);
         DocumentFile docFile;
         if ((goFlags & 64) != 0) {
             DocumentFile parentDocFile = findDocumentFile(uri, new java.io.File(s).getParent());
@@ -100,26 +120,26 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
 
     @Override
     public void removeAll(String s) throws Exception {
-        Uri uri = getRootUri();
+        Uri uri = getRootUri(s);
         DocumentFile file = findDocumentFile(uri, s);
         file.delete();
     }
 
     @Override
     public void rename(String oldPath, String newPath) throws Exception {
-        Uri rootUri = getRootUri();
+        Uri newRootUri = getRootUri(newPath);
         String oldParentPath = new java.io.File(oldPath).getParent();
         String newParentPath = new java.io.File(newPath).getParent();
         String oldName = new java.io.File(oldPath).getName();
         if(!newParentPath.equals(oldParentPath)) {
-            DocumentFile oldParentFile = findDocumentFile(rootUri, oldParentPath);
+            DocumentFile oldParentFile = findDocumentFile(getRootUri(oldPath), oldParentPath);
             DocumentFile oldFile = oldParentFile.findFile(oldName);
-            DocumentFile newParentFile = findDocumentFile(rootUri, newParentPath);
+            DocumentFile newParentFile = findDocumentFile(newRootUri, newParentPath);
             ContentResolver resolver = context.getContentResolver();
             DocumentsContract.moveDocument(resolver, oldFile.getUri(), oldParentFile.getUri(), newParentFile.getUri());
         }
         if(!new java.io.File(newPath).getName().equals(oldName)) {
-            DocumentFile oldFile = findDocumentFile(rootUri, oldName);
+            DocumentFile oldFile = findDocumentFile(newRootUri, oldName);
             String newName = new java.io.File(newPath).getName();
             oldFile.renameTo(newName);
         }
@@ -127,7 +147,7 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
 
     @Override
     public FileInfo stat(String s) throws Exception {
-        Uri uri = getRootUri();
+        Uri uri = getRootUri(s);
         DocumentFile file = findDocumentFile(uri, s);
         FileInfo info = new FileInfo();
         info.setModTime(file.lastModified());
@@ -137,14 +157,42 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
         return info;
     }
 
-    private Uri getRootUri() {
+    private Stream<Pair<String, DocumentFile>> getMountDocumentFiles() throws JsonProcessingException {
+        Set<MountPoint> mountPoints = getMountPoints();
+        return mountPoints.stream()
+                .map(m -> {
+                    DocumentFile doc = DocumentFile.fromTreeUri(context, Uri.parse(m.getUri()));
+                    return Pair.create(String.format("%s@%s", doc.getName(), m.getRootId()), doc);
+                });
+    }
+
+    private Uri getRootUri(String path) throws JsonProcessingException {
+        Matcher matcher = Pattern.compile("^\\s*/([^/]*)").matcher(path);
+        if(!matcher.find()) {
+            throw new RuntimeException();
+        }
+        String mountName = matcher.group(1);
+        return getRootUriByMountName(mountName);
+    }
+
+    private Uri getRootUriByMountName(String mountName) throws JsonProcessingException {
+        Set<MountPoint> mountPoints = getMountPoints();
+        String[] parts = mountName.split("@(?=[^@]*$)");
+        MountPoint mp = mountPoints.stream()
+                .filter(m -> m.getRootId().equals(parts[1]))
+                .findAny()
+                .orElseThrow();
+        return Uri.parse(mp.getUri());
+    }
+
+    private Set<MountPoint> getMountPoints() throws JsonProcessingException {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-        String rootUriStr = prefs.getString("dir_uri", null);
+        String rootUriStr = prefs.getString("dir_uris", null);
         if(rootUriStr == null || rootUriStr.isBlank()) {
             throw new RuntimeException();
         }
-        Uri rootUri = Uri.parse(rootUriStr);
-        return rootUri;
+        Set<MountPoint> mountPoints = new ObjectMapper().readValue(rootUriStr,   new TypeReference<LinkedHashSet<MountPoint>>() {});
+        return mountPoints;
     }
 
     private DocumentFile findDocumentFile(Uri rootUri, String path) {
@@ -153,7 +201,7 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
         }
 
         DocumentFile currentFile = DocumentFile.fromTreeUri(context, rootUri);
-        String pathStr = path.replaceFirst("^\\s*/+", "");
+        String pathStr = path.replaceFirst("^\\s*/[^/]*(/|$)", "");
         //java的split有点扯，所以先特殊处理
         if(pathStr.isEmpty()) {
             return currentFile;

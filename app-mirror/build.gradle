@@ -103,6 +103,7 @@ dependencies {
     implementation "androidx.documentfile:documentfile:1.1.0"
 
     implementation 'com.pivovarit:throwing-function:1.6.1'
+    implementation 'com.aventrix.jnanoid:jnanoid:2.0.0'
 
     implementation files('./libs/orbit.aar')
     implementation project(':moonlight')
