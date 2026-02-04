@@ -120,6 +120,7 @@
             android:icon="@mipmap/ic_mirror"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:label="ORBIT"
+            android:screenOrientation="landscape"
             android:theme="@style/Theme.AppCompat.NoActionBar"
             >
         </activity>
