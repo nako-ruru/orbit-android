@@ -3,6 +3,7 @@ package com.orbit;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
 import android.preference.PreferenceManager;
@@ -12,12 +13,13 @@ import android.webkit.MimeTypeMap;
 
 import androidx.documentfile.provider.DocumentFile;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -42,21 +44,16 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
 
     @Override
     public FileInfoList readDir(String path, boolean recursive, long count) throws Exception {
-        Stream<FileInfo> childStream;
+        List<FileInfo> children;
         if(path.matches("^\\s*/+\\s*$")) {
-            childStream = getMountDocumentFiles()
-                    .map(p -> SimpleFileInfo.create(p.second.isDirectory(), p.first, p.second.lastModified(), p.second.length()));
+            children = getMountDocumentFiles()
+                    .map(p -> SimpleFileInfo.create(p.second.isDirectory(), p.first, p.second.lastModified(), p.second.length()))
+                    .collect(Collectors.toCollection(ArrayList::new));
         } else {
             Uri uri = getRootUri(path);
             DocumentFile file = findDocumentFile(uri, path);
-            Stream<DocumentFile> stream = Arrays.stream(file.listFiles());
-            if(count > 0) {
-                stream = stream.limit(count);
-            }
-            childStream = stream
-                    .map(child -> SimpleFileInfo.create(child.isDirectory(), child.getName(), child.lastModified(), child.length()));
+            children = listChildrenMetadata(context, file, count);
         }
-        List<FileInfo> children = childStream.collect(Collectors.toCollection(ArrayList::new));
         return new FileInfoListImpl(children);
     }
 
@@ -174,26 +171,89 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
 
     private DocumentFile findDocumentFile(Uri rootUri, String path) {
         if (rootUri == null || path == null || path.isBlank()) {
-            throw new RuntimeException();
+            throw new RuntimeException("Invalid path or rootUri");
         }
-
-        DocumentFile currentFile = DocumentFile.fromTreeUri(context, rootUri);
+        // 1. 预处理路径（保留你原来的逻辑）
         String pathStr = path.replaceFirst("^\\s*/[^/]*(/|$)", "");
         pathStr = pathStr.replaceFirst("/+$", "");
-        //java的split有点扯，所以先特殊处理
-        if(pathStr.isEmpty()) {
-            return currentFile;
+        if (pathStr.isEmpty()) {
+            return DocumentFile.fromTreeUri(context, rootUri);
         }
 
+        // 获取根目录 ID 准备迭代
+        String currentDocId = DocumentsContract.getTreeDocumentId(rootUri);
         String[] parts = pathStr.split("/+"); // 按 / 分割路径
-
+        // 2. 使用高效的 Cursor 迭代寻找最终的 Document ID
         for (String part : parts) {
-            currentFile = currentFile.findFile(part);
-            if (currentFile == null) {
-                throw new RuntimeException();
+            Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(rootUri, currentDocId);
+            String[] projection = { DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME };
+
+            boolean found = false;
+            try (Cursor cursor = context.getContentResolver().query(childrenUri, projection, null, null, null)) {
+                if (cursor != null) {
+                    int idIdx = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID);
+                    int nameIdx = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME);
+                    while (cursor.moveToNext()) {
+                        if (part.equals(cursor.getString(nameIdx))) {
+                            currentDocId = cursor.getString(idIdx);
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (!found) {
+                throw new RuntimeException("Path not found: " + part);
             }
         }
-        return currentFile;
+
+        // 3. 核心：根据最终 DocId 构建一个具有“树权限”的 SingleUri
+        // 只有这样构建的 Uri 才能让 DocumentFile 对象继续拥有读写权限
+        Uri finalUri = DocumentsContract.buildDocumentUriUsingTree(rootUri, currentDocId);
+
+        // 返回 DocumentFile 接口，完美兼容原有代码
+        return DocumentFile.fromSingleUri(context, finalUri);
+    }
+
+    public static List<FileInfo> listChildrenMetadata(Context context, DocumentFile parentDocFile, long count) {
+
+        List<FileInfo> metadataList = new ArrayList<>();
+
+        Uri parentDocUri = parentDocFile.getUri();
+        // 1. 从 Uri 中提取 Document ID
+        String parentDocId = DocumentsContract.getDocumentId(parentDocUri);
+
+        // 2. 构建指向子文件的查询 Uri
+        // 注意：如果是从 TreeUri 获得的，建议使用 buildChildDocumentsUriUsingTree
+        Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(parentDocUri, parentDocId);
+
+        // 3. 定义我们一次性要取回的列 (Projection)
+        String[] projection = new String[]{
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_SIZE,
+                DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+                DocumentsContract.Document.COLUMN_MIME_TYPE
+        };
+
+        // 4. 只进行一次 query，获取整个结果集
+        try (Cursor cursor = context.getContentResolver().query(childrenUri, projection, null, null, null)) {
+            if (cursor != null) {
+                while (cursor.moveToNext() && (count <= 0 || metadataList.size() < count)) {
+                    // 判断是否为目录
+                    String mimeType = cursor.getString(3);
+                    FileInfo data = SimpleFileInfo.create(
+                            DocumentsContract.Document.MIME_TYPE_DIR.equals(mimeType),
+                            cursor.getString(0),
+                            cursor.getLong(2),
+                            cursor.getLong(1)
+                    );
+                    metadataList.add(data);
+                }
+            }
+        }
+
+        return metadataList;
     }
 
     /**
@@ -246,6 +306,8 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
             return items.get((int) i);
         }
     }
+
+    @JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
     private static class SimpleFileInfo implements FileInfo {
 
         private static SimpleFileInfo create(boolean dir) {
@@ -264,7 +326,9 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
         }
 
         private boolean dir;
-        private long modTime, size;
+        @JsonProperty("mod-time")
+        private long modTime;
+        private long size;
         private String name;
 
         private SimpleFileInfo() {
