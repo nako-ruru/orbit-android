@@ -4,5 +4,6 @@ rclone:
   path: 'd:\rclone-v1.71.0-windows-amd64\rclone.exe'
 pinyin-path: '{{.project}}/pkg/filetransfer/pinyin.txt'
 webview:
-  external-url: 'android_asset/file-transfer.html'
+  external-url: 'android_asset/filetransfer/index.html'
+  i18n-tools-url: http://192.168.3.18:6700
 predefined-access-tokens: [tom, 123456, jerry, abcdef, admin, root123]

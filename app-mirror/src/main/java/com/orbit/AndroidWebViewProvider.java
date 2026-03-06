@@ -51,6 +51,7 @@ public class AndroidWebViewProvider implements WebViewProvider {
             i.putExtra("URL", url);
             i.putExtra("HTML", html);
             i.putExtra("BINDINGS", bindings);
+            i.putExtra("JS_INIT", jsInit);
             context.startActivity(i);
             Log.i("AndroidWebViewProvider", "createAndStart: 5");
         });

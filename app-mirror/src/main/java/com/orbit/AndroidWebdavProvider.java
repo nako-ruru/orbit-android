@@ -30,7 +30,6 @@ import java.util.stream.Stream;
 
 import aar.FSProvider;
 import aar.FileInfo;
-import aar.FileInfoList;
 import aar.WebdavProvider;
 
 // version is set by maven via filtering
@@ -43,18 +42,18 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
     }
 
     @Override
-    public FileInfoList readDir(String path, boolean recursive, long count) throws Exception {
+    public byte[] readDir(String path, boolean recursive, long count) throws Exception {
         List<FileInfo> children;
         if(path.matches("^\\s*/+\\s*$")) {
             children = getMountDocumentFiles()
-                    .map(p -> SimpleFileInfo.create(p.second.isDirectory(), p.first, p.second.lastModified(), p.second.length()))
+                    .map(p -> SimpleFileInfo.create(p.second.isDirectory(), p.first, p.second.length(), p.second.lastModified(), p.second.getType()))
                     .collect(Collectors.toCollection(ArrayList::new));
         } else {
             Uri uri = getRootUri(path);
             DocumentFile file = findDocumentFile(uri, path);
             children = listChildrenMetadata(context, file, count);
         }
-        return new FileInfoListImpl(children);
+        return new ObjectMapper().writeValueAsBytes(children);
     }
 
     @Override
@@ -122,11 +121,11 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
     public FileInfo stat(String s) throws Exception {
         FileInfo info;
         if(s.matches("^\\s*/+\\s*$")) {
-            info = SimpleFileInfo.create(true);
+            info = SimpleFileInfo.createDir();
         } else {
             Uri uri = getRootUri(s);
             DocumentFile file = findDocumentFile(uri, s);
-            info = SimpleFileInfo.create(file.isDirectory(), file.getName(), file.lastModified(), file.length());
+            info = SimpleFileInfo.create(file.isDirectory(), file.getName(), file.length(), file.lastModified(), file.getType());
         }
         return info;
     }
@@ -245,8 +244,7 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
                     FileInfo data = SimpleFileInfo.create(
                             DocumentsContract.Document.MIME_TYPE_DIR.equals(mimeType),
                             cursor.getString(0),
-                            cursor.getLong(2),
-                            cursor.getLong(1)
+                            cursor.getLong(1), cursor.getLong(2), mimeType
                     );
                     metadataList.add(data);
                 }
@@ -289,34 +287,16 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
         return "application/octet-stream"; // 兜底方案
     }
 
-    private static class FileInfoListImpl implements FileInfoList {
-        private final List<FileInfo> items;
-
-        public FileInfoListImpl(List<FileInfo> items) {
-            this.items = items;
-        }
-
-        @Override
-        public long len() {
-            return items.size();
-        }
-
-        @Override
-        public FileInfo get(long i) {
-            return items.get((int) i);
-        }
-    }
-
     @JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY)
     private static class SimpleFileInfo implements FileInfo {
 
-        private static SimpleFileInfo create(boolean dir) {
+        private static SimpleFileInfo createDir() {
             SimpleFileInfo info = new SimpleFileInfo();
-            info.dir = dir;
+            info.dir = true;
             return info;
         }
 
-        private static SimpleFileInfo create(boolean dir, String name, long modTime, long size) {
+        private static SimpleFileInfo create(boolean dir, String name, long size, long modTime, String mimeType) {
             SimpleFileInfo info = new SimpleFileInfo();
             info.dir = dir;
             info.name = name;
@@ -330,28 +310,30 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
         private long modTime;
         private long size;
         private String name;
+        @JsonProperty("mime-type")
+        private String mimeType;
 
         private SimpleFileInfo() {
         }
-
         @Override
         public boolean isDir() {
             return dir;
         }
-
         @Override
         public long modTime() {
             return modTime;
         }
-
         @Override
         public String name() {
             return name;
         }
-
         @Override
         public long size() {
             return size;
+        }
+        @Override
+        public String mimeType() {
+            return mimeType;
         }
     }
 }

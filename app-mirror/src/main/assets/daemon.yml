@@ -9,8 +9,6 @@ sunshine:
   path: 'D:\Apollo\sunshine.exe'
   config: '/data/user/0/com.connect_screen.mirror/files/sunshine.conf'
   test-authentication: 'apollo:apollo123'
-streamer:
-  dir: 'D:\moonlight-web-x86_64-pc-windows-gnu'
 npc:
   path: 'D:\npc_windows_amd64_client\npc.exe'
   nps-addr: '83.229.122.196:8024'

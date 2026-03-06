@@ -1,7 +1,6 @@
 package com.orbit;
 
 import android.os.Bundle;
-import android.util.Base64;
 import android.util.Log;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
@@ -10,7 +9,6 @@ import android.webkit.WebView;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.webkit.WebViewCompat;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.stream.Collectors;
@@ -46,8 +44,12 @@ public class FileTransferActivity  extends AppCompatActivity {
             }
         }, "_android_bridge_file_transfer");
 
+        String jsInit = getIntent().getStringExtra("JS_INIT");
+        if(jsInit != null && !jsInit.isBlank()) {
+            WebViewCompat.addDocumentStartJavaScript(mWebView, jsInit, Collections.singleton("*"));
+        }
         WebViewCompat.addDocumentStartJavaScript(mWebView, injectBindings(getIntent().getStringExtra("BINDINGS")), Collections.singleton("*"));
-        mWebView.loadUrl("file:///android_asset/file-transfer.html");
+        mWebView.loadUrl(getIntent().getStringExtra("URL"));
         setContentView(mWebView);
     }
 

@@ -162,6 +162,10 @@ public class MainActivity extends AppCompatActivity {
                 handlePermissionRequest(type);
             }
         }, "_android_bridge");
+        String jsInit = getIntent().getStringExtra("JS_INIT");
+        if(jsInit != null && !jsInit.isBlank()) {
+            WebViewCompat.addDocumentStartJavaScript(mWebView, jsInit, Collections.singleton("*"));
+        }
         String bindings = getIntent().getStringExtra("BINDINGS");
         if(bindings != null && !bindings.isBlank()) {
             WebViewCompat.addDocumentStartJavaScript(mWebView, injectBindings(bindings), Collections.singleton("*"));
