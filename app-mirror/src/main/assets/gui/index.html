@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -813,6 +813,32 @@
             }
         }
     </style>
+    <script src="https://unpkg.com/i18next@23.0.0/i18next.min.js"></script>
+    <script>
+        (function() {
+            var baseAddr = window.__SERVER_ADDR__ || "http://localhost:6700";
+            var script = document.createElement('script');
+            script.src = baseAddr + "/resources/i18n.js";
+
+            // 💡 关键：只有加载成功后，才执行里面的函数
+            script.onload = function() {
+                console.log("i18n.js 加载成功，开始初始化...");
+
+                // 1. 模拟语言（如果需要）
+                debug_MockBrowserLanguage('zh-Hant');
+
+                // 2. 启动应用多语言
+                // 这里的 AppI18n 对象现在才真正存在
+                AppI18n.bootstrap({ basePath: './locales' });
+            };
+
+            script.onerror = function() {
+                console.error("无法加载 i18n.js，请检查服务器地址：" + script.src);
+            };
+
+            document.head.appendChild(script);
+        })();
+    </script>
 </head>
 <body>
 <div class="app-container">
@@ -821,12 +847,12 @@
         <div class="custom-confirm-dialog">
             <div class="custom-confirm-header">
                 <div class="custom-confirm-icon">⚠️</div>
-                <div class="custom-confirm-title" id="customConfirmTitle">确认操作</div>
+                <div class="custom-confirm-title" id="customConfirmTitle" data-i18n="dialog.confirm.title">确认操作</div>
             </div>
-            <div class="custom-confirm-content" id="customConfirmContent"></div>
+            <div class="custom-confirm-content" id="customConfirmContent" data-i18n="[html]dialog.confirm.content"></div>
             <div class="custom-confirm-actions">
-                <button class="custom-confirm-btn cancel" id="customConfirmCancel">取消</button>
-                <button class="custom-confirm-btn confirm" id="customConfirmOk">确定</button>
+                <button class="custom-confirm-btn cancel" id="customConfirmCancel" data-i18n="button.cancel">取消</button>
+                <button class="custom-confirm-btn confirm" id="customConfirmOk" data-i18n="button.confirm">确定</button>
             </div>
         </div>
     </div>
@@ -834,28 +860,28 @@
     <div class="tabs-container">
         <div class="tab active" onclick="switchTab(0)">
             <span>💻</span>
-            <span>远程连接</span>
+            <span data-i18n="tab.remote">远程连接</span>
         </div>
         <div class="tab" onclick="switchTab(1)">
             <span>📱</span>
-            <span>我的设备</span>
+            <span data-i18n="tab.myDevices">我的设备</span>
         </div>
         <div class="tab" onclick="switchTab(2)">
             <span>🎮</span>
-            <span>活动连接</span>
+            <span data-i18n="tab.activeConnections">活动连接</span>
         </div>
         <div class="tab" onclick="switchTab(3)">
             <span>📜</span>
-            <span>历史记录</span>
+            <span data-i18n="tab.history">历史记录</span>
         </div>
         <div class="tab" onclick="switchTab(4)">
             <span>🔌</span>
-            <span>代理设置</span>
+            <span data-i18n="tab.proxySettings">代理设置</span>
         </div>
-        <div class="tab" onclick="switchTab(5)">
-            <span>⚙️</span>
-            <span>Android权限</span>
-        </div>
+		<div class="tab" onclick="switchTab(5)">
+		    <span>⚙️</span>
+		    <span data-i18n="tab.androidPermissions">Android权限</span>
+		</div>
     </div>
 
     <!-- 远程连接 -->
@@ -864,26 +890,26 @@
             <div class="connection-left">
                 <div class="section">
                     <div class="section-header">
-                        <h3>🖥️ 我的设备</h3>
+                        <h3 data-i18n="remote.myDevices.title">🖥️ 我的设备</h3>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">设备编号</label>
+                        <label class="form-label" data-i18n="remote.myDevices.deviceId.label">设备编号</label>
                         <input type="text" id="connCode" class="form-control" disabled value="123 456 7890">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">访问密码</label>
+                        <label class="form-label" data-i18n="remote.myDevices.accessPassword.label">访问密码</label>
                         <div class="input-group">
                             <input type="password" id="myPassword" class="form-control short" value="123456">
-                            <button id="togglePwd" class="toggle-btn" onclick="togglePassword()">显示</button>
+                            <button id="togglePwd" class="toggle-btn" onclick="togglePassword()" data-i18n="remote.myDevices.password.show">显示</button>
                         </div>
                     </div>
                     <div class="form-row">
-                        <button class="btn btn-icon" onclick="alert('打开设置')" title="设置">
+                        <button class="btn btn-icon" onclick="alert(i18next.t('remote.myDevices.settings.message'))" title="设置" data-i18n="[title]remote.myDevices.settings.button">
                             <span>⚙️</span>
                         </button>
                         <button class="btn btn-primary" onclick="generateNewPassword()">
                             <span>🔄</span>
-                            <span>新密码</span>
+                            <span data-i18n="remote.myDevices.newPassword.button">新密码</span>
                         </button>
                     </div>
                 </div>
@@ -892,27 +918,27 @@
             <div class="connection-right">
                 <div class="section">
                     <div class="section-header">
-                        <h3>🔗 连接到其他设备</h3>
+                        <h3 data-i18n="remote.connect.title">🔗 连接到其他设备</h3>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">对方设备编号</label>
-                        <input type="text" id="remoteID" class="form-control" placeholder="输入对方设备编号">
+                        <label class="form-label" data-i18n="remote.connect.remoteId.label">对方设备编号</label>
+                        <input type="text" id="remoteID" class="form-control" placeholder="" data-i18n="[placeholder]remote.connect.remoteId.placeholder">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">连接密码</label>
+                        <label class="form-label" data-i18n="remote.connect.password.label">连接密码</label>
                         <div class="input-group">
-                            <input type="password" id="remotePwd" class="form-control short" placeholder="6位密码">
-                            <button id="toggleRemotePwd" class="toggle-btn" onclick="toggleRemotePassword()">显示</button>
+                            <input type="password" id="remotePwd" class="form-control short" placeholder="" data-i18n="[placeholder]remote.connect.password.placeholder">
+                            <button id="toggleRemotePwd" class="toggle-btn" onclick="toggleRemotePassword()" data-i18n="remote.myDevices.password.show">显示</button>
                         </div>
                     </div>
                     <div class="form-row">
                         <button class="btn btn-primary" onclick="remoteControl()">
                             <span>🖥️</span>
-                            <span>远程控制</span>
+                            <span data-i18n="remote.connect.control.button">远程控制</span>
                         </button>
                         <button class="btn btn-secondary" onclick="fileTransfer()">
                             <span>📁</span>
-                            <span>文件传输</span>
+                            <span data-i18n="remote.connect.fileTransfer.button">文件传输</span>
                         </button>
                     </div>
                 </div>
@@ -925,23 +951,23 @@
         <div id="loginSection" class="section" style="display: none;">
             <div class="empty-state">
                 <div class="empty-state-icon">🔑</div>
-                <h3>登录以查看设备</h3>
-                <p>登录后可以查看和管理您的所有设备</p>
+                <h3 data-i18n="myDevices.login.title">登录以查看设备</h3>
+                <p data-i18n="myDevices.login.description">登录后可以查看和管理您的所有设备</p>
                 <button class="btn btn-primary" onclick="login()" style="margin-top: 10px;">
                     <span>🔑</span>
-                    <span>登录账户</span>
+                    <span data-i18n="myDevices.login.button">登录账户</span>
                 </button>
             </div>
         </div>
 
         <div id="deviceList" class="section" style="display: block;">
             <div class="section-header">
-                <h3>📱 我的设备</h3>
+                <h3 data-i18n="myDevices.header.title">📱 我的设备</h3>
                 <div>
-                    <span class="connection-badge">3台设备在线</span>
+                    <span class="connection-badge" id="deviceOnlineBadge" data-i18n="myDevices.header.onlineBadge">3台设备在线</span>
                     <button class="btn btn-outline btn-sm" onclick="logout()" style="margin-left: 8px;">
                         <span>🚪</span>
-                        <span>登出</span>
+                        <span data-i18n="myDevices.header.logout.button">登出</span>
                     </button>
                 </div>
             </div>
@@ -955,8 +981,8 @@
     <div id="tab2" class="tab-content">
         <div class="section">
             <div class="section-header">
-                <h3>🎮 活动连接</h3>
-                <span class="connection-badge">2个活跃连接</span>
+                <h3 data-i18n="activeConnections.header.title">🎮 活动连接</h3>
+                <span class="connection-badge" id="activeConnectionsBadge" data-i18n="activeConnections.header.badge">2个活跃连接</span>
             </div>
             <div class="cards-grid" id="activeConnections">
                 <!-- 活动连接卡片将由JS动态生成 -->
@@ -968,7 +994,7 @@
     <div id="tab3" class="tab-content">
         <div class="section">
             <div class="section-header">
-                <h3>📜 历史记录</h3>
+                <h3 data-i18n="history.header.title">📜 历史记录</h3>
             </div>
             <div class="cards-grid" id="historyList">
                 <!-- 历史记录卡片将由JS动态生成 -->
@@ -980,67 +1006,67 @@
     <div id="tab4" class="tab-content">
         <div class="section">
             <div class="section-header">
-                <h3>🔌 代理设置</h3>
+                <h3 data-i18n="proxy.header.title">🔌 代理设置</h3>
             </div>
 
             <div class="proxy-option selected" onclick="selectProxyOption('none', event)">
                 <input type="radio" class="proxy-radio" name="proxy" id="proxy-none" checked>
                 <div>
-                    <div class="proxy-label">不使用代理</div>
-                    <div class="proxy-description">直接连接到远程设备，不使用任何代理服务器</div>
+                    <div class="proxy-label" data-i18n="proxy.option.none.label">不使用代理</div>
+                    <div class="proxy-description" data-i18n="proxy.option.none.description">直接连接到远程设备，不使用任何代理服务器</div>
                 </div>
             </div>
 
             <div class="proxy-option" onclick="selectProxyOption('system', event)">
                 <input type="radio" class="proxy-radio" name="proxy" id="proxy-system">
                 <div>
-                    <div class="proxy-label">跟随系统</div>
-                    <div class="proxy-description">使用系统设置的代理配置</div>
+                    <div class="proxy-label" data-i18n="proxy.option.system.label">跟随系统</div>
+                    <div class="proxy-description" data-i18n="proxy.option.system.description">使用系统设置的代理配置</div>
                 </div>
             </div>
 
             <div class="proxy-option" onclick="selectProxyOption('custom', event)">
                 <input type="radio" class="proxy-radio" name="proxy" id="proxy-custom">
                 <div>
-                    <div class="proxy-label">指定代理</div>
-                    <div class="proxy-description">手动配置代理服务器地址和端口</div>
+                    <div class="proxy-label" data-i18n="proxy.option.custom.label">指定代理</div>
+                    <div class="proxy-description" data-i18n="proxy.option.custom.description">手动配置代理服务器地址和端口</div>
                 </div>
             </div>
 
             <div id="custom-proxy-details" class="proxy-details">
                 <div class="form-group">
-                    <label class="form-label">代理类型</label>
+                    <label class="form-label" data-i18n="proxy.details.type.label">代理类型</label>
                     <div class="proxy-type-selector">
-                        <div class="proxy-type-option selected" onclick="selectProxyType('http', event)">HTTP</div>
-                        <div class="proxy-type-option" onclick="selectProxyType('socks5', event)">SOCKS5</div>
+                        <div class="proxy-type-option selected" onclick="selectProxyType('http', event)" data-i18n="proxy.details.type.http">HTTP</div>
+                        <div class="proxy-type-option" onclick="selectProxyType('socks5', event)" data-i18n="proxy.details.type.socks5">SOCKS5</div>
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">代理服务器地址</label>
-                    <input type="text" id="proxy-host" class="form-control" placeholder="例如: 192.168.1.100 或 proxy.example.com">
+                    <label class="form-label" data-i18n="proxy.details.host.label">代理服务器地址</label>
+                    <input type="text" id="proxy-host" class="form-control" placeholder="" data-i18n="[placeholder]proxy.details.host.placeholder">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">代理端口</label>
-                    <input type="number" id="proxy-port" class="form-control short" placeholder="例如: 8080">
+                    <label class="form-label" data-i18n="proxy.details.port.label">代理端口</label>
+                    <input type="number" id="proxy-port" class="form-control short" placeholder="" data-i18n="[placeholder]proxy.details.port.placeholder">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">用户名 (可选)</label>
-                    <input type="text" id="proxy-username" class="form-control" placeholder="代理服务器用户名">
+                    <label class="form-label" data-i18n="proxy.details.username.label">用户名 (可选)</label>
+                    <input type="text" id="proxy-username" class="form-control" placeholder="" data-i18n="[placeholder]proxy.details.username.placeholder">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">密码 (可选)</label>
-                    <input type="password" id="proxy-password" class="form-control" placeholder="代理服务器密码">
+                    <label class="form-label" data-i18n="proxy.details.password.label">密码 (可选)</label>
+                    <input type="password" id="proxy-password" class="form-control" placeholder="" data-i18n="[placeholder]proxy.details.password.placeholder">
                 </div>
 
                 <div class="test-connection-area">
                     <div class="form-group">
-                        <label class="form-label">测试连接地址</label>
-                        <input type="text" id="test-url" class="form-control" value="https://www.google.com" placeholder="输入要测试的URL地址">
+                        <label class="form-label" data-i18n="proxy.test.url.label">测试连接地址</label>
+                        <input type="text" id="test-url" class="form-control" value="https://www.google.com" placeholder="" data-i18n="[placeholder]proxy.test.url.placeholder">
                     </div>
                     <div class="form-row">
                         <button class="btn btn-outline" onclick="testProxyConnection()">
                             <span>🔍</span>
-                            <span>测试连接</span>
+                            <span data-i18n="proxy.test.button">测试连接</span>
                         </button>
                     </div>
                     <div id="test-result" class="test-result"></div>
@@ -1052,136 +1078,136 @@
                 <div class="form-row">
                     <button class="btn btn-primary" onclick="saveProxySettings()">
                         <span>💾</span>
-                        <span>保存设置</span>
+                        <span data-i18n="proxy.save.button">保存设置</span>
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Android权限设置 -->
-    <div id="tab5" class="tab-content">
-        <div class="android-permission-container">
-            <div class="android-permission-header">
-                <h3>⚙️ 无人值守授权配置</h3>
-                <p>请确保以下所有权限均显示为"已开启"，否则受控端无法正常工作</p>
-            </div>
+	<!-- Android权限设置 -->
+	<div id="tab5" class="tab-content">
+	    <div class="android-permission-container">
+	        <div class="android-permission-header">
+	            <h3 data-i18n="android.permissions.header">⚙️ 无人值守授权配置</h3>
+	            <p data-i18n="android.permissions.description">请确保以下所有权限均显示为"已开启"，否则受控端无法正常工作</p>
+	        </div>
 
-            <div class="permission-grid" id="permissionGrid">
-                <!-- 运行时权限 -->
-                <div class="permission-card denied" id="p-mic">
-                    <div class="permission-info">
-                        <div class="permission-title">
-                            <span class="permission-status-icon">🎤</span>
-                            录音/麦克风
-                        </div>
-                        <div class="permission-desc">用于远程监听环境声音</div>
-                    </div>
-                    <button class="permission-btn go" onclick="authPermission('mic')">去授权</button>
-                </div>
+	        <div class="permission-grid" id="permissionGrid">
+	            <!-- 运行时权限 -->
+	            <div class="permission-card denied" id="p-mic">
+	                <div class="permission-info">
+	                    <div class="permission-title">
+	                        <span class="permission-status-icon">🎤</span>
+	                        <span data-i18n="android.permissions.mic.title">录音/麦克风</span>
+	                    </div>
+	                    <div class="permission-desc" data-i18n="android.permissions.mic.desc">用于远程监听环境声音</div>
+	                </div>
+	                <button class="permission-btn go" onclick="authPermission('mic')" data-i18n="android.permissions.action.go">去授权</button>
+	            </div>
 
-                <!-- 特权：无障碍 -->
-                <div class="permission-card denied" id="p-accessibility">
-                    <div class="permission-info">
-                        <div class="permission-title">
-                            <span class="permission-status-icon">♿</span>
-                            无障碍服务
-                        </div>
-                        <div class="permission-desc">核心控制：用于模拟点击和手势操作</div>
-                    </div>
-                    <button class="permission-btn go" onclick="authPermission('accessibility')">去授权</button>
-                </div>
+	            <!-- 特权：无障碍 -->
+	            <div class="permission-card denied" id="p-accessibility">
+	                <div class="permission-info">
+	                    <div class="permission-title">
+	                        <span class="permission-status-icon">♿</span>
+	                        <span data-i18n="android.permissions.accessibility.title">无障碍服务</span>
+	                    </div>
+	                    <div class="permission-desc" data-i18n="android.permissions.accessibility.desc">核心控制：用于模拟点击和手势操作</div>
+	                </div>
+	                <button class="permission-btn go" onclick="authPermission('accessibility')" data-i18n="android.permissions.action.go">去授权</button>
+	            </div>
 
-                <!-- 特权：悬浮窗 -->
-                <div class="permission-card denied" id="p-overlay">
-                    <div class="permission-info">
-                        <div class="permission-title">
-                            <span class="permission-status-icon">🪟</span>
-                            悬浮窗权限
-                        </div>
-                        <div class="permission-desc">用于在后台保持界面交互和状态显示</div>
-                    </div>
-                    <button class="permission-btn go" onclick="authPermission('overlay')">去授权</button>
-                </div>
+	            <!-- 特权：悬浮窗 -->
+	            <div class="permission-card denied" id="p-overlay">
+	                <div class="permission-info">
+	                    <div class="permission-title">
+	                        <span class="permission-status-icon">🪟</span>
+	                        <span data-i18n="android.permissions.overlay.title">悬浮窗权限</span>
+	                    </div>
+	                    <div class="permission-desc" data-i18n="android.permissions.overlay.desc">用于在后台保持界面交互和状态显示</div>
+	                </div>
+	                <button class="permission-btn go" onclick="authPermission('overlay')" data-i18n="android.permissions.action.go">去授权</button>
+	            </div>
 
-                <!-- 特权：VPN -->
-                <div class="permission-card denied" id="p-vpn">
-                    <div class="permission-info">
-                        <div class="permission-title">
-                            <span class="permission-status-icon">🔒</span>
-                            VPN 转发
-                        </div>
-                        <div class="permission-desc">用于内网穿透和稳定的数据传输</div>
-                    </div>
-                    <button class="permission-btn go" onclick="authPermission('vpn')">去授权</button>
-                </div>
+	            <!-- 特权：VPN -->
+	            <div class="permission-card denied" id="p-vpn">
+	                <div class="permission-info">
+	                    <div class="permission-title">
+	                        <span class="permission-status-icon">🔒</span>
+	                        <span data-i18n="android.permissions.vpn.title">VPN转发</span>
+	                    </div>
+	                    <div class="permission-desc" data-i18n="android.permissions.vpn.desc">用于内网穿透和稳定的数据传输</div>
+	                </div>
+	                <button class="permission-btn go" onclick="authPermission('vpn')" data-i18n="android.permissions.action.go">去授权</button>
+	            </div>
 
-                <!-- 特权：所有文件 -->
-                <div class="permission-card denied" id="p-files">
-                    <div class="permission-info">
-                        <div class="permission-title">
-                            <span class="permission-status-icon">📁</span>
-                            所有文件访问
-                        </div>
-                        <div class="permission-desc">允许远程管理和传输设备文件</div>
-                    </div>
-                    <button class="permission-btn go" onclick="authPermission('files')">去授权</button>
-                </div>
+	            <!-- 特权：所有文件 -->
+	            <div class="permission-card denied" id="p-files">
+	                <div class="permission-info">
+	                    <div class="permission-title">
+	                        <span class="permission-status-icon">📁</span>
+	                        <span data-i18n="android.permissions.files.title">所有文件访问</span>
+	                    </div>
+	                    <div class="permission-desc" data-i18n="android.permissions.files.desc">允许远程管理和传输设备文件</div>
+	                </div>
+	                <button class="permission-btn go" onclick="authPermission('files')" data-i18n="android.permissions.action.go">去授权</button>
+	            </div>
 
-                <!-- 特权：精确闹钟 -->
-                <div class="permission-card denied" id="p-alarm">
-                    <div class="permission-info">
-                        <div class="permission-title">
-                            <span class="permission-status-icon">⏰</span>
-                            精确闹钟/重启
-                        </div>
-                        <div class="permission-desc">确保应用在异常退出后能准时重启</div>
-                    </div>
-                    <button class="permission-btn go" onclick="authPermission('alarm')">去授权</button>
-                </div>
+	            <!-- 特权：精确闹钟 -->
+	            <div class="permission-card denied" id="p-alarm">
+	                <div class="permission-info">
+	                    <div class="permission-title">
+	                        <span class="permission-status-icon">⏰</span>
+	                        <span data-i18n="android.permissions.alarm.title">精确闹钟/重启</span>
+	                    </div>
+	                    <div class="permission-desc" data-i18n="android.permissions.alarm.desc">确保应用在异常退出后能准时重启</div>
+	                </div>
+	                <button class="permission-btn go" onclick="authPermission('alarm')" data-i18n="android.permissions.action.go">去授权</button>
+	            </div>
 
-                <!-- 新增权限：通知监听 -->
-                <div class="permission-card denied" id="p-notification">
-                    <div class="permission-info">
-                        <div class="permission-title">
-                            <span class="permission-status-icon">🔔</span>
-                            通知监听
-                        </div>
-                        <div class="permission-desc">监控设备通知，了解设备状态变化</div>
-                    </div>
-                    <button class="permission-btn go" onclick="authPermission('notification')">去授权</button>
-                </div>
+	            <!-- 新增权限：通知监听 -->
+	            <div class="permission-card denied" id="p-notification">
+	                <div class="permission-info">
+	                    <div class="permission-title">
+	                        <span class="permission-status-icon">🔔</span>
+	                        <span data-i18n="android.permissions.notification.title">通知监听</span>
+	                    </div>
+	                    <div class="permission-desc" data-i18n="android.permissions.notification.desc">监控设备通知，了解设备状态变化</div>
+	                </div>
+	                <button class="permission-btn go" onclick="authPermission('notification')" data-i18n="android.permissions.action.go">去授权</button>
+	            </div>
 
-                <!-- 特权：自启动 -->
-                <div class="permission-card denied" id="p-autostart">
-                    <div class="permission-info">
-                        <div class="permission-title">
-                            <span class="permission-status-icon">🚀</span>
-                            自启动权限
-                        </div>
-                        <div class="permission-desc">确保受控端在手机意外重启、电量耗尽关机再充电、或系统静默更新后，能够自动重新上线。如果不开启，设备重启后将处于离线状态，必须人工前往现场手动开启应用。</div>
-                    </div>
-                    <button class="permission-btn go" onclick="authPermission('autostart')">去授权</button>
-                </div>
+	            <!-- 特权：自启动 -->
+	            <div class="permission-card denied" id="p-autostart">
+	                <div class="permission-info">
+	                    <div class="permission-title">
+	                        <span class="permission-status-icon">🚀</span>
+	                        <span data-i18n="android.permissions.autostart.title">自启动权限</span>
+	                    </div>
+	                    <div class="permission-desc" data-i18n="android.permissions.autostart.desc">确保受控端在手机意外重启、电量耗尽关机再充电、或系统静默更新后，能够自动重新上线。如果不开启，设备重启后将处于离线状态，必须人工前往现场手动开启应用。</div>
+	                </div>
+	                <button class="permission-btn go" onclick="authPermission('autostart')" data-i18n="android.permissions.action.go">去授权</button>
+	            </div>
 
-                <!-- 特权：省电策略 -->
-                <div class="permission-card denied" id="p-power">
-                    <div class="permission-info">
-                        <div class="permission-title">
-                            <span class="permission-status-icon">⚡</span>
-                            省电策略白名单
-                        </div>
-                        <div class="permission-desc">防止系统在后台休眠应用，保持持久连接</div>
-                    </div>
-                    <button class="permission-btn go" onclick="authPermission('power')">去授权</button>
-                </div>
-            </div>
-        </div>
-    </div>
+	            <!-- 特权：省电策略 -->
+	            <div class="permission-card denied" id="p-power">
+	                <div class="permission-info">
+	                    <div class="permission-title">
+	                        <span class="permission-status-icon">⚡</span>
+	                        <span data-i18n="android.permissions.power.title">省电策略白名单</span>
+	                    </div>
+	                    <div class="permission-desc" data-i18n="android.permissions.power.desc">防止系统在后台休眠应用，保持持久连接</div>
+	                </div>
+	                <button class="permission-btn go" onclick="authPermission('power')" data-i18n="android.permissions.action.go">去授权</button>
+	            </div>
+	        </div>
+	    </div>
+	</div>
 
     <div class="status-bar" id="statusBar">
-        <span>状态：就绪</span>
-        <span>最后更新：刚刚</span>
+        <span data-i18n="statusBar.ready">状态：就绪</span>
+        <span data-i18n="statusBar.lastUpdate">最后更新：刚刚</span>
     </div>
 </div>
 
@@ -1222,8 +1248,8 @@
         }
 
         show(title, message) {
-            this.title.textContent = title || '确认操作';
-            this.content.textContent = message || '确定要执行此操作吗？';
+            this.title.textContent = title || i18next.t('dialog.confirm.title');
+            this.content.textContent = message || i18next.t('dialog.confirm.content');
             this.overlay.classList.add('active');
 
             // 聚焦确定按钮
@@ -1251,7 +1277,20 @@
 
     // 替换原生的confirm函数
     function customConfirmDialog(message) {
-        return customConfirm.show('确认操作', message);
+        return customConfirm.show(i18next.t('dialog.confirm.title'), message);
+    }
+
+    function showTabs(indices) {
+        const tabs = document.querySelectorAll('.tab');
+        // 把 indices 转为 Set，方便判断
+        const indexSet = new Set(indices);
+        tabs.forEach((tab, i) => {
+            if (indexSet.has(i)) {
+                tab.style.display = 'inline-flex';   // 显示 tab
+            } else {
+                tab.style.display = 'none';          // 隐藏 tab
+            }
+        });
     }
 
     // 切换标签页
@@ -1283,11 +1322,11 @@
 
         if (pwd.type === 'password') {
             pwd.type = 'text';
-            btn.textContent = '隐藏';
+            btn.textContent = i18next.t('remote.myDevices.password.hide');
             btn.classList.add('active');
         } else {
             pwd.type = 'password';
-            btn.textContent = '显示';
+            btn.textContent = i18next.t('remote.myDevices.password.show');
             btn.classList.remove('active');
         }
     }
@@ -1298,11 +1337,11 @@
 
         if (pwd.type === 'password') {
             pwd.type = 'text';
-            btn.textContent = '隐藏';
+            btn.textContent = i18next.t('remote.myDevices.password.hide');
             btn.classList.add('active');
         } else {
             pwd.type = 'password';
-            btn.textContent = '显示';
+            btn.textContent = i18next.t('remote.myDevices.password.show');
             btn.classList.remove('active');
         }
     }
@@ -1360,16 +1399,16 @@
                 }
             }
         }
-        updateStatus(`代理类型已更改为: ${type.toUpperCase()}`);
+        updateStatus(i18next.t('proxy.test.button') + ': ' + type.toUpperCase());
     }
 
     // 获取代理选项名称
     function getProxyOptionName(option) {
         switch(option) {
-            case 'none': return '不使用代理';
-            case 'system': return '跟随系统';
-            case 'custom': return '指定代理';
-            default: return '未知';
+            case 'none': return i18next.t('proxy.option.none.label');
+            case 'system': return i18next.t('proxy.option.system.label');
+            case 'custom': return i18next.t('proxy.option.custom.label');
+            default: return i18next.t('proxy.option.none.label');
         }
     }
 
@@ -1379,7 +1418,7 @@
 
         // 验证自定义代理设置
         if (proxy.mode === 'custom' && (!proxy.host || !proxy.port)) {
-            alert('请填写代理服务器地址和端口');
+            alert(i18next.t('proxy.save.error'));
             return;
         }
 
@@ -1387,7 +1426,7 @@
         if (typeof updateProxy === 'function') {
             updateProxy(proxy);
         }
-        updateStatus('代理设置已保存');
+        updateStatus(i18next.t('proxy.save.success'));
     }
 
     // 测试代理连接
@@ -1398,7 +1437,7 @@
 
         // 显示测试中状态
         testResult.className = 'test-result testing';
-        testResult.innerHTML = '🔄 正在测试代理连接...';
+        testResult.innerHTML = '🔄 ' + i18next.t('proxy.test.testing');
 
         if (proxy.mode === 'custom') {
             const host = proxy.host;
@@ -1406,23 +1445,23 @@
 
             if (!host || !port) {
                 testResult.className = 'test-result error';
-                testResult.innerHTML = '❌ 请填写代理服务器地址和端口';
+                testResult.innerHTML = '❌ ' + i18next.t('proxy.test.hostPortRequired');
                 return;
             }
 
             if (!testUrl) {
                 testResult.className = 'test-result error';
-                testResult.innerHTML = '❌ 请填写要测试的URL地址';
+                testResult.innerHTML = '❌ ' + i18next.t('proxy.test.urlRequired');
                 return;
             }
         }
-        updateStatus(`正在通过代理测试连接: ${testUrl}`);
+        updateStatus(i18next.t('proxy.test.testingWithUrl') + testUrl);
 
         doTestProxyConnection(proxy, testUrl)
             .then(() => {
                 testResult.className = 'test-result success';
-                testResult.innerHTML = '✅ 代理连接测试成功！连接正常。';
-                updateStatus('代理连接测试成功');
+                testResult.innerHTML = '✅ ' + i18next.t('proxy.test.success');
+                updateStatus(i18next.t('proxy.test.success'));
             })
             .catch(err => {
                 testResult.className = 'test-result error';
@@ -1488,11 +1527,11 @@
         const password = document.getElementById('remotePwd').value;
 
         if (!id || !password) {
-            alert('请输入设备编号和密码');
+            alert(i18next.t('remote.connect.error.idPasswordRequired'));
             return;
         }
 
-        updateStatus('正在连接到设备...');
+        updateStatus(i18next.t('remote.connect.connecting'));
         // 模拟连接过程
         if (typeof connectRemoteByCode === 'function') {
             connectRemoteByCode(id, password);
@@ -1505,7 +1544,7 @@
         const password = document.getElementById('remotePwd').value;
 
         if (!id || !password) {
-            alert('请输入设备编号和密码');
+            alert(i18next.t('remote.connect.error.idPasswordRequired'));
             return;
         }
         if (typeof openFileTransferByCode === 'function') {
@@ -1516,14 +1555,14 @@
     function afterLogin() {
         document.getElementById('loginSection').style.display = 'none';
         document.getElementById('deviceList').style.display = 'block';
-        updateStatus('已登录');
+        updateStatus(i18next.t('statusBar.loggedIn'));
     }
 
     // 登出功能
     function afterLogout(msg) {
         document.getElementById('loginSection').style.display = 'block';
         document.getElementById('deviceList').style.display = 'none';
-        updateStatus(msg);
+        updateStatus(msg || i18next.t('statusBar.loggedOut'));
     }
 
     // 设置设备列表（卡片风格）
@@ -1542,15 +1581,15 @@
         // 更新设备数量显示
         const badge = document.querySelector('#tab1 .connection-badge');
         if (badge) {
-            badge.textContent = `${onlineDevices}/${totalDevices}台设备在线`;
+            badge.textContent = i18next.t('myDevices.header.onlineBadge', { count: `${onlineDevices}/${totalDevices}` });
         }
 
         if (devices.length === 0) {
             container.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">📱</div>
-                        <h3>暂无设备</h3>
-                        <p>添加设备以开始远程控制</p>
+                        <h3 data-i18n="myDevices.empty.title">${i18next.t('myDevices.empty.title')}</h3>
+                        <p data-i18n="myDevices.empty.description">${i18next.t('myDevices.empty.description')}</p>
                     </div>
                 `;
             return;
@@ -1574,7 +1613,7 @@
                     <div class="card-body">
                         <div class="card-meta">
                             <div class="meta-item">
-                                <span>最后活动:</span>
+                                <span>${i18next.t('myDevices.lastSeen')}:</span>
                                 <span>${device.LastSeen}</span>
                             </div>
                         </div>
@@ -1582,13 +1621,13 @@
                     <div class="card-footer">
                         <span class="status-badge ${statusClass}">
                             <span class="status-indicator ${statusClass}"></span>
-                            ${device.Self ? '本设备' : (isOnline(device) ? '在线' : '离线')}
+                            ${device.Self ? i18next.t('myDevices.status.self') : (isOnline(device) ? i18next.t('myDevices.status.online') : i18next.t('myDevices.status.offline'))}
                         </span>
                         ${!device.Self ? `
-                            <button class="btn btn-primary btn-sm" onclick='connectRemote(${JSON.stringify(device)})'>
+                            <button class="btn btn-primary btn-sm" onclick='connectRemote(${JSON.stringify(device)})' title="${i18next.t('myDevices.action.connect')}">
                                 <span>🔗</span>
                             </button>
-                            <button class="btn btn-outline btn-sm" onclick='openFileTransfer(${JSON.stringify(device)})'>
+                            <button class="btn btn-outline btn-sm" onclick='openFileTransfer(${JSON.stringify(device)})' title="${i18next.t('myDevices.action.fileTransfer')}">
                                 <span>📁</span>
                             </button>
                         ` : ''}
@@ -1613,33 +1652,33 @@
                     <div class="card-icon">${connection.Type === 'RemoteControl' ? '🖥️' : '📁'}</div>
                     <div>
                         <div class="card-title">${connection.Name}</div>
-                        <div class="card-subtitle">${connection.Type === 'RemoteControl' ? '远程控制会话' : '文件传输会话'}</div>
+                        <div class="card-subtitle">${connection.Type === 'RemoteControl' ? i18next.t('activeConnections.type.remoteControl') : i18next.t('activeConnections.type.fileTransfer')}</div>
                     </div>
                 </div>
                 <div class="card-body">
                     <div class="card-meta">
                         <div class="meta-item">
-                            <span>连接时间:</span>
-                            <span>刚刚</span>
+                            <span>${i18next.t('activeConnections.connectionTime')}:</span>
+                            <span>${i18next.t('activeConnections.justNow')}</span>
                         </div>
                         <div class="meta-item">
-                            <span>数据传输:</span>
-                            <span>${connection.Type === 'RemoteControl' ? '实时' : '0 MB'}</span>
+                            <span>${i18next.t('activeConnections.dataTransfer')}:</span>
+                            <span>${connection.Type === 'RemoteControl' ? i18next.t('activeConnections.realTime') : '0 MB'}</span>
                         </div>
                     </div>
                 </div>
                 <div class="card-footer">
                     <span class="status-badge ${statusClass}">
                         <span class="status-indicator ${statusClass}"></span>
-                        ${connection.Type === 'RemoteControl' ? '控制中' : '传输中'}
+                        ${connection.Type === 'RemoteControl' ? i18next.t('activeConnections.status.controlling') : i18next.t('activeConnections.status.transferring')}
                     </span>
-                    <button class="btn btn-primary btn-sm" onclick="activateConnection(${connection.Id})">
+                    <button class="btn btn-primary btn-sm" onclick="activateConnection(${connection.Id})" title="${i18next.t('activeConnections.action.switch')}">
                         <span>↗️</span>
-                        <span>切换至</span>
+                        <span>${i18next.t('activeConnections.action.switch')}</span>
                     </button>
-                    <button class="btn btn-outline btn-sm" onclick="closeConnection(${connection.Id})">
+                    <button class="btn btn-outline btn-sm" onclick="closeConnection(${connection.Id})" title="${i18next.t('activeConnections.action.disconnect')}">
                         <span>❌</span>
-                        <span>断开</span>
+                        <span>${i18next.t('activeConnections.action.disconnect')}</span>
                     </button>
                 </div>
             `;
@@ -1649,14 +1688,14 @@
         // 更新活动连接数量
         const badge = document.querySelector('#tab2 .connection-badge');
         const count = container.children.length;
-        badge.textContent = `${count}个活跃连接`;
+        badge.textContent = i18next.t('activeConnections.header.badge', { count: count });
     }
 
     // 关闭连接 - 使用自定义确认对话框
     function closeConnection(id) {
         const card = document.querySelector(`#activeConnections .card[data-id="${id}"]`);
         if (card) {
-            customConfirmDialog(`确定要关闭连接 ${id} 吗？`)
+            customConfirmDialog(i18next.t('activeConnections.confirm.close', { id: id }))
                 .then(result => {
                     if (result) {
                         if (typeof terminateConnection === 'function') {
@@ -1673,13 +1712,13 @@
         if (card) {
             // 调用删除方法
             card.remove();
-            updateStatus('连接已关闭');
+            updateStatus(i18next.t('activeConnections.status.connectionClosed'));
         }
         // 更新活动连接数量
         const container = document.getElementById('activeConnections');
         const badge = document.querySelector('#tab2 .connection-badge');
         const count = container.children.length;
-        badge.textContent = `${count}个活跃连接`;
+        badge.textContent = i18next.t('activeConnections.header.badge', { count: count });
     }
 
     // 设置历史记录（卡片风格）
@@ -1690,8 +1729,8 @@
             container.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">📜</div>
-                        <h3>暂无历史记录</h3>
-                        <p>连接过的设备将显示在这里</p>
+                        <h3 data-i18n="history.empty.title">${i18next.t('history.empty.title')}</h3>
+                        <p data-i18n="history.empty.description">${i18next.t('history.empty.description')}</p>
                     </div>
                 `;
             return;
@@ -1706,17 +1745,17 @@
                         <div class="card-icon">${record.Type === 'RemoteControl' ? '🖥️' : '📁'}</div>
                         <div>
                             <div class="card-title">${record.Name}</div>
-                            <div class="card-subtitle">${record.Type === 'RemoteControl' ? '远程控制' : '文件传输'}</div>
+                            <div class="card-subtitle">${record.Type === 'RemoteControl' ? i18next.t('history.type.remoteControl') : i18next.t('history.type.fileTransfer')}</div>
                         </div>
                     </div>
                     <div class="card-body">
                         <div class="card-meta">
                             <div class="meta-item">
-                                <span>连接时间:</span>
+                                <span>${i18next.t('history.connectionTime')}:</span>
                                 <span>${record.Date}</span>
                             </div>
                             <div class="meta-item">
-                                <span>持续时间:</span>
+                                <span>${i18next.t('history.duration')}:</span>
                                 <span>${record.Duration}</span>
                             </div>
                         </div>
@@ -1724,11 +1763,11 @@
                     <div class="card-footer">
                         <span class="status-badge offline">
                             <span class="status-indicator offline"></span>
-                            已结束
+                            ${i18next.t('history.status.ended')}
                         </span>
-                        <button class="btn btn-primary btn-sm" onclick="openHistory(${record.Id})">
+                        <button class="btn btn-primary btn-sm" onclick="openHistory(${record.Id})" title="${i18next.t('history.action.view')}">
                             <span>↗️</span>
-                            <span>查看</span>
+                            <span>${i18next.t('history.action.view')}</span>
                         </button>
                     </div>
                 `;
@@ -1741,7 +1780,7 @@
     function generateNewPassword() {
         const newPassword = Math.random().toString(36).slice(-6).toUpperCase();
         document.getElementById('myPassword').value = newPassword;
-        updateStatus('已生成新密码');
+        updateStatus(i18next.t('remote.myDevices.password.generated'));
     }
 
     function formatConnCode(code) {
@@ -1773,62 +1812,62 @@
 
     // 更新状态栏
     function updateStatus(text) {
-        document.getElementById('statusBar').firstElementChild.textContent = `状态：${text}`;
-        document.getElementById('statusBar').lastElementChild.textContent = `最后更新：刚刚`;
+        document.getElementById('statusBar').firstElementChild.textContent = i18next.t('statusBar.status', { text: text });
+        document.getElementById('statusBar').lastElementChild.textContent = i18next.t('statusBar.lastUpdate');
     }
 
-    // Android权限相关函数
-    // 供 Java 调用：更新 UI 状态
-    function updatePermissionUI(json) {
-        // 假设 json = {"mic":true, "vpn":false, ...}
-        for (let key in json) {
-            const card = document.getElementById('p-' + key);
-            if (!card) continue;
+// Android权限相关函数
+// 供 Java 调用：更新 UI 状态
+function updatePermissionUI(json) {
+    // 假设 json = {"mic":true, "vpn":false, ...}
+    for (let key in json) {
+        const card = document.getElementById('p-' + key);
+        if (!card) continue;
 
-            const btn = card.querySelector('.permission-btn');
-            if (json[key]) {
-                card.className = 'permission-card granted';
-                btn.className = 'permission-btn ok';
-                btn.innerText = '已开启';
-                btn.onclick = null;
-            } else {
-                card.className = 'permission-card denied';
-                btn.className = 'permission-btn go';
-                btn.innerText = '去授权';
-                btn.onclick = function() { authPermission(key); };
-            }
-        }
-        updateStatus('权限状态已更新');
-    }
-
-    // 调用 Java 桥接
-    function authPermission(type) {
-        const permissionNames = {
-            'mic': '录音/麦克风',
-            'accessibility': '无障碍服务',
-            'overlay': '悬浮窗权限',
-            'vpn': 'VPN转发',
-            'files': '所有文件访问',
-            'alarm': '精确闹钟/重启',
-            'notification': '通知监听',
-            'autostart': '自启动权限',
-            'power': '省电策略'
-        };
-
-        updateStatus(`正在请求 ${permissionNames[type] || type} 权限...`);
-
-        if (window._android_bridge) {
-            window._android_bridge.requestPermission(type);
+        const btn = card.querySelector('.permission-btn');
+        if (json[key]) {
+            card.className = 'permission-card granted';
+            btn.className = 'permission-btn ok';
+            btn.innerText = i18next.t('android.permissions.action.ok');
+            btn.onclick = null;
         } else {
-            // 模拟权限授予
-            setTimeout(() => {
-                const mockResult = {};
-                mockResult[type] = true;
-                updatePermissionUI(mockResult);
-                updateStatus(`${permissionNames[type] || type} 权限已授予`);
-            }, 1000);
+            card.className = 'permission-card denied';
+            btn.className = 'permission-btn go';
+            btn.innerText = i18next.t('android.permissions.action.go');
+            btn.onclick = function() { authPermission(key); };
         }
     }
+    updateStatus(i18next.t('android.permissions.status.updated'));
+}
+
+// 调用 Java 桥接
+function authPermission(type) {
+    const permissionNames = {
+        'mic': i18next.t('android.permissions.mic.title'),
+        'accessibility': i18next.t('android.permissions.accessibility.title'),
+        'overlay': i18next.t('android.permissions.overlay.title'),
+        'vpn': i18next.t('android.permissions.vpn.title'),
+        'files': i18next.t('android.permissions.files.title'),
+        'alarm': i18next.t('android.permissions.alarm.title'),
+        'notification': i18next.t('android.permissions.notification.title'),
+        'autostart': i18next.t('android.permissions.autostart.title'),
+        'power': i18next.t('android.permissions.power.title')
+    };
+
+    updateStatus(i18next.t('android.permissions.status.requesting', { permission: permissionNames[type] || type }));
+
+    if (window._android_bridge) {
+        window._android_bridge.requestPermission(type);
+    } else {
+        // 模拟权限授予
+        setTimeout(() => {
+            const mockResult = {};
+            mockResult[type] = true;
+            updatePermissionUI(mockResult);
+            updateStatus(i18next.t('android.permissions.status.granted', { permission: permissionNames[type] || type }));
+        }, 1000);
+    }
+}
 
     // 初始化页面
     document.addEventListener('DOMContentLoaded', function() {
@@ -1850,7 +1889,7 @@
         .then(res => setProxySettings(res[1]))
 
     function openHistory(id) {
-        updateStatus(`正在查看历史记录 ${id}...`);
+        updateStatus(i18next.t('history.action.viewing', { id: id }));
         // 实际查看历史记录逻辑
     }
 </script>

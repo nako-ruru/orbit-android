@@ -8,7 +8,6 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import com.connect_screen.mirror.job.ExitAll;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -24,7 +23,6 @@ import java.util.Map;
 import java.util.Random;
 
 import aar.Aar;
-import fi.iki.elonen.NanoHTTPD;
 
 public class OrbitApplication  extends Application {
 
@@ -92,7 +90,6 @@ public class OrbitApplication  extends Application {
 
         List<String> fixedIpList = new ArrayList<>();
         Random random = new Random();
-        /*
         for(int i = 0; i < 256; i++) {
             int v;
             for (;;) {
@@ -103,8 +100,8 @@ public class OrbitApplication  extends Application {
             }
             String ip = String.format("10.133.%d.%d", i, v);
             fixedIpList.add(ip);
-        }*/
-        fixedIpList.add("10.249.128.128");
+        }
+//        fixedIpList.add("10.249.128.128");
         String[] fixedIpArray = fixedIpList.toArray(new String[0]);
         AndroidTunProvider tunProvider = new AndroidTunProvider(context, fixedIpArray);
         Aar.registerTunProvider(tunProvider);
@@ -184,9 +181,17 @@ public class OrbitApplication  extends Application {
 
         // 遍历路径，直到找到最后一个 key 的父节点
         for (int i = 0; i < keys.length - 1; i++) {
+            // 检查当前节点
             currentNode = currentNode.path(keys[i]);
-            if (currentNode.isMissingNode() || !currentNode.isObject()) {
-                throw new RuntimeException("路径不存在或不是对象结构: " + keys[i]);
+
+            // 如果当前节点是 MissingNode 或者 不是 ObjectNode 类型，就创建新的 ObjectNode
+            if (currentNode.isMissingNode()) {
+                ObjectNode newObjectNode = yamlMapper.createObjectNode();
+                ((ObjectNode) root).set(keys[i], newObjectNode);  // 在父节点上设置新节点
+                currentNode = newObjectNode;  // 更新 currentNode 为新创建的节点
+            } else if (!currentNode.isObject()) {
+                // 如果当前节点存在但不是 ObjectNode 类型，则抛出异常
+                throw new RuntimeException("路径节点不是对象结构: " + keys[i]);
             }
         }
 
@@ -197,6 +202,9 @@ public class OrbitApplication  extends Application {
 
             // 使用 valueToTree 自动处理各种数据类型 (String, Integer, Boolean, List, Map 等)
             parentNode.set(lastKey, yamlMapper.valueToTree(newValue));
+        } else {
+            // 如果最后的节点不是 ObjectNode，则抛出异常
+            throw new RuntimeException("路径的最后一个节点不是对象结构: " + keys[keys.length - 1]);
         }
     }
 }

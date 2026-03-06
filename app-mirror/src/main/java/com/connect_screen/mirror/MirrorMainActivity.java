@@ -371,7 +371,7 @@ public class MirrorMainActivity extends AppCompatActivity implements IMainActivi
             newUiState.screenOffBtnVisibility = false;
             newUiState.touchScreenBtnVisibility = false;
         } else if (isScreenMirroring) {
-            newUiState.mirrorStatusText = "投屏中 sdfsdfsdfsdfsdfsdf，请在系统设置中为屏易连关闭省电，并在任务列表中锁定任务防止被杀。如果没有 shizuku 权限可能无法触摸";
+            newUiState.mirrorStatusText = "投屏中，请在系统设置中为屏易连关闭省电，并在任务列表中锁定任务防止被杀。如果没有 shizuku 权限可能无法触摸";
             newUiState.settingsBtnVisibility = false;
             newUiState.screenOffBtnVisibility = ShizukuUtils.hasPermission();
             newUiState.touchScreenBtnVisibility = singleAppMode;
