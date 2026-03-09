@@ -1,0 +1,3 @@
+#!/system/bin/sh
+PORT=$(cat "/data/user/0/com.orbit/files/orbit.daemon.run" | tr -d '\r\n')
+curl -l "http://${PORT}/api/ice-servers"

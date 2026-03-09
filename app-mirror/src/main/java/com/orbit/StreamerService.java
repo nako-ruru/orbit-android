@@ -16,24 +16,16 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 
 import com.connect_screen.mirror.job.ExitAll;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
 
 import fi.iki.elonen.NanoHTTPD;
 
 public class StreamerService extends Service {
-
-    private Process process;
 
     public StreamerService() {
         super();
@@ -84,43 +76,11 @@ public class StreamerService extends Service {
 
     private void startWebServer() throws IOException, InterruptedException {
         File writableDir = new File(getFilesDir(), "streamer");
-        String libraryPath = getApplicationInfo().nativeLibraryDir;
-
         copyAssetsFolder(this, "streamer", writableDir);
-        ObjectMapper mapper = new ObjectMapper();
-        File file = new File(writableDir, "server/config.json");
-        // 读取为树结构
-        JsonNode rootNode = mapper.readTree(file);
-        if (rootNode instanceof ObjectNode objectNode) {
-            objectNode.put("streamer_path", new File(libraryPath, "libstreamer.so").getAbsolutePath());
-        }
-        // 写回文件（格式化输出）
-        mapper.writerWithDefaultPrettyPrinter().writeValue(file, rootNode);
-
-        File exeFile = new File(libraryPath, "libweb-server.so"); // 注意文件名
-        ProcessBuilder pb = new ProcessBuilder(exeFile.getAbsolutePath());
-        pb.directory(writableDir);
-        pb.redirectErrorStream(true); // 合并 stdout 和 stderr
-        process = pb.start();
-
-        // 读取输出
-        BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream())
-        );
-        String line;
-        while ((line = reader.readLine()) != null) {
-            Log.d("RcloneService", line);
-        }
-
-        int exitCode = process.waitFor();
-        Log.d("RcloneService", "rclone exited with " + exitCode);
     }
 
     @Override
     public void onDestroy() {
-        if (process != null) {
-            process.destroy();
-        }
         super.onDestroy();
     }
 
@@ -131,8 +91,8 @@ public class StreamerService extends Service {
     }
 
     private Notification buildNotification() {
-        String channelId = "rclone_service";
-        String channelName = "Rclone Service";
+        String channelId = "streamer_service";
+        String channelName = "Streamer Service";
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(channelId, channelName,
@@ -141,30 +101,10 @@ public class StreamerService extends Service {
         }
 
         return new NotificationCompat.Builder(this, channelId)
-                .setContentTitle("Rclone Service")
-                .setContentText("Running rclone...")
+                .setContentTitle("Streamer Service")
+                .setContentText("Running streamer...")
                 .setSmallIcon(android.R.drawable.ic_menu_upload)
                 .build();
-    }
-
-    public void copyFolder(File src, File dest) throws IOException {
-        if (src.isDirectory()) {
-            if (!dest.exists()) dest.mkdirs(); // 创建目标文件夹
-            String[] children = src.list();
-            for (String child : children) {
-                copyFolder(new File(src, child), new File(dest, child));
-            }
-        } else {
-            // 复制单个文件
-            try (InputStream in = new FileInputStream(src);
-                 OutputStream out = new FileOutputStream(dest)) {
-                byte[] buf = new byte[1024];
-                int len;
-                while ((len = in.read(buf)) > 0) {
-                    out.write(buf, 0, len);
-                }
-            }
-        }
     }
 
     /**
