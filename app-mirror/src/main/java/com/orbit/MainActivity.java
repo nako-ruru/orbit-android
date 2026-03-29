@@ -11,6 +11,7 @@ import android.media.projection.MediaProjectionConfig;
 import android.media.projection.MediaProjectionManager;
 import android.net.Uri;
 import android.net.VpnService;
+import android.os.Binder;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -42,6 +43,7 @@ import com.pivovarit.function.ThrowingRunnable;
 import org.lsposed.hiddenapibypass.HiddenApiBypass;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -340,6 +342,9 @@ public class MainActivity extends AppCompatActivity {
                 // VPN 比较特殊，系统直接返回一个配置 Intent
                 intent = VpnService.prepare(this);
                 break;
+            case "popup":
+                intent = launchBackgroundStartSettings(this);
+                break;
         }
         try {
             // 执行跳转
@@ -366,6 +371,94 @@ public class MainActivity extends AppCompatActivity {
     // 3. 悬浮窗
     private boolean checkOverlayStatus() {
         return Settings.canDrawOverlays(this);
+    }
+    public Intent launchBackgroundStartSettings(Context context) {
+        String brand = android.os.Build.MANUFACTURER.toLowerCase();
+        Intent intent = new Intent();
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+        try {
+            if (brand.contains("xiaomi")) {
+                // 小米/HyperOS：直接跳到“后台弹出界面”所在的权限管理页
+                intent.setAction("miui.intent.action.APP_PERM_EDITOR");
+                intent.setClassName("com.miui.securitycenter", "com.miui.permcenter.permissions.PermissionsEditorActivity");
+                intent.putExtra("extra_pkgname", context.getPackageName());
+
+            } else if (brand.contains("vivo")) {
+                // vivo：跳转到“权限管理”详情页
+                intent.setClassName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.SoftPermissionDetailActivity");
+                intent.putExtra("packagename", context.getPackageName());
+
+            } else if (brand.contains("oppo") || brand.contains("realme")) {
+                // OPPO：跳转到权限详情页
+                intent.setClassName("com.coloros.safecenter", "com.coloros.safecenter.permission.PermissionManagerActivity");
+                // 部分版本可能需要跳转到应用详情页手动点击
+                if (context.getPackageManager().resolveActivity(intent, 0) == null) {
+                    intent = getAppDetailsIntent(context);
+                }
+
+            } else if (brand.contains("huawei") || brand.contains("honor")) {
+                // 华为：跳转到“应用启动管理”（包含自启动/后台运行）
+                intent.setClassName("com.huawei.systemmanager", "com.huawei.systemmanager.appcontrol.activity.StartupAppControlActivity");
+
+            } else {
+                // 兜底：跳转到通用的“应用详情页”
+                intent = getAppDetailsIntent(context);
+            }
+            return intent;
+        } catch (Exception e) {
+            // 万一私有 Intent 失效，跳转应用详情页作为保底
+            return (getAppDetailsIntent(context));
+        }
+    }
+
+    private Intent getAppDetailsIntent(Context context) {
+        Intent intent = new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+        intent.setData(android.net.Uri.parse("package:" + context.getPackageName()));
+        return intent;
+    }
+
+    /**
+     * 判断“后台弹出界面”权限是否开启
+     * 适用于：小米(MIUI/HyperOS)、vivo、OPPO
+     */
+    private boolean isBackgroundStartAllowed() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) return true;
+
+        AppOpsManager ops = (AppOpsManager) this.getSystemService(Context.APP_OPS_SERVICE);
+        try {
+            Method method = AppOpsManager.class.getMethod("checkOp", int.class, int.class, String.class);
+
+            // 关键：不同厂商定义的 OpCode 不同
+            int opCode = -1;
+            String brand = Build.MANUFACTURER.toLowerCase();
+
+            if (brand.contains("xiaomi")) {
+                opCode = 10021; // 小米：OP_BACKGROUND_START_ACTIVITY
+            } else if (brand.contains("vivo")) {
+                opCode = 10021; // vivo：同样使用 10021 (显示后台浮窗)
+            } else if (brand.contains("oppo")) {
+                opCode = 10035; // OPPO：部分版本使用 10035
+            }
+
+            if (opCode != -1) {
+                int mode = (int) method.invoke(ops, opCode, Binder.getCallingUid(), this.getPackageName());
+                return mode == AppOpsManager.MODE_ALLOWED;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // 华为/其他机型：如果没有特定的 OpCode，通常认为“自启动”开启即代表允许
+        return true;
+    }
+
+    public boolean isMediaProjectionPermissionGranted(Context context) {
+        if (Build.VERSION.SDK_INT >= 34) {
+            return ContextCompat.checkSelfPermission(context, Manifest.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION)
+                    == PackageManager.PERMISSION_GRANTED;
+        }
+        return true;
     }
 
     // 4. VPN (如果返回 null 说明已经通过了系统的 prepare 检查)
@@ -429,6 +522,8 @@ public class MainActivity extends AppCompatActivity {
             status.put("notification", checkNotifStatus());    // 对应 id="p-notification"
             status.put("autostart", checkAutoStartStatus());     // 对应 id="p-device_admin"
             status.put("power", isBatteryUnrestricted());
+            status.put("popup", isBackgroundStartAllowed());
+            status.put("prjection", isMediaProjectionPermissionGranted(this));
             String json = new ObjectMapper().writeValueAsString(status);
             // 调用 JS 方法。注意：JS 方法名必须是 updatePermissionUI
             mWebView.evaluateJavascript("if(window.updatePermissionUI){ window.updatePermissionUI(" + json + "); }", null);

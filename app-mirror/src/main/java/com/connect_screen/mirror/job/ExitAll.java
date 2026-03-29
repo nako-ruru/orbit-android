@@ -43,13 +43,20 @@ public class ExitAll {
                 flags |= PendingIntent.FLAG_IMMUTABLE;
             }
 
+// 在你的 flags 基础上进行位或运算
+            int updatedFlags = flags;
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                // 除非明确需要修改 Intent 内容，否则一律使用 FLAG_IMMUTABLE
+                updatedFlags |= PendingIntent.FLAG_IMMUTABLE;
+            }
+
             // 3. 【关键修改】在 getActivity 创建时就传入 options.toBundle()
             // 这解决了日志中提到的 "missing opt in by PI creator" 问题
             PendingIntent pIntent = PendingIntent.getActivity(
                     context,
                     123456,
                     intent,
-                    flags,
+                    updatedFlags, // 使用更新后的 flags
                     options.toBundle()
             );
 

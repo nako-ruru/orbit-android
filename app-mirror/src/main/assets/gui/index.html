@@ -633,7 +633,7 @@
             border-top: 1px solid var(--gray-light);
         }
 
-        /* Android权限设置页面样式 */
+        /* ========= 新版 Android 权限设置样式 ========= */
         .android-permission-container {
             background: #0f172a;
             color: #f8fafc;
@@ -665,29 +665,87 @@
             line-height: 1.4;
         }
 
-        /* 权限网格布局 */
-        .permission-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 12px;
-        }
-
-        .permission-card {
+        /* 权限分组样式 */
+        .permission-group {
             background: #1e293b;
             border-radius: var(--border-radius);
-            padding: 15px;
+            margin-bottom: 20px;
+            overflow: hidden;
+            border: 1px solid #334155;
+        }
+
+        .group-header {
+            background: #0f172a;
+            padding: 12px 16px;
+            border-bottom: 2px solid #38bdf8;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background 0.2s;
+        }
+
+        .group-header:hover {
+            background: #1e293b;
+        }
+
+        .group-title {
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #e2e8f0;
+        }
+
+        .group-title span:first-child {
+            font-size: 18px;
+        }
+
+        .group-desc {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+
+        .group-toggle-icon {
+            font-size: 14px;
+            transition: transform 0.2s;
+        }
+
+        .group-toggle-icon.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .permission-items {
+            padding: 12px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 10px;
+            transition: all 0.2s;
+        }
+
+        .permission-items.collapsed {
+            display: none;
+        }
+
+        /* 权限卡片样式 (在分组内) */
+        .permission-card {
+            background: #0f172a;
+            border-radius: var(--border-radius);
+            padding: 12px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             border: 1px solid #334155;
             border-left: 4px solid #ef4444;
-            transition: all 0.3s;
-            min-height: 80px;
+            transition: all 0.2s;
+            min-height: 70px;
         }
 
         .permission-card.granted {
             border-left-color: #22c55e;
-            background: rgba(34, 197, 94, 0.05);
+            background: rgba(34, 197, 94, 0.08);
         }
 
         .permission-card.denied {
@@ -696,27 +754,27 @@
 
         .permission-info {
             flex: 1;
-            margin-right: 15px;
+            margin-right: 12px;
         }
 
         .permission-title {
             font-weight: 600;
-            font-size: 13px;
+            font-size: 12px;
             display: flex;
             align-items: center;
+            gap: 6px;
             margin-bottom: 4px;
+            color: #f1f5f9;
         }
 
         .permission-desc {
-            font-size: 11px;
+            font-size: 10px;
             color: #94a3b8;
             line-height: 1.3;
         }
 
         .permission-status-icon {
-            margin-right: 6px;
-            width: 14px;
-            height: 14px;
+            font-size: 14px;
         }
 
         .permission-btn {
@@ -749,35 +807,6 @@
             background: #334155;
         }
 
-        /* 权限状态指示器 */
-        .permission-status {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 10px;
-        }
-
-        .status-indicator-permission {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 10px;
-            font-weight: 500;
-        }
-
-        .status-indicator-permission.granted {
-            background: rgba(34, 197, 94, 0.2);
-            color: #22c55e;
-        }
-
-        .status-indicator-permission.denied {
-            background: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
-        }
-
-        /* 隐藏滚动条但保留功能 */
         .android-permission-container::-webkit-scrollbar {
             width: 6px;
         }
@@ -804,7 +833,7 @@
                 flex-direction: column;
             }
 
-            .permission-grid {
+            .permission-items {
                 grid-template-columns: 1fr;
             }
 
@@ -1085,131 +1114,20 @@
         </div>
     </div>
 
-	<!-- Android权限设置 -->
-	<div id="tab5" class="tab-content">
-	    <div class="android-permission-container">
-	        <div class="android-permission-header">
-	            <h3 data-i18n="android.permissions.header">⚙️ 无人值守授权配置</h3>
-	            <p data-i18n="android.permissions.description">请确保以下所有权限均显示为"已开启"，否则受控端无法正常工作</p>
-	        </div>
-
-	        <div class="permission-grid" id="permissionGrid">
-	            <!-- 运行时权限 -->
-	            <div class="permission-card denied" id="p-mic">
-	                <div class="permission-info">
-	                    <div class="permission-title">
-	                        <span class="permission-status-icon">🎤</span>
-	                        <span data-i18n="android.permissions.mic.title">录音/麦克风</span>
-	                    </div>
-	                    <div class="permission-desc" data-i18n="android.permissions.mic.desc">用于远程监听环境声音</div>
-	                </div>
-	                <button class="permission-btn go" onclick="authPermission('mic')" data-i18n="android.permissions.action.go">去授权</button>
-	            </div>
-
-	            <!-- 特权：无障碍 -->
-	            <div class="permission-card denied" id="p-accessibility">
-	                <div class="permission-info">
-	                    <div class="permission-title">
-	                        <span class="permission-status-icon">♿</span>
-	                        <span data-i18n="android.permissions.accessibility.title">无障碍服务</span>
-	                    </div>
-	                    <div class="permission-desc" data-i18n="android.permissions.accessibility.desc">核心控制：用于模拟点击和手势操作</div>
-	                </div>
-	                <button class="permission-btn go" onclick="authPermission('accessibility')" data-i18n="android.permissions.action.go">去授权</button>
-	            </div>
-
-	            <!-- 特权：悬浮窗 -->
-	            <div class="permission-card denied" id="p-overlay">
-	                <div class="permission-info">
-	                    <div class="permission-title">
-	                        <span class="permission-status-icon">🪟</span>
-	                        <span data-i18n="android.permissions.overlay.title">悬浮窗权限</span>
-	                    </div>
-	                    <div class="permission-desc" data-i18n="android.permissions.overlay.desc">用于在后台保持界面交互和状态显示</div>
-	                </div>
-	                <button class="permission-btn go" onclick="authPermission('overlay')" data-i18n="android.permissions.action.go">去授权</button>
-	            </div>
-
-	            <!-- 特权：VPN -->
-	            <div class="permission-card denied" id="p-vpn">
-	                <div class="permission-info">
-	                    <div class="permission-title">
-	                        <span class="permission-status-icon">🔒</span>
-	                        <span data-i18n="android.permissions.vpn.title">VPN转发</span>
-	                    </div>
-	                    <div class="permission-desc" data-i18n="android.permissions.vpn.desc">用于内网穿透和稳定的数据传输</div>
-	                </div>
-	                <button class="permission-btn go" onclick="authPermission('vpn')" data-i18n="android.permissions.action.go">去授权</button>
-	            </div>
-
-	            <!-- 特权：所有文件 -->
-	            <div class="permission-card denied" id="p-files">
-	                <div class="permission-info">
-	                    <div class="permission-title">
-	                        <span class="permission-status-icon">📁</span>
-	                        <span data-i18n="android.permissions.files.title">所有文件访问</span>
-	                    </div>
-	                    <div class="permission-desc" data-i18n="android.permissions.files.desc">允许远程管理和传输设备文件</div>
-	                </div>
-	                <button class="permission-btn go" onclick="authPermission('files')" data-i18n="android.permissions.action.go">去授权</button>
-	            </div>
-
-	            <!-- 特权：精确闹钟 -->
-	            <div class="permission-card denied" id="p-alarm">
-	                <div class="permission-info">
-	                    <div class="permission-title">
-	                        <span class="permission-status-icon">⏰</span>
-	                        <span data-i18n="android.permissions.alarm.title">精确闹钟/重启</span>
-	                    </div>
-	                    <div class="permission-desc" data-i18n="android.permissions.alarm.desc">确保应用在异常退出后能准时重启</div>
-	                </div>
-	                <button class="permission-btn go" onclick="authPermission('alarm')" data-i18n="android.permissions.action.go">去授权</button>
-	            </div>
-
-	            <!-- 新增权限：通知监听 -->
-	            <div class="permission-card denied" id="p-notification">
-	                <div class="permission-info">
-	                    <div class="permission-title">
-	                        <span class="permission-status-icon">🔔</span>
-	                        <span data-i18n="android.permissions.notification.title">通知监听</span>
-	                    </div>
-	                    <div class="permission-desc" data-i18n="android.permissions.notification.desc">监控设备通知，了解设备状态变化</div>
-	                </div>
-	                <button class="permission-btn go" onclick="authPermission('notification')" data-i18n="android.permissions.action.go">去授权</button>
-	            </div>
-
-	            <!-- 特权：自启动 -->
-	            <div class="permission-card denied" id="p-autostart">
-	                <div class="permission-info">
-	                    <div class="permission-title">
-	                        <span class="permission-status-icon">🚀</span>
-	                        <span data-i18n="android.permissions.autostart.title">自启动权限</span>
-	                    </div>
-	                    <div class="permission-desc" data-i18n="android.permissions.autostart.desc">确保受控端在手机意外重启、电量耗尽关机再充电、或系统静默更新后，能够自动重新上线。如果不开启，设备重启后将处于离线状态，必须人工前往现场手动开启应用。</div>
-	                </div>
-	                <button class="permission-btn go" onclick="authPermission('autostart')" data-i18n="android.permissions.action.go">去授权</button>
-	            </div>
-
-	            <!-- 特权：省电策略 -->
-	            <div class="permission-card denied" id="p-power">
-	                <div class="permission-info">
-	                    <div class="permission-title">
-	                        <span class="permission-status-icon">⚡</span>
-	                        <span data-i18n="android.permissions.power.title">省电策略白名单</span>
-	                    </div>
-	                    <div class="permission-desc" data-i18n="android.permissions.power.desc">防止系统在后台休眠应用，保持持久连接</div>
-	                </div>
-	                <button class="permission-btn go" onclick="authPermission('power')" data-i18n="android.permissions.action.go">去授权</button>
-	            </div>
-	        </div>
-	    </div>
-	</div>
-
-    <div class="status-bar" id="statusBar">
-        <span data-i18n="statusBar.ready">状态：就绪</span>
-        <span data-i18n="statusBar.lastUpdate">最后更新：刚刚</span>
+    <!-- ========= 新版 Android 权限设置 Tab (二级分组, 动态权限列表) ========= -->
+    <div id="tab5" class="tab-content">
+          <iframe 
+        id="permissionFrame"
+        src="permissions.html"
+        style="width: 100%; height: 100%; border: none; border-radius: 6px;"
+        allow="microphone *">
+    </iframe>
     </div>
+
+    <div class="status-bar" id="statusBar"><span data-i18n="statusBar.ready">状态：就绪</span><span data-i18n="statusBar.lastUpdate">最后更新：刚刚</span></div>
 </div>
+
+
 
 <script>
     // 自定义确认对话框
@@ -1816,59 +1734,6 @@
         document.getElementById('statusBar').lastElementChild.textContent = i18next.t('statusBar.lastUpdate');
     }
 
-// Android权限相关函数
-// 供 Java 调用：更新 UI 状态
-function updatePermissionUI(json) {
-    // 假设 json = {"mic":true, "vpn":false, ...}
-    for (let key in json) {
-        const card = document.getElementById('p-' + key);
-        if (!card) continue;
-
-        const btn = card.querySelector('.permission-btn');
-        if (json[key]) {
-            card.className = 'permission-card granted';
-            btn.className = 'permission-btn ok';
-            btn.innerText = i18next.t('android.permissions.action.ok');
-            btn.onclick = null;
-        } else {
-            card.className = 'permission-card denied';
-            btn.className = 'permission-btn go';
-            btn.innerText = i18next.t('android.permissions.action.go');
-            btn.onclick = function() { authPermission(key); };
-        }
-    }
-    updateStatus(i18next.t('android.permissions.status.updated'));
-}
-
-// 调用 Java 桥接
-function authPermission(type) {
-    const permissionNames = {
-        'mic': i18next.t('android.permissions.mic.title'),
-        'accessibility': i18next.t('android.permissions.accessibility.title'),
-        'overlay': i18next.t('android.permissions.overlay.title'),
-        'vpn': i18next.t('android.permissions.vpn.title'),
-        'files': i18next.t('android.permissions.files.title'),
-        'alarm': i18next.t('android.permissions.alarm.title'),
-        'notification': i18next.t('android.permissions.notification.title'),
-        'autostart': i18next.t('android.permissions.autostart.title'),
-        'power': i18next.t('android.permissions.power.title')
-    };
-
-    updateStatus(i18next.t('android.permissions.status.requesting', { permission: permissionNames[type] || type }));
-
-    if (window._android_bridge) {
-        window._android_bridge.requestPermission(type);
-    } else {
-        // 模拟权限授予
-        setTimeout(() => {
-            const mockResult = {};
-            mockResult[type] = true;
-            updatePermissionUI(mockResult);
-            updateStatus(i18next.t('android.permissions.status.granted', { permission: permissionNames[type] || type }));
-        }, 1000);
-    }
-}
-
     // 初始化页面
     document.addEventListener('DOMContentLoaded', function() {
         // 如果有onPageLoaded回调，则调用
@@ -1893,5 +1758,60 @@ function authPermission(type) {
         // 实际查看历史记录逻辑
     }
 </script>
+<script>
+    // 在主页面中与权限模块通信
+    function initPermissionFrame() {
+        const iframe = document.getElementById('permissionFrame');
+
+        iframe.onload = function() {
+            console.log('权限模块加载完成');
+
+            // 监听来自 iframe 的消息
+            window.addEventListener('message', function(event) {
+                if (event.data && event.data.type === 'REQUEST_PERMISSION') {
+                    // 处理权限请求
+                    const permId = event.data.permissionId;
+                    if (window._android_bridge) {
+                        window._android_bridge.requestPermission(permId);
+                    }
+                }
+            });
+        };
+    }
+
+    // Go 侧调用：更新权限状态
+    function updatePermissionStatusFromGo(statusMap) {
+        const iframe = document.getElementById('permissionFrame');
+        if (iframe && iframe.contentWindow) {
+            iframe.contentWindow.postMessage({
+                type: 'UPDATE_PERMISSION_STATUS',
+                status: statusMap
+            }, '*');
+        }
+    }
+
+    // Go 侧调用：更新权限定义
+    function updatePermissionDefinitionsFromGo(definitions) {
+        const iframe = document.getElementById('permissionFrame');
+        if (iframe && iframe.contentWindow) {
+            iframe.contentWindow.postMessage({
+                type: 'UPDATE_DEFINITIONS',
+                definitions: definitions
+            }, '*');
+        }
+    }
+
+    // Go 侧调用：获取当前权限状态
+    function getCurrentPermissionsFromGo() {
+        const iframe = document.getElementById('permissionFrame');
+        if (iframe && iframe.contentWindow) {
+            return iframe.contentWindow.getCurrentPermissions();
+        }
+        return '{}';
+    }
+
+    initPermissionFrame();
+</script>
+
 </body>
 </html>
