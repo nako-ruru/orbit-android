@@ -1,0 +1,40 @@
+{
+  // 权限结构定义 - 版本 2.0
+  groups: [
+    {
+      groupId: "core_screen",
+      groupNameKey: "core_screen_name",
+      groupDescKey: "core_screen_desc",
+      icon: "🎯",
+      permissions: [
+        { id: "mic", nameKey: "perm_mic_name", descKey: "perm_mic_desc", icon: "🎤", required: true },
+        { id: "projection", nameKey: "perm_projection_name", descKey: "perm_projection_desc", icon: "📺", required: true },
+        { id: "vpn", nameKey: "perm_vpn_name", descKey: "perm_vpn_desc", icon: "🔒", required: true },
+        { id: "accessibility", nameKey: "perm_accessibility_name", descKey: "perm_accessibility_desc", icon: "♿", required: true }
+      ]
+    },
+    {
+      groupId: "interface_monitor",
+      groupNameKey: "interface_monitor_name",
+      groupDescKey: "interface_monitor_desc",
+      icon: "🖥️",
+      permissions: [
+        { id: "overlay", nameKey: "perm_overlay_name", descKey: "perm_overlay_desc", icon: "🪟", required: false },
+        { id: "notification", nameKey: "perm_notification_name", descKey: "perm_notification_desc", icon: "🔔", required: false },
+        { id: "files", nameKey: "perm_files_name", descKey: "perm_files_desc", icon: "📁", required: false }
+      ]
+    },
+    {
+      groupId: "keepalive_restart",
+      groupNameKey: "keepalive_name",
+      groupDescKey: "keepalive_desc",
+      icon: "⚙️",
+      permissions: [
+        { id: "autostart", nameKey: "perm_autostart_name", descKey: "perm_autostart_desc", icon: "🚀", required: false },
+        { id: "popup", nameKey: "perm_popup_name", descKey: "perm_popup_desc", icon: "💬", required: false },
+        { id: "power", nameKey: "perm_power_name", descKey: "perm_power_desc", icon: "⚡", required: false },
+        { id: "alarm", nameKey: "perm_alarm_name", descKey: "perm_alarm_desc", icon: "⏰", required: false }
+      ]
+    }
+  ]
+}

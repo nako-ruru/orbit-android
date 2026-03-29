@@ -21,6 +21,8 @@ import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.util.Log;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.app.AppOpsManager;
@@ -29,6 +31,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.webkit.WebViewAssetLoader;
 import androidx.webkit.WebViewCompat;
 
 import com.aventrix.jnanoid.jnanoid.NanoIdUtils;
@@ -36,14 +39,21 @@ import com.connect_screen.mirror.MirrorMainActivity;
 import com.connect_screen.mirror.State;
 import com.connect_screen.mirror.SunshineService;
 import com.connect_screen.mirror.TouchpadAccessibilityService;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.json.JsonReadFeature;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.pivovarit.function.ThrowingRunnable;
 
 import org.lsposed.hiddenapibypass.HiddenApiBypass;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -151,6 +161,11 @@ public class MainActivity extends AppCompatActivity {
         mWebView = new WebView(this);
         AndroidWebViewProvider.bind(mId, mWebView, this::finish);
 
+        WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
+                // 映射 /assets/ 到 APK assets 目录
+                .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
+                .build();
+
         mWebView.getSettings().setJavaScriptEnabled(true);
         mWebView.addJavascriptInterface(new Object() {
             @JavascriptInterface
@@ -176,6 +191,12 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 syncAllPermissionsToWeb();
+            }
+            @Override
+            public WebResourceResponse shouldInterceptRequest(
+                    WebView view,
+                    WebResourceRequest request) {
+                return assetLoader.shouldInterceptRequest(request.getUrl());
             }
         });
         mWebView.loadUrl(getIntent().getStringExtra("URL"));
@@ -510,25 +531,75 @@ public class MainActivity extends AppCompatActivity {
 
     private void syncAllPermissionsToWeb() {
         runOnUiThread(ThrowingRunnable.sneaky(() -> {
-            Map<String, Boolean> status = new HashMap<>();
+            // 1. 读取权限结构 JSON5（支持注释）
+            String structureJson5 = loadJSONFromAsset("permission_definitions.json5");
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.configure(JsonParser.Feature.ALLOW_UNQUOTED_FIELD_NAMES, true);
+            mapper.configure(JsonParser.Feature.ALLOW_SINGLE_QUOTES, true);
+            mapper.configure(JsonReadFeature.ALLOW_TRAILING_COMMA.mappedFeature(), true);
+            mapper.configure(JsonParser.Feature.ALLOW_COMMENTS, true);
+            // 读取 JSON 文件成树结构
+            JsonNode rootNode = mapper.readValue(structureJson5, JsonNode.class);
 
-            // 这些 Key 必须与 JS 中的 id="p-xxx" 后缀严格对应
-            status.put("mic", checkMicStatus());               // 对应 id="p-mic"
-            status.put("accessibility", checkAccStatus());     // 对应 id="p-accessibility"
-            status.put("overlay", checkOverlayStatus());       // 对应 id="p-overlay"
-            status.put("vpn", checkVpnStatus());               // 对应 id="p-vpn"
-            status.put("files", checkFilesStatus());           // 对应 id="p-files"
-            status.put("alarm", checkAlarmStatus());           // 对应 id="p-alarm"
-            status.put("notification", checkNotifStatus());    // 对应 id="p-notification"
-            status.put("autostart", checkAutoStartStatus());     // 对应 id="p-device_admin"
-            status.put("power", isBatteryUnrestricted());
-            status.put("popup", isBackgroundStartAllowed());
-            status.put("prjection", isMediaProjectionPermissionGranted(this));
-            String json = new ObjectMapper().writeValueAsString(status);
-            // 调用 JS 方法。注意：JS 方法名必须是 updatePermissionUI
-            mWebView.evaluateJavascript("if(window.updatePermissionUI){ window.updatePermissionUI(" + json + "); }", null);
+            // 确保 groups 是数组
+            ArrayNode groups = (ArrayNode) rootNode.get("groups");
+
+            // 2. 获取当前所有权限状态
+            Map<String, Boolean> statusMap = getAllPermissionsStatus();
+
+            // 3. 注入权限状态到 groups
+            for (JsonNode groupNode : groups) {
+                ArrayNode permissions = (ArrayNode) groupNode.get("permissions");
+
+                for (JsonNode permNode : permissions) {
+                    String permId = permNode.get("id").asText();
+                    boolean granted = statusMap.getOrDefault(permId, false);
+
+                    // 这里 JsonNode 是不可变的，需要转成 ObjectNode 才能 put
+                    if (permNode instanceof ObjectNode) {
+                        ((ObjectNode) permNode).put("granted", granted);
+                    }
+                }
+            }
+
+            // 4. 构建最终数据
+            ObjectNode finalData = mapper.createObjectNode();
+            finalData.set("groups", groups);
+
+            // 5. 转成 JSON 字符串并调用 JS
+            String finalJson = mapper.writeValueAsString(finalData);
+            String jsCode = "document.getElementById('permissionFrame').contentWindow.updatePermissionUI(" + finalJson + ")";
+
+            mWebView.evaluateJavascript(jsCode, null);
         }));
     }
+
+    /**
+     * 获取所有权限的当前状态
+     */
+    private Map<String, Boolean> getAllPermissionsStatus() {
+        Map<String, Boolean> status = new HashMap<>();
+
+        // 核心投屏功能组
+        status.put("mic", checkMicStatus());                           // 录音/麦克风
+        status.put("projection", isMediaProjectionPermissionGranted(this)); // 投屏权限
+        status.put("vpn", checkVpnStatus());                           // VPN转发
+        status.put("accessibility", checkAccStatus());                 // 无障碍服务
+
+        // 界面交互与监控组
+        status.put("overlay", checkOverlayStatus());                   // 悬浮窗权限
+        status.put("notification", checkNotifStatus());                // 通知监听
+        status.put("files", checkFilesStatus());                       // 所有文件访问
+
+        // 进程保活与自动重启组
+        status.put("autostart", checkAutoStartStatus());               // 自启动权限
+        status.put("popup", isBackgroundStartAllowed());               // 后台弹出界面
+        status.put("power", isBatteryUnrestricted());                  // 省电策略白名单
+        status.put("alarm", checkAlarmStatus());                       // 精确闹钟与重启
+
+        return status;
+    }
+
 
     private void requestIgnoreBatteryOptimizations() {
         // 1. 获取电源管理器
@@ -553,6 +624,25 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         }
+    }
+
+    // 权限定义文件路径
+    private static final String PERMISSION_DEFINITIONS_FILE = "permission_definitions.json";
+
+    // 多语言文件路径模板
+    private static final String I18N_FILE_TEMPLATE = "permission_i18n_%s.json";
+
+
+    /**
+     * 从 assets 读取 JSON 文件
+     */
+    private String loadJSONFromAsset(String filename) throws IOException {
+        InputStream is = this.getAssets().open(filename);
+        int size = is.available();
+        byte[] buffer = new byte[size];
+        is.read(buffer);
+        is.close();
+        return new String(buffer, StandardCharsets.UTF_8);
     }
 
 }
