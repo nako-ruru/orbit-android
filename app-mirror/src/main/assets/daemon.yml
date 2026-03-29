@@ -11,7 +11,7 @@ sunshine:
   test-authentication: 'apollo:apollo123'
 npc:
   path: 'D:\npc_windows_amd64_client\npc.exe'
-  nps-addr: '83.229.122.196:8024'
+  nps-addr: '[2001:df1:7880:2::19bf]:8024'
 session:
   stream-timeout: 1m
   heartbeat-timeout: 1m
