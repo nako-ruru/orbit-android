@@ -18,7 +18,7 @@ file-transfer:
   path: 'D:\projects\orbital-client\filetransfer.exe'
   conf-path: 'D:\projects\orbital-client\cmd\filetransfer\application.yml'
 webview:
-  external-url: 'android_asset/gui/index.html'
+  external-url: 'https://appassets.androidplatform.net/assets/gui/index.html'
   i18n-tools-url: http://192.168.3.18:6700
   target-device-code: '021 617 079'
   target-password: QZjXGG

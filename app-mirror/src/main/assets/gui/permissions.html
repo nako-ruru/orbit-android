@@ -2,22 +2,14 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>权限管理模块</title>
+    <title>权限管理</title>
     <style>
+        /* 样式代码保持不变 */
         :root {
             --primary: #4361ee;
-            --primary-dark: #3a56d4;
             --border-radius: 6px;
-            --transition: all 0.2s ease;
         }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', system-ui, sans-serif;
             background: #0f172a;
@@ -26,34 +18,25 @@
             height: 100vh;
             overflow: hidden;
         }
-
         .permission-container {
             height: 100%;
             padding: 15px;
             overflow-y: auto;
         }
-
         .permission-header {
             text-align: center;
             margin-bottom: 20px;
         }
-
         .permission-header h3 {
             margin: 0;
             font-size: 16px;
             color: #38bdf8;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
         }
-
         .permission-header p {
             margin: 8px 0 0;
             color: #94a3b8;
             font-size: 11px;
         }
-
         .permission-group {
             background: #1e293b;
             border-radius: var(--border-radius);
@@ -61,62 +44,42 @@
             overflow: hidden;
             border: 1px solid #334155;
         }
-
         .group-header {
             background: #0f172a;
             padding: 12px 16px;
             border-bottom: 2px solid #38bdf8;
             cursor: pointer;
             display: flex;
-            align-items: center;
             justify-content: space-between;
-            transition: background 0.2s;
+            align-items: center;
         }
-
-        .group-header:hover {
-            background: #1e293b;
-        }
-
-        .group-title {
+        .group-name {
             font-weight: 600;
             font-size: 14px;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .group-name {
             display: flex;
             align-items: center;
             gap: 8px;
         }
-
         .group-desc {
             font-size: 11px;
             color: #94a3b8;
+            margin-top: 4px;
         }
-
         .group-toggle-icon {
-            font-size: 14px;
             transition: transform 0.2s;
         }
-
         .group-toggle-icon.collapsed {
             transform: rotate(-90deg);
         }
-
         .permission-items {
             padding: 12px;
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
             gap: 10px;
-            transition: all 0.2s;
         }
-
         .permission-items.collapsed {
             display: none;
         }
-
         .permission-card {
             background: #0f172a;
             border-radius: var(--border-radius);
@@ -126,20 +89,15 @@
             justify-content: space-between;
             border: 1px solid #334155;
             border-left: 4px solid #ef4444;
-            transition: all 0.2s;
-            min-height: 70px;
         }
-
         .permission-card.granted {
             border-left-color: #22c55e;
             background: rgba(34, 197, 94, 0.08);
         }
-
         .permission-info {
             flex: 1;
             margin-right: 12px;
         }
-
         .permission-title {
             font-weight: 600;
             font-size: 12px;
@@ -147,15 +105,15 @@
             align-items: center;
             gap: 6px;
             margin-bottom: 4px;
-            color: #f1f5f9;
         }
-
         .permission-desc {
             font-size: 10px;
             color: #94a3b8;
-            line-height: 1.3;
         }
-
+        .required-badge {
+            color: #ef4444;
+            font-size: 10px;
+        }
         .permission-btn {
             padding: 6px 12px;
             border-radius: var(--border-radius);
@@ -164,24 +122,16 @@
             font-weight: 500;
             font-size: 11px;
             min-width: 70px;
-            transition: all 0.2s;
         }
-
         .permission-btn.go {
             background: #38bdf8;
             color: #0f172a;
         }
-
-        .permission-btn.go:hover {
-            background: #0ea5e9;
-        }
-
         .permission-btn.ok {
             background: #334155;
             color: #94a3b8;
             cursor: default;
         }
-
         .status-bar {
             background: #0f172a;
             border-top: 1px solid #334155;
@@ -192,117 +142,96 @@
             bottom: 0;
             left: 0;
             right: 0;
-        }
-
-        @media (max-width: 768px) {
-            .permission-items {
-                grid-template-columns: 1fr;
-            }
+            display: flex;
+            justify-content: space-between;
         }
     </style>
+    <script src="https://unpkg.com/i18next@23.0.0/i18next.min.js"></script>
 </head>
 <body>
 <div class="permission-container">
     <div class="permission-header">
-        <h3>⚙️ 无人值守授权配置</h3>
-        <p>请确保以下所有权限均显示为"已开启"，否则受控端无法正常工作</p>
+        <h3 id="headerTitle"></h3>
+        <p id="headerDesc"></p>
     </div>
     <div id="permissionGroupsContainer"></div>
 </div>
+<div class="status-bar">
+    <span id="statusText"></span>
+    <span id="lastUpdate"></span>
+</div>
 
 <script>
-    // ================= 权限定义 (可动态更新) =================
-    window.PERMISSION_DEFINITIONS = [
-        {
-            groupId: "core_screen",
-            groupName: "核心投屏功能",
-            groupDesc: "不开启则无法正常工作",
-            permissions: [
-                { id: "mic", name: "录音/麦克风", desc: "采集系统或环境声音。", icon: "🎤", required: true },
-                { id: "foreground_service", name: "前台服务权限", desc: "Android 14+ 投屏服务心脏，保证重启后投屏恢复。", icon: "❤️", required: true },
-                { id: "vpn", name: "VPN转发", desc: "处理投屏数据流的传输。", icon: "🔒", required: true },
-                { id: "accessibility", name: "无障碍服务", desc: "实现远程控制（反控功能）。", icon: "♿", required: true }
-            ]
-        },
-        {
-            groupId: "interface_monitor",
-            groupName: "界面交互与监控",
-            groupDesc: "功能增强，提升使用体验",
-            permissions: [
-                { id: "overlay", name: "悬浮窗权限", desc: "显示投屏时的控制按钮、状态条。", icon: "🪟", required: false },
-                { id: "notification", name: "通知监听", desc: "将手机通知实时推送到接收端。", icon: "🔔", required: false },
-                { id: "files", name: "所有文件访问", desc: "支持本地视频、文档的直投。", icon: "📁", required: false }
-            ]
-        },
-        {
-            groupId: "keepalive_restart",
-            groupName: "进程保活与自动重启",
-            groupDesc: "解决重装失效、后台被杀问题",
-            permissions: [
-                { id: "autostart", name: "自启动权限", desc: "允许 App 被系统从“死亡”状态拉起。", icon: "🚀", required: false },
-                { id: "background_popup", name: "后台弹出界面", desc: "小米/国产机重装后允许重启直接弹出界面。", icon: "💬", required: false },
-                { id: "power", name: "省电策略白名单", desc: "防止系统省电掐断投屏连接。", icon: "⚡", required: false },
-                { id: "alarm", name: "精确闹钟与重启", desc: "利用 AlarmManager 实现定时重启逻辑。", icon: "⏰", required: false }
-            ]
-        }
-    ];
+    // 全局变量
+    let permissionGroups = null;
+    let currentLanguage = 'zh';
 
-    window.permissionStatus = {};
+    // 初始化 i18next
+    async function initI18n() {
+        // 更新页面文本
+        updateUIText();
+    }
 
-    // 更新权限状态 (Go 可调用)
-    window.updatePermissionStatus = function(statusMap) {
-        for (let key in statusMap) {
-            window.permissionStatus[key] = statusMap[key];
-        }
-        renderPermissionGroups();
-        updateStatusMessage("权限状态已更新");
+    // 更新 UI 文本
+    function updateUIText() {
+        if (!permissionGroups) return;
+
+        document.getElementById('headerTitle').innerHTML = `⚙️ ${i18next.t('core_screen_name')}`;
+        document.getElementById('headerDesc').innerHTML = i18next.t('core_screen_desc');
+        document.getElementById('statusText').innerHTML = i18next.t('status_ready');
+        document.getElementById('lastUpdate').innerHTML = `${i18next.t('status_last_update')}: ${new Date().toLocaleTimeString()}`;
+
+        // 重新渲染权限列表以更新文字
+        renderPermissions();
+    }
+
+    // Java 调用：更新整个权限UI（一次性传入完整数据）
+    window.updatePermissionUI = function(data) {
+        console.log("收到权限数据:", data);
+        permissionGroups = data.groups;
+        renderPermissions();
+        updateUIText();
     };
 
-    // 动态更新权限定义
-    window.updatePermissionDefinitions = function(definitions) {
-        if (definitions && Array.isArray(definitions)) {
-            window.PERMISSION_DEFINITIONS = definitions;
-            let newStatus = {};
-            for (let group of definitions) {
+    // Java 调用：更新单个权限
+    window.updateSinglePermission = function(permId, granted) {
+        if (permissionGroups) {
+            for (let group of permissionGroups) {
                 for (let perm of group.permissions) {
-                    if (window.permissionStatus[perm.id] !== undefined) {
-                        newStatus[perm.id] = window.permissionStatus[perm.id];
-                    } else {
-                        newStatus[perm.id] = false;
+                    if (perm.id === permId) {
+                        perm.granted = granted;
+                        renderPermissions();
+                        return;
                     }
                 }
             }
-            window.permissionStatus = newStatus;
-            renderPermissionGroups();
         }
     };
 
-    // 获取当前权限状态 (Go 可调用)
-    window.getCurrentPermissions = function() {
-        return JSON.stringify(window.permissionStatus);
-    };
-
-    function renderPermissionGroups() {
+    // 渲染权限列表
+    function renderPermissions() {
         const container = document.getElementById('permissionGroupsContainer');
-        if (!container) return;
+        if (!container || !permissionGroups) return;
         container.innerHTML = '';
 
-        for (let group of window.PERMISSION_DEFINITIONS) {
+        for (let group of permissionGroups) {
             const groupDiv = document.createElement('div');
             groupDiv.className = 'permission-group';
-            groupDiv.dataset.groupId = group.groupId;
+
+            const groupName = i18next.t(group.groupNameKey);
+            const groupDesc = i18next.t(group.groupDescKey);
 
             const header = document.createElement('div');
             header.className = 'group-header';
-            let collapsedState = false;
+            let collapsedState = true;
 
             header.innerHTML = `
-                <div class="group-title">
+                <div>
                     <div class="group-name">
-                        <span>${getGroupIcon(group.groupId)}</span>
-                        <span>${group.groupName}</span>
+                        <span>${group.icon || '📦'}</span>
+                        <span>${groupName}</span>
                     </div>
-                    <div class="group-desc">${group.groupDesc}</div>
+                    ${groupDesc && groupDesc !== group.groupDescKey ? `<div class="group-desc">${groupDesc}</div>` : ''}
                 </div>
                 <div class="group-toggle-icon ${collapsedState ? 'collapsed' : ''}">▼</div>
             `;
@@ -311,28 +240,34 @@
             itemsDiv.className = `permission-items ${collapsedState ? 'collapsed' : ''}`;
 
             for (let perm of group.permissions) {
-                const isGranted = window.permissionStatus[perm.id] === true;
+                const isGranted = perm.granted === true;
+                const permName = i18next.t(perm.nameKey);
+                const permDesc = i18next.t(perm.descKey);
+
                 const card = document.createElement('div');
                 card.className = `permission-card ${isGranted ? 'granted' : 'denied'}`;
-                card.id = `perm-card-${perm.id}`;
                 card.innerHTML = `
                     <div class="permission-info">
                         <div class="permission-title">
-                            <span class="permission-status-icon">${perm.icon || '🔘'}</span>
-                            <span>${perm.name}</span>
-                            ${perm.required ? '<span style="color:#ef4444; font-size:10px;">(必需)</span>' : ''}
+                            <span>${perm.icon || '🔘'}</span>
+                            <span>${permName}</span>
+                            ${perm.required ? `<span class="required-badge">(${i18next.t('badge_required')})</span>` : ''}
                         </div>
-                        <div class="permission-desc">${perm.desc}</div>
+                        <div class="permission-desc">${permDesc}</div>
                     </div>
                     <button class="permission-btn ${isGranted ? 'ok' : 'go'}" data-perm-id="${perm.id}">
-                        ${isGranted ? '✅ 已开启' : '🔓 去授权'}
+                        ${isGranted ? `✅ ${i18next.t('button_granted')}` : `🔓 ${i18next.t('button_go_auth')}`}
                     </button>
                 `;
+
                 const btn = card.querySelector('.permission-btn');
                 if (!isGranted) {
                     btn.addEventListener('click', (e) => {
                         e.stopPropagation();
-                        requestPermission(perm.id);
+                        // 通知 Java 层请求权限
+                        if (window._android_bridge) {
+                            window._android_bridge.requestPermission(perm.id);
+                        }
                     });
                 }
                 itemsDiv.appendChild(card);
@@ -343,11 +278,9 @@
                 if (isCollapsed) {
                     itemsDiv.classList.remove('collapsed');
                     header.querySelector('.group-toggle-icon').classList.remove('collapsed');
-                    localStorage.setItem(`perm_group_${group.groupId}`, 'expanded');
                 } else {
                     itemsDiv.classList.add('collapsed');
                     header.querySelector('.group-toggle-icon').classList.add('collapsed');
-                    localStorage.setItem(`perm_group_${group.groupId}`, 'collapsed');
                 }
             });
 
@@ -357,67 +290,29 @@
         }
     }
 
-    function getGroupIcon(groupId) {
-        const icons = {
-            'core_screen': '🎯',
-            'interface_monitor': '🖥️',
-            'keepalive_restart': '⚙️'
-        };
-        return icons[groupId] || '📦';
+    // 启动
+    initI18n();
+</script>
+<script>
+    function applyI18n() {
+    // 1. Check if parent is already ready (The "Pull")
+    const parentI18n = window.parent.i18next;
+    if (parentI18n && parentI18n.isInitialized) {
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            el.innerText = parentI18n.t(el.getAttribute('data-i18n'));
+        });
     }
+}
 
-    function requestPermission(permId) {
-        updateStatusMessage(`请求权限: ${permId}...`);
-        // 发送消息给父窗口或调用 Go 桥接
-        if (window.parent && window.parent !== window) {
-            // 在 iframe 中，发送消息给父窗口
-            window.parent.postMessage({
-                type: 'REQUEST_PERMISSION',
-                permissionId: permId
-            }, '*');
-        } else if (window._android_bridge) {
-            window._android_bridge.requestPermission(permId);
-        } else {
-            // 模拟环境
-            setTimeout(() => {
-                let newStatus = {};
-                newStatus[permId] = true;
-                window.updatePermissionStatus(newStatus);
-                updateStatusMessage(`权限 ${permId} 已授予 (模拟)`);
-            }, 800);
-        }
+// 2. Listen for updates from Parent (The "Push")
+window.addEventListener('message', (event) => {
+    if (event.data.type === 'SET_LANGUAGE') {
+        applyI18n();
     }
+});
 
-    function updateStatusMessage(msg) {
-        const statusBar = document.getElementById('statusBar');
-        if (statusBar) {
-            statusBar.querySelector('span:first-child').textContent = `状态：${msg}`;
-            document.getElementById('lastUpdate').textContent = `最后更新：${new Date().toLocaleTimeString()}`;
-        }
-    }
-
-    // 监听来自父窗口的消息
-    window.addEventListener('message', function(event) {
-        if (event.data && event.data.type === 'UPDATE_PERMISSION_STATUS') {
-            window.updatePermissionStatus(event.data.status);
-        } else if (event.data && event.data.type === 'UPDATE_DEFINITIONS') {
-            window.updatePermissionDefinitions(event.data.definitions);
-        }
-    });
-
-    // 初始化
-    function init() {
-        for (let group of window.PERMISSION_DEFINITIONS) {
-            for (let perm of group.permissions) {
-                if (window.permissionStatus[perm.id] === undefined) {
-                    window.permissionStatus[perm.id] = false;
-                }
-            }
-        }
-        renderPermissionGroups();
-    }
-
-    init();
+// 3. Initial check when iframe finishes loading
+window.onload = applyI18n;
 </script>
 </body>
 </html>
