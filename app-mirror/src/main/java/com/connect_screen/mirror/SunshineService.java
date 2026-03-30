@@ -244,7 +244,7 @@ public class SunshineService extends Service {
         return new NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("屏易连")
             .setContentText("Sunshine 服务正在运行")
-            .setSmallIcon(R.mipmap.ic_mirror)
+            .setSmallIcon(R.mipmap.ic_orbit)
             .build();
     }
 
