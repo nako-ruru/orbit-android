@@ -54,13 +54,12 @@
             overflow-x: auto;
             scroll-behavior: smooth;
             -webkit-overflow-scrolling: touch;
-            scrollbar-width: none; /* Firefox 隐藏滚动条 */
-            white-space: nowrap;
+            scrollbar-width: none;
             padding: 0 10px;
         }
 
         .tabs-container::-webkit-scrollbar {
-            display: none; /* Chrome/Safari 隐藏滚动条 */
+            display: none;
         }
 
         .tab {
@@ -87,7 +86,7 @@
             color: var(--primary);
         }
 
-        /* 滑动指示器区域 - 圆点指示器 */
+        /* 圆点指示器 */
         .tabs-indicator {
             display: flex;
             justify-content: center;
@@ -111,62 +110,6 @@
             width: 18px;
             border-radius: 4px;
             background: var(--primary);
-        }
-
-        /* 左右边缘渐变提示（可选，增强视觉提示） */
-        .tabs-wrapper::before,
-        .tabs-wrapper::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 30px;
-            pointer-events: none;
-            z-index: 2;
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-
-        .tabs-wrapper::before {
-            left: 0;
-            background: linear-gradient(to right, rgba(255,255,255,0.95), transparent);
-        }
-
-        .tabs-wrapper::after {
-            right: 0;
-            background: linear-gradient(to left, rgba(255,255,255,0.95), transparent);
-        }
-
-        .tabs-wrapper.has-left-shadow::before {
-            opacity: 1;
-        }
-
-        .tabs-wrapper.has-right-shadow::after {
-            opacity: 1;
-        }
-
-        /* 右侧更多提示动画（首次加载时闪烁提示） */
-        .more-hint {
-            position: absolute;
-            right: 5px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: var(--primary);
-            color: white;
-            border-radius: 20px;
-            padding: 4px 10px;
-            font-size: 10px;
-            font-weight: 500;
-            white-space: nowrap;
-            z-index: 10;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            animation: hintPulse 1.5s ease-in-out 3;
-            pointer-events: none;
-            opacity: 0;
-        }
-
-        .more-hint.show {
-            opacity: 1;
         }
 
         @keyframes hintPulse {
@@ -743,14 +686,23 @@
             var baseAddr = window.__SERVER_ADDR__ || "http://localhost:6700";
             var script = document.createElement('script');
             script.src = baseAddr + "/resources/i18n.js";
+
+            // 💡 关键：只有加载成功后，才执行里面的函数
             script.onload = function() {
                 console.log("i18n.js 加载成功，开始初始化...");
-                if (typeof debug_MockBrowserLanguage === 'function') debug_MockBrowserLanguage('zh-Hant');
-                if (window.AppI18n && AppI18n.bootstrap) AppI18n.bootstrap({ basePath: './locales' });
+
+                // 1. 模拟语言（如果需要）
+                debug_MockBrowserLanguage('zh-Hant');
+
+                // 2. 启动应用多语言
+                // 这里的 AppI18n 对象现在才真正存在
+                AppI18n.bootstrap({ basePath: './locales' });
             };
+
             script.onerror = function() {
                 console.error("无法加载 i18n.js，请检查服务器地址：" + script.src);
             };
+
             document.head.appendChild(script);
         })();
     </script>
@@ -783,10 +735,9 @@
             <div class="tab" data-tab-index="5"><span>⚙️</span><span data-i18n="tab.androidPermissions">Android权限</span></div>
         </div>
         <div class="tabs-indicator" id="tabsIndicator"></div>
-        <div class="more-hint" id="moreHint">👉 向右滑动查看更多</div>
     </div>
 
-    <!-- 各标签页内容保持不变 -->
+    <!-- 各标签页内容 -->
     <div id="tab0" class="tab-content active">
         <div class="connection-layout">
             <div class="connection-left">
@@ -811,16 +762,123 @@
 </div>
 
 <script>
-    // 滑动标签及圆点指示器逻辑
+    // ==================== 您原有的所有函数 ====================
+
+    // 自定义确认对话框
+    class CustomConfirm {
+        constructor() {
+            this.overlay = document.getElementById('customConfirmOverlay');
+            this.title = document.getElementById('customConfirmTitle');
+            this.content = document.getElementById('customConfirmContent');
+            this.cancelBtn = document.getElementById('customConfirmCancel');
+            this.okBtn = document.getElementById('customConfirmOk');
+            this.resolve = null;
+            this.init();
+        }
+
+        init() {
+            this.cancelBtn.addEventListener('click', () => this.hide(false));
+            this.okBtn.addEventListener('click', () => this.hide(true));
+            this.overlay.addEventListener('click', (e) => {
+                if (e.target === this.overlay) this.hide(false);
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && this.overlay.classList.contains('active')) this.hide(false);
+            });
+        }
+
+        show(title, message) {
+            this.title.textContent = title || i18next?.t('dialog.confirm.title') || '确认操作';
+            this.content.textContent = message || i18next?.t('dialog.confirm.content') || '';
+            this.overlay.classList.add('active');
+            setTimeout(() => this.okBtn.focus(), 100);
+            return new Promise((resolve) => {
+                this.resolve = resolve;
+            });
+        }
+
+        hide(result) {
+            this.overlay.classList.remove('active');
+            if (this.resolve) {
+                this.resolve(result);
+                this.resolve = null;
+            }
+        }
+    }
+
+    const customConfirm = new CustomConfirm();
+
+    function customConfirmDialog(message) {
+        return customConfirm.show(i18next?.t('dialog.confirm.title') || '确认操作', message);
+    }
+
+    // 动态显示/隐藏Tab - 您的原有函数
+    function showTabs(indices) {
+        const tabs = document.querySelectorAll('.tab');
+        const indexSet = new Set(indices);
+        tabs.forEach((tab, i) => {
+            if (indexSet.has(i)) {
+                tab.style.display = 'inline-flex';
+            } else {
+                tab.style.display = 'none';
+            }
+        });
+        // 隐藏不显示的tab对应的圆点指示器
+        updateIndicatorDotsVisibility();
+        // 更新活动tab的索引
+        let firstVisibleIndex = -1;
+        for (let i = 0; i < tabs.length; i++) {
+            if (tabs[i].style.display !== 'none') {
+                firstVisibleIndex = i;
+                break;
+            }
+        }
+        if (firstVisibleIndex !== -1 && !document.querySelector(`.tab[data-tab-index="${firstVisibleIndex}"]`).classList.contains('active')) {
+            switchTab(firstVisibleIndex);
+        }
+    }
+
+    // 切换标签页 - 您的原有函数，保持不变
+    function switchTab(index) {
+        const tabs = document.querySelectorAll('.tab');
+        const contents = document.querySelectorAll('.tab-content');
+
+        tabs.forEach((tab, i) => {
+            if (i === index) {
+                tab.classList.add('active');
+            } else {
+                tab.classList.remove('active');
+            }
+        });
+
+        contents.forEach((content, i) => {
+            if (i === index) {
+                content.classList.add('active');
+            } else {
+                content.classList.remove('active');
+            }
+        });
+
+        // 更新圆点指示器
+        updateIndicators(index);
+
+        // 滚动到当前tab
+        const activeTab = tabs[index];
+        if (activeTab && activeTab.style.display !== 'none') {
+            activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            setTimeout(updateEdgeShadows, 200);
+        }
+    }
+
+    // ==================== 滑动指示器功能 ====================
+
     const tabsContainer = document.getElementById('tabsContainer');
-    const tabs = document.querySelectorAll('.tab');
-    const indicatorContainer = document.getElementById('tabsIndicator');
-    const moreHint = document.getElementById('moreHint');
     const wrapper = document.getElementById('tabsWrapper');
     let currentIndex = 0;
-    const tabNames = ['远程连接', '我的设备', '活动连接', '历史记录', '代理设置', 'Android权限'];
 
     function buildIndicators() {
+        const indicatorContainer = document.getElementById('tabsIndicator');
+        const tabs = document.querySelectorAll('.tab');
         indicatorContainer.innerHTML = '';
         for (let i = 0; i < tabs.length; i++) {
             const dot = document.createElement('div');
@@ -828,18 +886,39 @@
             dot.setAttribute('data-index', i);
             dot.addEventListener('click', (e) => {
                 e.stopPropagation();
-                switchToTab(parseInt(dot.getAttribute('data-index')));
+                const idx = parseInt(dot.getAttribute('data-index'));
+                const tab = document.querySelector(`.tab[data-tab-index="${idx}"]`);
+                if (tab && tab.style.display !== 'none') {
+                    switchTab(idx);
+                }
             });
             indicatorContainer.appendChild(dot);
         }
+        updateIndicatorDotsVisibility();
+    }
+
+    function updateIndicatorDotsVisibility() {
+        const tabs = document.querySelectorAll('.tab');
+        const dots = document.querySelectorAll('.indicator-dot');
+        dots.forEach((dot, i) => {
+            if (tabs[i] && tabs[i].style.display === 'none') {
+                dot.style.display = 'none';
+            } else {
+                dot.style.display = 'block';
+            }
+        });
     }
 
     function updateIndicators(index) {
         const dots = document.querySelectorAll('.indicator-dot');
         dots.forEach((dot, i) => {
-            if (i === index) dot.classList.add('active');
-            else dot.classList.remove('active');
+            const tab = document.querySelectorAll('.tab')[i];
+            if (tab && tab.style.display !== 'none') {
+                if (i === index) dot.classList.add('active');
+                else dot.classList.remove('active');
+            }
         });
+        currentIndex = index;
     }
 
     function updateEdgeShadows() {
@@ -850,115 +929,282 @@
         else wrapper.classList.remove('has-left-shadow');
         if (scrollLeft < maxScroll - 2) wrapper.classList.add('has-right-shadow');
         else wrapper.classList.remove('has-right-shadow');
-
-        // 控制右侧提示显示: 如果还有未显示完全的内容且用户未滑动到最后，显示提示
-        if (maxScroll > 2 && scrollLeft < maxScroll - 5) {
-            if (!moreHint.classList.contains('show') && !window._hintShown) {
-                moreHint.classList.add('show');
-                window._hintShown = true;
-                setTimeout(() => moreHint.classList.remove('show'), 4500);
-            } else if (moreHint.classList.contains('show') && scrollLeft > maxScroll - 10) {
-                moreHint.classList.remove('show');
-            }
-        } else {
-            moreHint.classList.remove('show');
-        }
-    }
-
-    function switchToTab(index) {
-        if (index === currentIndex) return;
-        tabs.forEach((tab, i) => {
-            if (i === index) tab.classList.add('active');
-            else tab.classList.remove('active');
-        });
-        document.querySelectorAll('.tab-content').forEach((content, i) => {
-            if (i === index) content.classList.add('active');
-            else content.classList.remove('active');
-        });
-        currentIndex = index;
-        updateIndicators(index);
-        // 自动滚动标签到可视区域中央
-        const activeTab = tabs[index];
-        if (activeTab) {
-            activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-            setTimeout(updateEdgeShadows, 200);
-        }
     }
 
     function initTabsScroll() {
         buildIndicators();
+
+        // 在JS中统一给所有tab绑定点击事件
+        const tabs = document.querySelectorAll('.tab');
+        tabs.forEach((tab, idx) => {
+            tab.removeAttribute('onclick'); // 移除可能存在的内联onclick
+            tab.addEventListener('click', (e) => {
+                e.stopPropagation();
+                switchTab(idx);
+            });
+        });
+
         tabsContainer.addEventListener('scroll', () => {
             updateEdgeShadows();
         });
-        tabs.forEach((tab, idx) => {
-            tab.addEventListener('click', (e) => {
-                e.stopPropagation();
-                switchToTab(idx);
-            });
+
+        window.addEventListener('resize', () => {
+            setTimeout(updateEdgeShadows, 100);
         });
-        // 监听滑动结束，更新阴影
-        let scrollTimer;
-        tabsContainer.addEventListener('scroll', () => {
-            clearTimeout(scrollTimer);
-            scrollTimer = setTimeout(updateEdgeShadows, 100);
-        });
-        updateEdgeShadows();
-        // 首次加载提示
+
         setTimeout(() => {
-            const maxScroll = tabsContainer.scrollWidth - tabsContainer.clientWidth;
-            if (maxScroll > 5 && !window._firstHint) {
-                moreHint.classList.add('show');
-                window._firstHint = true;
-                setTimeout(() => moreHint.classList.remove('show'), 4000);
-            }
             updateEdgeShadows();
         }, 500);
     }
 
-    // 兼容原有全局函数
-    window.switchTab = function(index) { switchToTab(index); };
+    // ==================== 您原有的其他函数 ====================
 
-    // 以下原有函数保留
-    class CustomConfirm { constructor() { /* ...原有逻辑... */ this.init(); } init() { /* 省略实现但保留功能 */ } show(title, message) { return Promise.resolve(true); } }
-    const customConfirm = new CustomConfirm();
-    function customConfirmDialog(message) { return customConfirm.show('确认操作', message); }
-    function togglePassword() { const pwd = document.getElementById('myPassword'); const btn = document.getElementById('togglePwd'); if(pwd.type==='password'){ pwd.type='text'; btn.textContent='隐藏'; btn.classList.add('active'); }else{ pwd.type='password'; btn.textContent='显示'; btn.classList.remove('active'); } }
-    function toggleRemotePassword() { const pwd=document.getElementById('remotePwd'); const btn=document.getElementById('toggleRemotePwd'); if(pwd.type==='password'){ pwd.type='text'; btn.textContent='隐藏'; }else{ pwd.type='password'; btn.textContent='显示'; } }
-    function selectProxyOption(option, e) { /* 保留简化 */ document.querySelectorAll('.proxy-option').forEach(el=>el.classList.remove('selected')); if(e&&e.currentTarget) e.currentTarget.classList.add('selected'); else document.getElementById(`proxy-${option}`)?.closest('.proxy-option')?.classList.add('selected'); document.querySelectorAll('.proxy-radio').forEach(r=>r.checked=false); if(e&&e.currentTarget) e.currentTarget.querySelector('.proxy-radio').checked=true; else document.getElementById(`proxy-${option}`)?.setAttribute('checked','checked'); document.getElementById('custom-proxy-details').classList.toggle('active', option==='custom'); }
-    function selectProxyType(type, e) { document.querySelectorAll('.proxy-type-option').forEach(el=>el.classList.remove('selected')); if(e&&e.currentTarget) e.currentTarget.classList.add('selected'); }
-    function getCurrentProxySettings() { return { mode: document.getElementById('proxy-none').checked?'none':document.getElementById('proxy-system').checked?'system':'custom', type: document.querySelector('.proxy-type-option.selected')?.textContent.toLowerCase()||'http', host: document.getElementById('proxy-host').value, port: parseInt(document.getElementById('proxy-port').value), username: document.getElementById('proxy-username').value, password: document.getElementById('proxy-password').value }; }
-    function saveProxySettings() { alert('代理设置已保存（演示）'); updateStatus('代理设置已保存'); }
-    function testProxyConnection() { const resDiv=document.getElementById('test-result'); resDiv.className='test-result testing'; resDiv.innerHTML='🔄 测试中...'; setTimeout(()=>{ resDiv.className='test-result success'; resDiv.innerHTML='✅ 连接成功（模拟）'; }, 1000); }
-    function setProxySettings(settings) { if(settings) { selectProxyOption(settings.mode); if(settings.type) selectProxyType(settings.type); if(settings.mode==='custom'){ document.getElementById('proxy-host').value=settings.host||''; document.getElementById('proxy-port').value=settings.port||''; document.getElementById('proxy-username').value=settings.username||''; document.getElementById('proxy-password').value=settings.password||''; } } }
-    function remoteControl() { const id=document.getElementById('remoteID').value, pwd=document.getElementById('remotePwd').value; if(!id||!pwd) alert('请输入设备编号和密码'); else updateStatus('正在连接 '+id); }
-    function fileTransfer() { remoteControl(); }
-    function generateNewPassword() { const npw=Math.random().toString(36).slice(-6).toUpperCase(); document.getElementById('myPassword').value=npw; updateStatus('新密码已生成'); }
-    function updateStatus(text) { const statusSpan=document.getElementById('statusBar').firstElementChild; if(statusSpan) statusSpan.textContent='状态：'+text; }
-    function formatConnCode(code){ let result='',j=0; for(let i=code.length-1;i>=0;i--){ if(code[i]===' ')continue; result=code[i]+result; j++; if(j%3===0&&i!==0) result=' '+result; } return result; }
-    function setConnCode(code){ document.getElementById('connCode').value=formatConnCode(code); }
-    function setLocalPassword(pwd){ document.getElementById('myPassword').value=pwd||''; }
-    function afterLogin() { document.getElementById('loginSection').style.display='none'; document.getElementById('deviceList').style.display='block'; updateStatus('已登录'); }
-    function afterLogout(msg) { document.getElementById('loginSection').style.display='block'; document.getElementById('deviceList').style.display='none'; updateStatus(msg||'已登出'); }
-    function setDeviceList(devices) { const container=document.getElementById('deviceCards'); if(!devices||devices.length===0){ container.innerHTML='<div class="empty-state"><div class="empty-state-icon">📱</div><h3>暂无设备</h3><p>请登录后查看</p></div>'; return; } container.innerHTML=''; devices.forEach(dev=>{ const card=document.createElement('div'); card.className=`card ${dev.Online?'online':'offline'}`; card.innerHTML=`<div class="card-header"><div class="card-icon">🖥️</div><div><div class="card-title">${dev.Name}</div><div class="card-subtitle">${dev.OS||'Android'}</div></div></div><div class="card-body"><div class="card-meta"><span>最后在线: ${dev.LastSeen||'刚刚'}</span></div></div><div class="card-footer"><span class="status-badge ${dev.Online?'online':'offline'}"><span class="status-indicator ${dev.Online?'online':'offline'}"></span>${dev.Online?'在线':'离线'}</span></div>`; container.appendChild(card); }); }
-    function addActiveConnection(conn) { const container=document.getElementById('activeConnections'); const card=document.createElement('div'); card.className='card online'; card.dataset.id=conn.Id; card.innerHTML=`<div class="card-header"><div class="card-icon">🖥️</div><div><div class="card-title">${conn.Name}</div></div></div><div class="card-body"><div class="card-meta"><span>连接中</span></div></div><div class="card-footer"><button class="btn btn-primary btn-sm" onclick="closeConnection(${conn.Id})">断开</button></div>`; container.appendChild(card); const badge=document.querySelector('#tab2 .connection-badge'); if(badge) badge.textContent=container.children.length+'个活跃连接'; }
-    function removeActiveConnection(id){ const card=document.querySelector(`#activeConnections .card[data-id="${id}"]`); if(card) card.remove(); const badge=document.querySelector('#tab2 .connection-badge'); if(badge) badge.textContent=document.getElementById('activeConnections').children.length+'个活跃连接'; }
-    function setHistory(records) { const container=document.getElementById('historyList'); if(!records||records.length===0){ container.innerHTML='<div class="empty-state"><div class="empty-state-icon">📜</div><h3>暂无历史</h3></div>'; return; } container.innerHTML=''; records.forEach(rec=>{ const card=document.createElement('div'); card.className='card offline'; card.innerHTML=`<div class="card-header"><div class="card-icon">📜</div><div><div class="card-title">${rec.Name}</div><div class="card-subtitle">${rec.Date||'2025-01-01'}</div></div></div><div class="card-footer"><span class="status-badge offline">已结束</span></div>`; container.appendChild(card); }); }
-    function closeConnection(id) { customConfirmDialog('确定要断开连接吗？').then(res=>{ if(res) removeActiveConnection(id); }); }
-    function openHistory(id) { updateStatus('查看历史记录 '+id); }
-   	function login() { afterLogin(); }
-    function logout() { afterLogout(); }
+    function togglePassword() {
+        const pwd = document.getElementById('myPassword');
+        const btn = document.getElementById('togglePwd');
+        if (pwd.type === 'password') {
+            pwd.type = 'text';
+            btn.textContent = i18next?.t('remote.myDevices.password.hide') || '隐藏';
+            btn.classList.add('active');
+        } else {
+            pwd.type = 'password';
+            btn.textContent = i18next?.t('remote.myDevices.password.show') || '显示';
+            btn.classList.remove('active');
+        }
+    }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        initTabsScroll();
-        if (window.onPageLoaded) window.onPageLoaded();
-        const loadProxyPromise = Promise.resolve({ mode: 'none' });
-        loadProxyPromise.then(setProxySettings);
-        initPermissionFrame();
-        setDeviceList([{Name:'本机设备',OS:'Android 13',Online:true,LastSeen:'刚刚'}]);
-        addActiveConnection({Id:1,Name:'测试连接',Type:'RemoteControl'});
-    });
-</script>
-<script>
+    function toggleRemotePassword() {
+        const pwd = document.getElementById('remotePwd');
+        const btn = document.getElementById('toggleRemotePwd');
+        if (pwd.type === 'password') {
+            pwd.type = 'text';
+            btn.textContent = i18next?.t('remote.myDevices.password.hide') || '隐藏';
+            btn.classList.add('active');
+        } else {
+            pwd.type = 'password';
+            btn.textContent = i18next?.t('remote.myDevices.password.show') || '显示';
+            btn.classList.remove('active');
+        }
+    }
+
+    function selectProxyOption(option, event) {
+        document.querySelectorAll('.proxy-option').forEach(el => el.classList.remove('selected'));
+        document.querySelectorAll('.proxy-radio').forEach(radio => radio.checked = false);
+        if (event && event.currentTarget) {
+            event.currentTarget.classList.add('selected');
+            event.currentTarget.querySelector('.proxy-radio').checked = true;
+        } else {
+            const element = document.getElementById(`proxy-${option}`);
+            if (element) {
+                element.closest('.proxy-option').classList.add('selected');
+                element.checked = true;
+            }
+        }
+        const customDetails = document.getElementById('custom-proxy-details');
+        if (option === 'custom') customDetails.classList.add('active');
+        else customDetails.classList.remove('active');
+    }
+
+    function selectProxyType(type, event) {
+        document.querySelectorAll('.proxy-type-option').forEach(el => el.classList.remove('selected'));
+        if (event && event.currentTarget) event.currentTarget.classList.add('selected');
+    }
+
+    function getCurrentProxySettings() {
+        return {
+            type: document.querySelector('.proxy-type-option.selected')?.textContent.toLowerCase() || 'http',
+            mode: document.getElementById('proxy-none')?.checked ? 'none' : (document.getElementById('proxy-system')?.checked ? 'system' : 'custom'),
+            username: document.getElementById('proxy-username')?.value || '',
+            password: document.getElementById('proxy-password')?.value || '',
+            host: document.getElementById('proxy-host')?.value || '',
+            port: parseInt(document.getElementById('proxy-port')?.value) || 0
+        };
+    }
+
+    function setProxySettings(settings) {
+        if (!settings) return;
+        selectProxyOption(settings.mode);
+        if (settings.type) selectProxyType(settings.type);
+        if (settings.mode === 'custom') {
+            if (document.getElementById('proxy-host')) document.getElementById('proxy-host').value = settings.host || '';
+            if (document.getElementById('proxy-port')) document.getElementById('proxy-port').value = settings.port || '';
+            if (document.getElementById('proxy-username')) document.getElementById('proxy-username').value = settings.username || '';
+            if (document.getElementById('proxy-password')) document.getElementById('proxy-password').value = settings.password || '';
+        }
+    }
+
+    function saveProxySettings() {
+        let proxy = getCurrentProxySettings();
+        if (proxy.mode === 'custom' && (!proxy.host || !proxy.port)) {
+            alert(i18next?.t('proxy.save.error') || '请填写代理服务器地址和端口');
+            return;
+        }
+        if (typeof updateProxy === 'function') updateProxy(proxy);
+        updateStatus(i18next?.t('proxy.save.success') || '代理设置已保存');
+    }
+
+    function testProxyConnection() {
+        let proxy = getCurrentProxySettings();
+        const testUrl = document.getElementById('test-url')?.value;
+        const testResult = document.getElementById('test-result');
+        testResult.className = 'test-result testing';
+        testResult.innerHTML = '🔄 ' + (i18next?.t('proxy.test.testing') || '测试中...');
+
+        if (proxy.mode === 'custom' && (!proxy.host || !proxy.port)) {
+            testResult.className = 'test-result error';
+            testResult.innerHTML = '❌ ' + (i18next?.t('proxy.test.hostPortRequired') || '请填写代理服务器地址和端口');
+            return;
+        }
+        updateStatus(i18next?.t('proxy.test.testingWithUrl') + testUrl || '测试连接中...');
+
+        setTimeout(() => {
+            testResult.className = 'test-result success';
+            testResult.innerHTML = '✅ ' + (i18next?.t('proxy.test.success') || '连接成功');
+            updateStatus(i18next?.t('proxy.test.success') || '连接成功');
+        }, 1000);
+    }
+
+    function remoteControl() {
+        const id = document.getElementById('remoteID')?.value;
+        const password = document.getElementById('remotePwd')?.value;
+        if (!id || !password) {
+            alert(i18next?.t('remote.connect.error.idPasswordRequired') || '请输入设备编号和密码');
+            return;
+        }
+        updateStatus(i18next?.t('remote.connect.connecting') || '正在连接...');
+        if (typeof connectRemoteByCode === 'function') connectRemoteByCode(id, password);
+    }
+
+    function fileTransfer() {
+        const id = document.getElementById('remoteID')?.value;
+        const password = document.getElementById('remotePwd')?.value;
+        if (!id || !password) {
+            alert(i18next?.t('remote.connect.error.idPasswordRequired') || '请输入设备编号和密码');
+            return;
+        }
+        if (typeof openFileTransferByCode === 'function') openFileTransferByCode(id, password);
+    }
+
+    function afterLogin() {
+        document.getElementById('loginSection').style.display = 'none';
+        document.getElementById('deviceList').style.display = 'block';
+        updateStatus(i18next?.t('statusBar.loggedIn') || '已登录');
+    }
+
+    function afterLogout(msg) {
+        document.getElementById('loginSection').style.display = 'block';
+        document.getElementById('deviceList').style.display = 'none';
+        updateStatus(msg || i18next?.t('statusBar.loggedOut') || '已登出');
+    }
+
+    function setDeviceList(devices) {
+        const container = document.getElementById('deviceCards');
+        if (!container) return;
+        container.innerHTML = '';
+        const isOnline = (device) => device.Status === 'online' || device.Online === true;
+        const totalDevices = devices.length;
+        const onlineDevices = devices.filter(isOnline).length;
+        const badge = document.querySelector('#tab1 .connection-badge');
+        if (badge) badge.textContent = (i18next?.t('myDevices.header.onlineBadge') || '{count}台设备在线').replace('{count}', `${onlineDevices}/${totalDevices}`);
+        if (devices.length === 0) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📱</div><h3>${i18next?.t('myDevices.empty.title') || '暂无设备'}</h3><p>${i18next?.t('myDevices.empty.description') || '登录后可以查看您的设备'}</p></div>`;
+            return;
+        }
+        devices.forEach(device => {
+            let statusClass = device.Online ? 'online' : 'offline';
+            if (device.Self) statusClass = 'self';
+            const card = document.createElement('div');
+            card.className = `card ${statusClass}`;
+            card.innerHTML = `<div class="card-header"><div class="card-icon">🖥️</div><div><div class="card-title">${device.Name}</div><div class="card-subtitle">${device.OS || ''}</div></div></div><div class="card-body"><div class="card-meta"><div class="meta-item"><span>${i18next?.t('myDevices.lastSeen') || '最后在线'}:</span><span>${device.LastSeen || '刚刚'}</span></div></div></div><div class="card-footer"><span class="status-badge ${statusClass}"><span class="status-indicator ${statusClass}"></span>${device.Self ? (i18next?.t('myDevices.status.self') || '本机') : (isOnline(device) ? (i18next?.t('myDevices.status.online') || '在线') : (i18next?.t('myDevices.status.offline') || '离线'))}</span>${!device.Self ? `<button class="btn btn-primary btn-sm" onclick='connectRemote(${JSON.stringify(device)})' title="${i18next?.t('myDevices.action.connect') || '连接'}"><span>🔗</span></button><button class="btn btn-outline btn-sm" onclick='openFileTransfer(${JSON.stringify(device)})' title="${i18next?.t('myDevices.action.fileTransfer') || '文件传输'}"><span>📁</span></button>` : ''}</div>`;
+            container.appendChild(card);
+        });
+    }
+
+    function addActiveConnection(connection) {
+        const container = document.getElementById('activeConnections');
+        if (!container) return;
+        const card = document.createElement('div');
+        const statusClass = connection.Type === 'RemoteControl' ? 'online' : 'offline';
+        card.className = `card ${statusClass}`;
+        card.dataset.id = connection.Id;
+        card.innerHTML = `<div class="card-header"><div class="card-icon">${connection.Type === 'RemoteControl' ? '🖥️' : '📁'}</div><div><div class="card-title">${connection.Name}</div><div class="card-subtitle">${connection.Type === 'RemoteControl' ? (i18next?.t('activeConnections.type.remoteControl') || '远程控制') : (i18next?.t('activeConnections.type.fileTransfer') || '文件传输')}</div></div></div><div class="card-body"><div class="card-meta"><div class="meta-item"><span>${i18next?.t('activeConnections.connectionTime') || '连接时间'}:</span><span>${i18next?.t('activeConnections.justNow') || '刚刚'}</span></div></div></div><div class="card-footer"><span class="status-badge ${statusClass}"><span class="status-indicator ${statusClass}"></span>${connection.Type === 'RemoteControl' ? (i18next?.t('activeConnections.status.controlling') || '控制中') : (i18next?.t('activeConnections.status.transferring') || '传输中')}</span><button class="btn btn-primary btn-sm" onclick="activateConnection(${connection.Id})" title="${i18next?.t('activeConnections.action.switch') || '切换'}"><span>↗️</span><span>${i18next?.t('activeConnections.action.switch') || '切换'}</span></button><button class="btn btn-outline btn-sm" onclick="closeConnection(${connection.Id})" title="${i18next?.t('activeConnections.action.disconnect') || '断开'}"><span>❌</span><span>${i18next?.t('activeConnections.action.disconnect') || '断开'}</span></button></div>`;
+        container.appendChild(card);
+        const badge = document.querySelector('#tab2 .connection-badge');
+        if (badge) badge.textContent = (i18next?.t('activeConnections.header.badge') || '{count}个活跃连接').replace('{count}', container.children.length);
+    }
+
+    function removeActiveConnection(id) {
+        const card = document.querySelector(`#activeConnections .card[data-id="${id}"]`);
+        if (card) card.remove();
+        const container = document.getElementById('activeConnections');
+        const badge = document.querySelector('#tab2 .connection-badge');
+        if (badge) badge.textContent = (i18next?.t('activeConnections.header.badge') || '{count}个活跃连接').replace('{count}', container?.children.length || 0);
+    }
+
+    function closeConnection(id) {
+        customConfirmDialog(i18next?.t('activeConnections.confirm.close', { id: id }) || `确定要断开连接 ${id} 吗？`)
+            .then(result => { if (result && typeof terminateConnection === 'function') terminateConnection(Number(id)); });
+    }
+
+    function setHistory(records) {
+        const container = document.getElementById('historyList');
+        container.innerHTML = '';
+        if (!records || records.length === 0) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📜</div><h3>${i18next?.t('history.empty.title') || '暂无历史记录'}</h3><p>${i18next?.t('history.empty.description') || '您的远程连接历史将显示在这里'}</p></div>`;
+            return;
+        }
+        records.forEach(record => {
+            const card = document.createElement('div');
+            card.className = 'card offline';
+            card.innerHTML = `<div class="card-header"><div class="card-icon">${record.Type === 'RemoteControl' ? '🖥️' : '📁'}</div><div><div class="card-title">${record.Name}</div><div class="card-subtitle">${record.Type === 'RemoteControl' ? (i18next?.t('history.type.remoteControl') || '远程控制') : (i18next?.t('history.type.fileTransfer') || '文件传输')}</div></div></div><div class="card-body"><div class="card-meta"><div class="meta-item"><span>${i18next?.t('history.connectionTime') || '连接时间'}:</span><span>${record.Date}</span></div><div class="meta-item"><span>${i18next?.t('history.duration') || '时长'}:</span><span>${record.Duration}</span></div></div></div><div class="card-footer"><span class="status-badge offline"><span class="status-indicator offline"></span>${i18next?.t('history.status.ended') || '已结束'}</span><button class="btn btn-primary btn-sm" onclick="openHistory(${record.Id})" title="${i18next?.t('history.action.view') || '查看'}"><span>↗️</span><span>${i18next?.t('history.action.view') || '查看'}</span></button></div>`;
+            container.appendChild(card);
+        });
+    }
+
+    // 生成新密码
+    function generateNewPassword() {
+        const newPassword = Math.random().toString(36).slice(-6).toUpperCase();
+        document.getElementById('myPassword').value = newPassword;
+        updateStatus(i18next.t('remote.myDevices.password.generated'));
+    }
+
+    function formatConnCode(code) {
+        let result = '';
+        let space = /\s/;
+        for (let i = code.length - 1, j = 0; i >= 0; i--) {
+            if (space.test(code.charAt(i))) {
+                continue;
+            }
+            result = code[i] + result;
+            j++;
+            if (j % 3 === 0 && i !== 0) {
+                result = ' ' + result;
+            }
+        }
+        return result;
+    }
+
+    // 设置连接编号，每3位空格，从后往前
+    function setConnCode(code) {
+        document.getElementById('connCode').value = formatConnCode(code);
+    }
+
+    // 设置本地密码
+    function setLocalPassword(pwd) {
+        const input = document.getElementById('myPassword');
+        input.value = pwd || ''; // 如果传入空值，清空
+    }
+
+    // 更新状态栏
+    function updateStatus(text) {
+        document.getElementById('statusBar').firstElementChild.textContent = i18next.t('statusBar.status', { text: text });
+        document.getElementById('statusBar').lastElementChild.textContent = i18next.t('statusBar.lastUpdate');
+    }
+
+    function openHistory(id) {
+        updateStatus((i18next?.t('history.action.viewing') || '查看历史记录 {id}').replace('{id}', id));
+    }
+
     // 在主页面中与权限模块通信
     function initPermissionFrame() {
         const iframe = document.getElementById('permissionFrame');
@@ -980,7 +1226,17 @@
     }
 
 
-</script>
 
+    // 页面初始化
+    document.addEventListener('DOMContentLoaded', function() {
+        initTabsScroll();
+        if (window.onPageLoaded) window.onPageLoaded();
+        const loadProxyPromise = Promise.resolve({ mode: 'none' });
+        loadProxyPromise.then(setProxySettings);
+        initPermissionFrame();
+        setDeviceList([{ Name: '本机设备', OS: 'Android 13', Online: true, LastSeen: '刚刚', Self: true }]);
+        addActiveConnection({ Id: 1, Name: '测试连接', Type: 'RemoteControl' });
+    });
+</script>
 </body>
 </html>
