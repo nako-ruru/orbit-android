@@ -67,32 +67,6 @@ window.i18nData["en"] = {
     "proxy.test.button": "Test Connection",
     "proxy.save.button": "Save Settings",
 
-    "android.permissions.header": "⚙️ Unattended Authorization Configuration",
-    "android.permissions.description": "Please ensure all permissions below show as \"Granted\", otherwise the controlled device will not function properly",
-    "android.permissions.action.go": "Grant",
-    "android.permissions.action.ok": "Granted",
-    "android.permissions.status.updated": "Permission status updated",
-    "android.permissions.status.requesting": "Requesting {{permission}} permission...",
-    "android.permissions.status.granted": "{{permission}} permission granted",
-    "android.permissions.mic.title": "Microphone",
-    "android.permissions.mic.desc": "Used for remote ambient sound monitoring",
-    "android.permissions.accessibility.title": "Accessibility Service",
-    "android.permissions.accessibility.desc": "Core control: used for simulating clicks and gestures",
-    "android.permissions.overlay.title": "Overlay Permission",
-    "android.permissions.overlay.desc": "Used to maintain interface interaction and status display in the background",
-    "android.permissions.vpn.title": "VPN Forwarding",
-    "android.permissions.vpn.desc": "Used for intranet penetration and stable data transmission",
-    "android.permissions.files.title": "All Files Access",
-    "android.permissions.files.desc": "Allows remote management and transfer of device files",
-    "android.permissions.alarm.title": "Exact Alarm/Restart",
-    "android.permissions.alarm.desc": "Ensures the app can restart promptly after abnormal exit",
-    "android.permissions.notification.title": "Notification Listening",
-    "android.permissions.notification.desc": "Monitor device notifications to understand device status changes",
-    "android.permissions.autostart.title": "Auto-start Permission",
-    "android.permissions.autostart.desc": "Ensures the controlled device can automatically come back online after unexpected restart, battery drain, or system silent updates. If not enabled, the device will remain offline after restart and must be manually launched on site.",
-    "android.permissions.power.title": "Power Strategy Whitelist",
-    "android.permissions.power.desc": "Prevents the system from hibernating the app in the background, maintaining persistent connection",
-
     // Status Bar
     "statusBar.ready": "Status: Ready",
     "statusBar.lastUpdate": "Last updated: just now",
@@ -145,5 +119,58 @@ window.i18nData["en"] = {
     "statusBar.loggedOut": "Logged out",
     "statusBar.status": "Status: {{text}}",
     "dialog.confirm.content": "Are you sure you want to perform this operation?",
-    "remote.myDevices.settings.message": "Opening settings..."
+    "remote.myDevices.settings.message": "Opening settings...",
+
+
+    "android.permissions.header": "⚙️ Unattended Authorization Configuration",
+    "android.permissions.description": "Please ensure all permissions below show as \"Granted\", otherwise the controlled device will not function properly",
+    "android.permissions.action.go": "Grant",
+    "android.permissions.action.ok": "Granted",
+
+    // 分组标题与描述
+    core_screen_name: "Core Screen Features",
+    core_screen_desc: "Essential permissions for screen casting. The app cannot work without these enabled.",
+
+    interface_monitor_name: "Interface & Monitoring",
+    interface_monitor_desc: "Optional permissions to enhance interaction and monitor device status.",
+
+    keepalive_name: "Keepalive & Auto-Restart",
+    keepalive_desc: "Permissions to ensure the app stays running and can restart automatically.",
+
+    // 核心投屏组
+    perm_mic_name: "Microphone",
+    perm_mic_desc: "Used for capturing sound during remote sessions.",
+
+    perm_projection_name: "Screen Casting",
+    perm_projection_desc: "Required to share the device screen to a remote session.",
+
+    perm_vpn_name: "VPN Forwarding",
+    perm_vpn_desc: "Enables internal network access and stable data transmission.",
+
+    perm_accessibility_name: "Accessibility Service",
+    perm_accessibility_desc: "Allows automated control for gestures and simulated clicks.",
+
+    // 界面监控组
+    perm_overlay_name: "Overlay Permission",
+    perm_overlay_desc: "Allows floating UI and interaction while app runs in background.",
+
+    perm_notification_name: "Notification Access",
+    perm_notification_desc: "Monitors device notifications to track status changes.",
+
+    perm_files_name: "File Access",
+    perm_files_desc: "Allows selecting and managing files on the device.",
+
+    // 保活组
+    perm_autostart_name: "Auto-Start",
+    perm_autostart_desc: "Ensures the app starts automatically after reboot or update.",
+
+    perm_popup_name: "Background Popups",
+    perm_popup_desc: "Allows the app to show dialogs or windows in the background.",
+
+    perm_power_name: "Battery Whitelist",
+    perm_power_desc: "Prevents system from suspending the app in the background.",
+
+    perm_alarm_name: "Precise Alarm / Restart",
+    perm_alarm_desc: "Ensures scheduled tasks or restarts run on time after shutdown or crash."
+
 };

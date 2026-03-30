@@ -108,32 +108,6 @@ window.i18nData["zh-Hant"] =  {
     "proxy.test.testingWithUrl": "正在透過代理測試連線: ",
     "proxy.test.success": "代理連線測試成功！連線正常。",
 
-    "android.permissions.header": "⚙️ 無人值守授權配置",
-    "android.permissions.description": "請確保以下所有權限均顯示為\"已開啟\"，否則受控端無法正常運作",
-    "android.permissions.action.go": "前往授權",
-    "android.permissions.action.ok": "已開啟",
-    "android.permissions.status.updated": "權限狀態已更新",
-    "android.permissions.status.requesting": "正在請求 {{permission}} 權限...",
-    "android.permissions.status.granted": "{{permission}} 權限已授予",
-    "android.permissions.mic.title": "錄音/麥克風",
-    "android.permissions.mic.desc": "用於遠端監聽環境聲音",
-    "android.permissions.accessibility.title": "無障礙服務",
-    "android.permissions.accessibility.desc": "核心控制：用於模擬點擊和手勢操作",
-    "android.permissions.overlay.title": "懸浮窗權限",
-    "android.permissions.overlay.desc": "用於在背景保持介面互動和狀態顯示",
-    "android.permissions.vpn.title": "VPN轉發",
-    "android.permissions.vpn.desc": "用於內網穿透和穩定的資料傳輸",
-    "android.permissions.files.title": "所有檔案存取",
-    "android.permissions.files.desc": "允許遠端管理和傳輸裝置檔案",
-    "android.permissions.alarm.title": "精確鬧鐘/重啟",
-    "android.permissions.alarm.desc": "確保應用在異常退出後能準時重啟",
-    "android.permissions.notification.title": "通知監聽",
-    "android.permissions.notification.desc": "監控裝置通知，了解裝置狀態變化",
-    "android.permissions.autostart.title": "自啟動權限",
-    "android.permissions.autostart.desc": "確保受控端在手機意外重啟、電量耗盡關機再充電、或系統靜默更新後，能夠自動重新上線。如果不開啟，裝置重啟後將處於離線狀態，必須人工前往現場手動開啟應用。",
-    "android.permissions.power.title": "省電策略白名單",
-    "android.permissions.power.desc": "防止系統在背景休眠應用，保持持久連線",
-
     // Status Bar
     "statusBar.ready": "狀態：就緒",
     "statusBar.lastUpdate": "最後更新：剛剛",
@@ -147,5 +121,53 @@ window.i18nData["zh-Hant"] =  {
 
     // Buttons
     "button.cancel": "取消",
-    "button.confirm": "確定"
+    "button.confirm": "確定",
+
+
+    "android.permissions.header": "⚙️ 無人值守授權配置",
+    "android.permissions.description": "請確保以下所有權限均顯示為\"已開啟\"，否則受控端無法正常運作",
+    "android.permissions.action.go": "前往授權",
+    "android.permissions.action.ok": "已開啟",
+
+    core_screen_name: "核心投屏功能",
+    core_screen_desc: "必須開啟以下權限，否則應用無法正常運作。",
+
+    interface_monitor_name: "介面互動與監控",
+    interface_monitor_desc: "可選權限，用於增強互動和監控設備狀態。",
+
+    keepalive_name: "進程保活與自動重啟",
+    keepalive_desc: "確保應用持續運行並可自動重啟的權限。",
+
+    perm_mic_name: "錄音/麥克風",
+    perm_mic_desc: "用於遠程捕捉環境聲音。",
+
+    perm_projection_name: "投屏",
+    perm_projection_desc: "用於將設備螢幕共享到遠端會話。",
+
+    perm_vpn_name: "VPN 轉發",
+    perm_vpn_desc: "用於內網穿透和穩定的資料傳輸。",
+
+    perm_accessibility_name: "無障礙服務",
+    perm_accessibility_desc: "用於模擬點擊和手勢操作，實現核心控制。",
+
+    perm_overlay_name: "懸浮窗權限",
+    perm_overlay_desc: "允許在背景顯示懸浮界面並與使用者互動。",
+
+    perm_notification_name: "通知監聽",
+    perm_notification_desc: "監控設備通知，了解狀態變化。",
+
+    perm_files_name: "文件訪問",
+    perm_files_desc: "允許選擇和管理設備文件。",
+
+    perm_autostart_name: "自啟動權限",
+    perm_autostart_desc: "確保應用在重啟、關機後自動啟動，否則需手動開啟。",
+
+    perm_popup_name: "背景彈出",
+    perm_popup_desc: "允許應用在背景彈出視窗或提示。",
+
+    perm_power_name: "省電策略白名單",
+    perm_power_desc: "防止系統在背景休眠應用，保持持續運行。",
+
+    perm_alarm_name: "精確鬧鐘/重啟",
+    perm_alarm_desc: "確保應用在異常退出後按時重啟。"
 };
