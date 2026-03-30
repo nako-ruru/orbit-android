@@ -16,7 +16,6 @@ import java.math.BigInteger;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
 import java.security.SecureRandom;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -26,7 +25,7 @@ import java.util.Date;
 public class CertificateGenerator {
 
     public static void generateSelfSignedCertificate(String certPath, String keyPath)
-            throws CertificateException, NoSuchAlgorithmException, IOException, OperatorCreationException, NoSuchProviderException {
+            throws CertificateException, NoSuchAlgorithmException, IOException, OperatorCreationException {
         // 1. 生成 RSA 2048 密钥对 (对应 -newkey rsa:2048)
         KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
         keyPairGenerator.initialize(2048);
