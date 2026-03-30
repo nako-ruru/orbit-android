@@ -945,11 +945,7 @@
     function setHistory(records) { const container=document.getElementById('historyList'); if(!records||records.length===0){ container.innerHTML='<div class="empty-state"><div class="empty-state-icon">📜</div><h3>暂无历史</h3></div>'; return; } container.innerHTML=''; records.forEach(rec=>{ const card=document.createElement('div'); card.className='card offline'; card.innerHTML=`<div class="card-header"><div class="card-icon">📜</div><div><div class="card-title">${rec.Name}</div><div class="card-subtitle">${rec.Date||'2025-01-01'}</div></div></div><div class="card-footer"><span class="status-badge offline">已结束</span></div>`; container.appendChild(card); }); }
     function closeConnection(id) { customConfirmDialog('确定要断开连接吗？').then(res=>{ if(res) removeActiveConnection(id); }); }
     function openHistory(id) { updateStatus('查看历史记录 '+id); }
-    function initPermissionFrame() { const iframe=document.getElementById('permissionFrame'); iframe.onload=()=>console.log('权限模块加载'); }
-    function updatePermissionStatusFromGo(statusMap) { const iframe=document.getElementById('permissionFrame'); if(iframe&&iframe.contentWindow) iframe.contentWindow.postMessage({type:'UPDATE_PERMISSION_STATUS',status:statusMap},'*'); }
-    function updatePermissionDefinitionsFromGo(definitions) { const iframe=document.getElementById('permissionFrame'); if(iframe&&iframe.contentWindow) iframe.contentWindow.postMessage({type:'UPDATE_DEFINITIONS',definitions:definitions},'*'); }
-    function getCurrentPermissionsFromGo() { const iframe=document.getElementById('permissionFrame'); if(iframe&&iframe.contentWindow) return iframe.contentWindow.getCurrentPermissions(); return '{}'; }
-    function login() { afterLogin(); }
+   	function login() { afterLogin(); }
     function logout() { afterLogout(); }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -962,5 +958,29 @@
         addActiveConnection({Id:1,Name:'测试连接',Type:'RemoteControl'});
     });
 </script>
+<script>
+    // 在主页面中与权限模块通信
+    function initPermissionFrame() {
+        const iframe = document.getElementById('permissionFrame');
+
+        iframe.onload = function() {
+            console.log('权限模块加载完成');
+
+            // 监听来自 iframe 的消息
+            window.addEventListener('message', function(event) {
+                if (event.data && event.data.type === 'REQUEST_PERMISSION') {
+                    // 处理权限请求
+                    const permId = event.data.permissionId;
+                    if (window._android_bridge) {
+                        window._android_bridge.requestPermission(permId);
+                    }
+                }
+            });
+        };
+    }
+
+
+</script>
+
 </body>
 </html>
