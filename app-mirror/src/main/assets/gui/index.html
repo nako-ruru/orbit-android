@@ -866,7 +866,7 @@
         const activeTab = tabs[index];
         if (activeTab && activeTab.style.display !== 'none') {
             activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-            setTimeout(updateEdgeShadows, 200);
+            updateEdgeShadows();
         }
     }
 
@@ -949,12 +949,10 @@
         });
 
         window.addEventListener('resize', () => {
-            setTimeout(updateEdgeShadows, 100);
+            updateEdgeShadows();
         });
 
-        setTimeout(() => {
-            updateEdgeShadows();
-        }, 500);
+        updateEdgeShadows();
     }
 
     // ==================== 您原有的其他函数 ====================
@@ -1224,8 +1222,6 @@
             });
         };
     }
-
-
 
     // 页面初始化
     document.addEventListener('DOMContentLoaded', function() {
