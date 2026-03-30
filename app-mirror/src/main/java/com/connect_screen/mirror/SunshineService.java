@@ -39,7 +39,6 @@ import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
 import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.Enumeration;
@@ -328,7 +327,7 @@ public class SunshineService extends Service {
         return ipAddresses;
     }
 
-    public static void writeCertAndKey(Context context) throws CertificateException, NoSuchAlgorithmException, IOException, OperatorCreationException, NoSuchProviderException {
+    public static void writeCertAndKey(Context context) throws CertificateException, NoSuchAlgorithmException, IOException, OperatorCreationException {
         String absolutePath = context.getFilesDir().getAbsolutePath();
         CertificateGenerator.generateSelfSignedCertificate(
                 absolutePath + "/cacert.pem",                absolutePath + "/cakey.pem"

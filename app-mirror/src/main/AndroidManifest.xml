@@ -109,7 +109,6 @@
             android:icon="@mipmap/ic_orbit"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:label="ORBIT"
-            android:screenOrientation="landscape"
             android:theme="@style/Theme.AppCompat.NoActionBar"
             >
         </activity>
