@@ -66,32 +66,6 @@ window.i18nData["zh"] = {
     "proxy.test.button": "测试连接",
     "proxy.save.button": "保存设置",
 
-    "android.permissions.header": "⚙️ 无人值守授权配置",
-    "android.permissions.description": "请确保以下所有权限均显示为\"已开启\"，否则受控端无法正常工作",
-    "android.permissions.action.go": "去授权",
-    "android.permissions.action.ok": "已开启",
-    "android.permissions.status.updated": "权限状态已更新",
-    "android.permissions.status.requesting": "正在请求 {{permission}} 权限...",
-    "android.permissions.status.granted": "{{permission}} 权限已授予",
-    "android.permissions.mic.title": "录音/麦克风",
-    "android.permissions.mic.desc": "用于远程监听环境声音",
-    "android.permissions.accessibility.title": "无障碍服务",
-    "android.permissions.accessibility.desc": "核心控制：用于模拟点击和手势操作",
-    "android.permissions.overlay.title": "悬浮窗权限",
-    "android.permissions.overlay.desc": "用于在后台保持界面交互和状态显示",
-    "android.permissions.vpn.title": "VPN转发",
-    "android.permissions.vpn.desc": "用于内网穿透和稳定的数据传输",
-    "android.permissions.files.title": "所有文件访问",
-    "android.permissions.files.desc": "允许远程管理和传输设备文件",
-    "android.permissions.alarm.title": "精确闹钟/重启",
-    "android.permissions.alarm.desc": "确保应用在异常退出后能准时重启",
-    "android.permissions.notification.title": "通知监听",
-    "android.permissions.notification.desc": "监控设备通知，了解设备状态变化",
-    "android.permissions.autostart.title": "自启动权限",
-    "android.permissions.autostart.desc": "确保受控端在手机意外重启、电量耗尽关机再充电、或系统静默更新后，能够自动重新上线。如果不开启，设备重启后将处于离线状态，必须人工前往现场手动开启应用。",
-    "android.permissions.power.title": "省电策略白名单",
-    "android.permissions.power.desc": "防止系统在后台休眠应用，保持持久连接",
-
     // Status Bar
     "statusBar.ready": "状态：就绪",
     "statusBar.lastUpdate": "最后更新：刚刚",
@@ -145,5 +119,53 @@ window.i18nData["zh"] = {
     "statusBar.loggedOut": "已登出",
     "statusBar.status": "状态：{{text}}",
     "dialog.confirm.content": "确定要执行此操作吗？",
-    "remote.myDevices.settings.message": "打开设置..."
+    "remote.myDevices.settings.message": "打开设置...",
+
+
+    "android.permissions.header": "⚙️ 无人值守授权配置",
+    "android.permissions.description": "请确保以下所有权限均显示为\"已开启\"，否则受控端无法正常工作",
+    "android.permissions.action.go": "去授权",
+    "android.permissions.action.ok": "已开启",
+
+    core_screen_name: "核心投屏功能",
+    core_screen_desc: "必须开启以下权限，否则应用无法正常工作。",
+
+    interface_monitor_name: "界面交互与监控",
+    interface_monitor_desc: "可选权限，用于增强交互和监控设备状态。",
+
+    keepalive_name: "进程保活与自动重启",
+    keepalive_desc: "确保应用持续运行并可自动重启的权限。",
+
+    perm_mic_name: "录音/麦克风",
+    perm_mic_desc: "用于远程捕捉环境声音。",
+
+    perm_projection_name: "投屏",
+    perm_projection_desc: "用于将设备屏幕共享到远程会话。",
+
+    perm_vpn_name: "VPN 转发",
+    perm_vpn_desc: "用于内网穿透和稳定的数据传输。",
+
+    perm_accessibility_name: "无障碍服务",
+    perm_accessibility_desc: "用于模拟点击和手势操作，实现核心控制。",
+
+    perm_overlay_name: "悬浮窗权限",
+    perm_overlay_desc: "允许在后台显示悬浮界面并与用户交互。",
+
+    perm_notification_name: "通知监听",
+    perm_notification_desc: "监控设备通知，了解状态变化。",
+
+    perm_files_name: "文件访问",
+    perm_files_desc: "允许选择和管理设备文件。",
+
+    perm_autostart_name: "自启动权限",
+    perm_autostart_desc: "确保应用在重启、关机后自动启动，否则需要手动开启。",
+
+    perm_popup_name: "后台弹出",
+    perm_popup_desc: "允许应用在后台弹出窗口或提示。",
+
+    perm_power_name: "省电策略白名单",
+    perm_power_desc: "防止系统后台休眠应用，保持持续运行。",
+
+    perm_alarm_name: "精确闹钟/重启",
+    perm_alarm_desc: "确保应用在异常退出后按时重启。"
 };

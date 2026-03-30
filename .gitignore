@@ -16,3 +16,4 @@ local.properties
 /python3
 /report.html
 /thread_dump.txt
+/app-mirror/src/main/assets/.idea
