@@ -18,28 +18,29 @@ import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
-import android.os.PowerManager;
 import android.provider.Settings;
 import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
 
-import com.connect_screen.mirror.job.ExitAll;
 import com.connect_screen.mirror.job.MirrorDisplayMonitor;
 import com.connect_screen.mirror.job.MirrorDisplaylinkMonitor;
 import com.connect_screen.mirror.job.SunshineServer;
 import com.connect_screen.mirror.shizuku.PermissionManager;
 import com.connect_screen.mirror.shizuku.ShizukuUtils;
-import com.orbit.StreamerService;
+import com.orbit.CertificateGenerator;
 
-import java.io.FileOutputStream;
+import org.bouncycastle.operator.OperatorCreationException;
+
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.InetAddress;
 import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashSet;
@@ -48,8 +49,6 @@ import java.util.Set;
 
 import javax.jmdns.JmDNS;
 import javax.jmdns.ServiceInfo;
-
-import fi.iki.elonen.NanoHTTPD;
 
 public class SunshineService extends Service {
     public static final String ACTION_USB_PERMISSION = "com.connect_screen.mirror.USB_PERMISSION";
@@ -124,19 +123,17 @@ public class SunshineService extends Service {
             preventAutoLock();
         }
         // 在后台线程中启动 Sunshine 服务器
-        String sunshineName = "屏易连-"  + Build.MANUFACTURER + "-" + Build.MODEL;
+        String sunshineName = "屏易连-" + Build.MANUFACTURER + "-" + Build.MODEL;
         SunshineServer.setSunshineName(sunshineName);
         Set<String> ipAddresses = getAllWifiIpAddresses(this);
         probeH265();
 
-        // 将网络初始化操作移到后台线程
-        Log.i("SunshineService", "onStartCommand: 1");
         new Thread(() -> {
             try {
                 SunshineServer.setFileStatePath(SunshineService.this.getFilesDir().getAbsolutePath() + "/sunshine_state.json");
                 writeCertAndKey(SunshineService.this);
                 List<JmDNS> dnsServers = new ArrayList<>();
-                if(!ipAddresses.isEmpty()) {
+                if (!ipAddresses.isEmpty()) {
                     for (String addr : ipAddresses) {
                         try {
                             JmDNS jmdns = JmDNS.create(InetAddress.getByName(addr));
@@ -156,23 +153,23 @@ public class SunshineService extends Service {
                     }
                 }
                 Log.i("SunshineService", "onStartCommand: 2");
-                new Thread(() -> { 
+                new Thread(() -> {
                     try {
                         SunshineServer.start();
                         Log.i("SunshineService", "onStartCommand: 3");
                         for (JmDNS server : dnsServers) {
                             server.close();
                         }
-                    } catch(Throwable e) {
+                    } catch (Throwable e) {
                         Log.e("SunshineService", "thread quit", e);
                     }
                 }).start();
                 if (ipAddresses.isEmpty()) {
                     State.log("无法获取WiFi IP地址");
                 } else {
-                    State.log("发布 moonlight 服务名："  + sunshineName);
+                    State.log("发布 moonlight 服务名：" + sunshineName);
                     for (String addr : ipAddresses) {
-                        State.log("发布 moonlight ip："  + addr);
+                        State.log("发布 moonlight ip：" + addr);
                     }
                 }
             } catch (Exception e) {
@@ -231,9 +228,9 @@ public class SunshineService extends Service {
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel serviceChannel = new NotificationChannel(
-                CHANNEL_ID,
-                "Sunshine Service Channel",
-                NotificationManager.IMPORTANCE_LOW
+                    CHANNEL_ID,
+                    "Sunshine Service Channel",
+                    NotificationManager.IMPORTANCE_LOW
             );
             NotificationManager manager = getSystemService(NotificationManager.class);
             manager.createNotificationChannel(serviceChannel);
@@ -242,10 +239,10 @@ public class SunshineService extends Service {
 
     private Notification createNotification() {
         return new NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("屏易连")
-            .setContentText("Sunshine 服务正在运行")
-            .setSmallIcon(R.mipmap.ic_orbit)
-            .build();
+                .setContentTitle("屏易连")
+                .setContentText("Sunshine 服务正在运行")
+                .setSmallIcon(R.mipmap.ic_orbit)
+                .build();
     }
 
     private boolean probeH265() {
@@ -285,7 +282,7 @@ public class SunshineService extends Service {
 
     public static Set<String> getAllWifiIpAddresses(Context context) {
         Set<String> ipAddresses = new HashSet<>();
-        
+
         // 获取WiFi IP地址
         WifiManager wifiManager = (WifiManager) context.getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         if (wifiManager != null && wifiManager.isWifiEnabled()) {
@@ -306,7 +303,7 @@ public class SunshineService extends Service {
                 }
             }
         }
-        
+
         // 获取所有网络接口的IP地址
         try {
             Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
@@ -327,37 +324,16 @@ public class SunshineService extends Service {
         } catch (SocketException e) {
             Log.e(TAG, "获取网络接口IP地址失败", e);
         }
-        
+
         return ipAddresses;
     }
 
-    public static void writeCertAndKey(Context context) {
-        try {
-            // 写入证书文件
-            try (InputStream certInput = context.getAssets().open("cacert.pem");
-                 FileOutputStream certOutput = context.openFileOutput("cacert.pem", Context.MODE_PRIVATE)) {
-                byte[] buffer = new byte[1024];
-                int length;
-                while ((length = certInput.read(buffer)) > 0) {
-                    certOutput.write(buffer, 0, length);
-                }
-                SunshineServer.setCertPath(context.getFilesDir().getAbsolutePath() + "/cacert.pem");
-            }
-
-            // 写入密钥文件
-            try (InputStream keyInput = context.getAssets().open("cakey.pem");
-                 FileOutputStream keyOutput = context.openFileOutput("cakey.pem", Context.MODE_PRIVATE)) {
-                byte[] buffer = new byte[1024];
-                int length;
-                while ((length = keyInput.read(buffer)) > 0) {
-                    keyOutput.write(buffer, 0, length);
-                }
-                SunshineServer.setPkeyPath(context.getFilesDir().getAbsolutePath() + "/cakey.pem");
-            }
-
-            android.util.Log.i(TAG, "证书和密钥文件写入成功: " + context.getFilesDir().getAbsolutePath());
-        } catch (IOException e) {
-            android.util.Log.e("TAG", "写入证书文件失败", e);
-        }
+    public static void writeCertAndKey(Context context) throws CertificateException, NoSuchAlgorithmException, IOException, OperatorCreationException, NoSuchProviderException {
+        String absolutePath = context.getFilesDir().getAbsolutePath();
+        CertificateGenerator.generateSelfSignedCertificate(
+                absolutePath + "/cacert.pem",                absolutePath + "/cakey.pem"
+        );
+        SunshineServer.setCertPath(absolutePath + "/cacert.pem");
+        SunshineServer.setPkeyPath(absolutePath+ "/cakey.pem");
     }
-} 
+}
