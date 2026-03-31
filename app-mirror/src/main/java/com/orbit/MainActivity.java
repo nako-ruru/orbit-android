@@ -178,6 +178,11 @@ public class MainActivity extends AppCompatActivity {
                 // 直接在这里写跳转逻辑，或者调用你写的 handlePermissionJump(type)
                 handlePermissionRequest(type);
             }
+            // 方法二：专门处理权限的方法
+            @JavascriptInterface
+            public void notifyPermssionsPageLoaded() {
+                syncAllPermissionsToWeb();
+            }
         }, "_android_bridge");
         String jsInit = getIntent().getStringExtra("JS_INIT");
         if(jsInit != null && !jsInit.isBlank()) {
