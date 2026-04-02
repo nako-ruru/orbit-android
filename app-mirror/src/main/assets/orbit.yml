@@ -20,5 +20,3 @@ file-transfer:
 webview:
   resources: http://100.70.17.53:6700/app/
   i18n-tools-url: https://main.guanghe.asia
-  target-device-code: '021 617 079'
-  target-password: QZjXGG
