@@ -2,6 +2,7 @@ package com.orbit;
 
 import android.Manifest;
 import android.app.AlarmManager;
+import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -25,7 +26,6 @@ import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.app.AppOpsManager;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -35,7 +35,9 @@ import androidx.webkit.WebViewAssetLoader;
 import androidx.webkit.WebViewCompat;
 
 import com.aventrix.jnanoid.jnanoid.NanoIdUtils;
+import com.azhon.appupdate.manager.DownloadManager;
 import com.connect_screen.mirror.MirrorMainActivity;
+import com.connect_screen.mirror.R;
 import com.connect_screen.mirror.State;
 import com.connect_screen.mirror.SunshineService;
 import com.connect_screen.mirror.TouchpadAccessibilityService;
@@ -102,6 +104,8 @@ public class MainActivity extends AppCompatActivity {
 //                refresh();
             State.resumeJob();
         }
+
+        AutoUpdate.checkUpdate(this);
     });
 
     private final ActivityResultLauncher<Intent> safLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {

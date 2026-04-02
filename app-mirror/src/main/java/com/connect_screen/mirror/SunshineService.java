@@ -40,14 +40,10 @@ import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
-import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
-import javax.jmdns.JmDNS;
-import javax.jmdns.ServiceInfo;
 
 public class SunshineService extends Service {
     public static final String ACTION_USB_PERMISSION = "com.connect_screen.mirror.USB_PERMISSION";
@@ -131,46 +127,15 @@ public class SunshineService extends Service {
             try {
                 SunshineServer.setFileStatePath(SunshineService.this.getFilesDir().getAbsolutePath() + "/sunshine_state.json");
                 writeCertAndKey(SunshineService.this);
-                List<JmDNS> dnsServers = new ArrayList<>();
-                if (!ipAddresses.isEmpty()) {
-                    for (String addr : ipAddresses) {
-                        try {
-                            JmDNS jmdns = JmDNS.create(InetAddress.getByName(addr));
-                            dnsServers.add(jmdns);
-                            ServiceInfo serviceInfo = ServiceInfo.create(
-                                    "_nvstream._tcp.local.",
-                                    "ConnectScreen",
-                                    47989,
-                                    "ConnectScreen"
-                            );
-
-                            jmdns.registerService(serviceInfo);
-                            Log.i("SunshineService", "JmDNS服务注册成功，IP: " + addr);
-                        } catch (Exception e) {
-                            Log.e("SunshineService", "在IP " + addr + " 上注册JmDNS服务失败", e);
-                        }
-                    }
-                }
                 Log.i("SunshineService", "onStartCommand: 2");
                 new Thread(() -> {
                     try {
                         SunshineServer.start();
                         Log.i("SunshineService", "onStartCommand: 3");
-                        for (JmDNS server : dnsServers) {
-                            server.close();
-                        }
                     } catch (Throwable e) {
                         Log.e("SunshineService", "thread quit", e);
                     }
                 }).start();
-                if (ipAddresses.isEmpty()) {
-                    State.log("无法获取WiFi IP地址");
-                } else {
-                    State.log("发布 moonlight 服务名：" + sunshineName);
-                    for (String addr : ipAddresses) {
-                        State.log("发布 moonlight ip：" + addr);
-                    }
-                }
             } catch (Exception e) {
                 Log.e("SunshineService", "初始化网络服务失败", e);
             }
