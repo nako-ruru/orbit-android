@@ -3,6 +3,16 @@ plugins {
     id 'dev.rikka.tools.refine'
 }
 
+def getGitVersionCode() {
+    // 获取 Git 总提交次数
+    def stdout = new ByteArrayOutputStream()
+    exec {
+        commandLine 'git', 'rev-list', '--count', 'HEAD'
+        standardOutput = stdout
+    }
+    return stdout.toString().trim().toInteger()
+}
+
 android {
     namespace 'com.connect_screen.mirror'
     compileSdk 34
@@ -11,8 +21,6 @@ android {
         applicationId "com.orbit"
         minSdk 28
         targetSdk 34
-        versionCode 63
-        versionName "1.6.3"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
@@ -30,6 +38,8 @@ android {
         missingDimensionStrategy 'root', 'nonRoot'
 
         buildConfigField "String", "UPDATE_URL", "\"http://100.125.93.73:8811/repos/nako-ruru/orbit-android/releases/latest\""
+        // 调用函数自动获取
+        versionCode getGitVersionCode()
     }
 
     buildTypes {

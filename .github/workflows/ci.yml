@@ -1,0 +1,100 @@
+name: Manual Android Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: "代码来源 (Branch, Tag 或 Commit SHA)"
+        required: true
+        default: "main"
+      release_tag:
+        description: "发布的 Tag 名字 (例如 v1.0.0)"
+        required: true
+      prerelease_flag:
+        description: "标记为预发布 (Pre-release)"
+        type: boolean
+        default: false
+      draft_flag:
+        description: "保存为草稿 (Draft)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.source_ref }}
+          fetch-depth: 0 # 核心：必须获取完整历史才能保证统计结果一致
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Calculate Version and Inherit Logic
+        id: meta
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 1. 自动计算本次的 versionCode (与 Gradle 逻辑对齐)
+          VC=$(git rev-list --count HEAD)
+          echo "CURRENT_VC=$VC" >> $GITHUB_ENV
+          
+          # 2. 获取上一个【已发布】的 Release (忽略草稿)
+          # 使用 gh release list 过滤掉 Draft，取最近的一个
+          LAST_RELEASE_TAG=$(gh release list --limit 1 --exclude-drafts | awk '{print $3}' || echo "")
+          
+          if [ -n "$LAST_RELEASE_TAG" ]; then
+            LAST_BODY=$(gh release view "$LAST_RELEASE_TAG" --json body -q '.body')
+          else
+            # 彻底没有发布记录时的初始值
+            LAST_BODY="lastNotifyVersionCode=0\nlastForceVersionCode=0"
+          fi
+          
+          # 3. 提取旧断点
+          OLD_NOTIFY=$(echo -e "$LAST_BODY" | grep "lastNotifyVersionCode=" | cut -d'=' -f2 || echo "0")
+          OLD_FORCE=$(echo -e "$LAST_BODY" | grep "lastForceVersionCode=" | cut -d'=' -f2 || echo "0")
+          
+          echo "OLD_NOTIFY=$OLD_NOTIFY" >> $GITHUB_ENV
+          echo "OLD_FORCE=$OLD_FORCE" >> $GITHUB_ENV
+
+      - name: Build Release APK
+        run: |
+          # 将计算好的 VC 传给 Gradle，确保 APK 里的版本号正确
+          ./gradlew assembleRelease -Pvc=${{ env.CURRENT_VC }}
+
+      - name: Create Release and Upload
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 策略逻辑：这里预设为继承旧值
+          # 如果你想在手动触发时就决定是否通知，可以额外增加 inputs 选项
+          FINAL_NOTIFY=${{ env.OLD_NOTIFY }}
+          FINAL_FORCE=${{ env.OLD_FORCE }}
+
+          # 构造 Metadata 块
+          METADATA="---
+          RELEASE_METADATA_START
+          versionCode=${{ env.CURRENT_VC }}
+          lastNotifyVersionCode=$FINAL_NOTIFY
+          lastForceVersionCode=$FINAL_FORCE
+          RELEASE_METADATA_END"
+
+          # 创建 Release (根据输入决定是 Draft 还是 Pre-release)
+          gh release create ${{ github.event.inputs.release_tag }} \
+            --target ${{ github.event.inputs.source_ref }} \
+            --title "Release ${{ github.event.inputs.release_tag }}" \
+            --notes "这里是你的更新日志 (编辑时请保留下方的元数据)\n\n$METADATA" \
+            ${{ github.event.inputs.prerelease_flag == 'true' && '--prerelease' || '' }} \
+            ${{ github.event.inputs.draft_flag == 'true' && '--draft' || '' }}
+
+          # 上传编译好的 APK
+          gh release upload ${{ github.event.inputs.release_tag }} app/build/outputs/apk/release/*.apk --clobber
