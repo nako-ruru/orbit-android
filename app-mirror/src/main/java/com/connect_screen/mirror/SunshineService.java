@@ -19,6 +19,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.provider.Settings;
+import android.util.Base64;
 import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
@@ -32,14 +33,21 @@ import com.orbit.CertificateGenerator;
 
 import org.bouncycastle.operator.OperatorCreationException;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
@@ -71,7 +79,17 @@ public class SunshineService extends Service {
         super.onCreate();
         instance = this;
         createNotificationChannel();
-        startForeground(NOTIFICATION_ID, createNotification());
+
+        // 修改这里：增加第三个参数指定服务类型
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            startForeground(
+                    NOTIFICATION_ID,
+                    createNotification(),
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+            );
+        } else {
+            startForeground(NOTIFICATION_ID, createNotification());
+        }
     }
 
     @Override
@@ -292,12 +310,56 @@ public class SunshineService extends Service {
         return ipAddresses;
     }
 
-    public static void writeCertAndKey(Context context) throws CertificateException, NoSuchAlgorithmException, IOException, OperatorCreationException {
+    public static void writeCertAndKey(Context context) throws CertificateException, NoSuchAlgorithmException, IOException, OperatorCreationException, InvalidAlgorithmParameterException {
         String absolutePath = context.getFilesDir().getAbsolutePath();
-        CertificateGenerator.generateSelfSignedCertificate(
-                absolutePath + "/cacert.pem",                absolutePath + "/cakey.pem"
-        );
-        SunshineServer.setCertPath(absolutePath + "/cacert.pem");
-        SunshineServer.setPkeyPath(absolutePath+ "/cakey.pem");
+        File certFile = new File(absolutePath, "cacert.pem");
+        File keyFile = new File(absolutePath, "cakey.pem");
+
+        boolean needsGeneration = false;
+
+        // 1. 首先判断文件是否存在
+        if (!certFile.exists() || !keyFile.exists()) {
+            needsGeneration = true;
+        } else {
+            try {
+                // 1. 校验公钥 (证书)
+                CertificateFactory cf = CertificateFactory.getInstance("X.509");
+                cf.generateCertificate(new FileInputStream(certFile));
+
+                // 2. 深度校验私钥 (PKCS#8 格式校验)
+                String keyContent = new String(Files.readAllBytes(keyFile.toPath()));
+
+                // 清理 PEM 标签和换行符，提取纯 Base64 字符串
+                String privateKeyPEM = keyContent
+                        .replace("-----BEGIN PRIVATE KEY-----", "")
+                        .replace("-----END PRIVATE KEY-----", "")
+                        .replace("-----BEGIN RSA PRIVATE KEY-----", "") // 兼容 RSA 格式
+                        .replace("-----END RSA PRIVATE KEY-----", "")
+                        .replaceAll("\\s+", ""); // 移除所有空白符
+
+                byte[] encoded = Base64.decode(privateKeyPEM, Base64.DEFAULT);
+
+                // 尝试用 PKCS8 规范解析 (这是 generateSelfSignedCertificate 常用的输出格式)
+                PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(encoded);
+                KeyFactory kf = KeyFactory.getInstance("RSA"); // 如果你用的是 EC，这里换成 "EC"
+                kf.generatePrivate(keySpec); // 如果格式错误或数据损坏，这里会抛出 InvalidKeySpecException
+
+            } catch (Exception e) {
+                Log.e("CertCheck", "证书或私钥非法，准备重新生成: " + e.getMessage());
+                needsGeneration = true;
+            }
+        }
+
+        // 3. 如果不存在或不合法，重新生成
+        if (needsGeneration) {
+            CertificateGenerator.generateSelfSignedCertificate(
+                    certFile.getAbsolutePath(),
+                    keyFile.getAbsolutePath()
+            );
+        }
+
+        // 最后设置路径
+        SunshineServer.setCertPath(certFile.getAbsolutePath());
+        SunshineServer.setPkeyPath(keyFile.getAbsolutePath());
     }
 }

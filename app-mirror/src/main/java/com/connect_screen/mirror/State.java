@@ -4,14 +4,9 @@ import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.ServiceConnection;
-import android.content.SharedPreferences;
 import android.hardware.display.VirtualDisplay;
 import android.media.projection.MediaProjection;
-import android.os.Build;
-import android.os.Handler;
 import android.os.IBinder;
-import android.os.Looper;
-import android.os.RemoteException;
 import android.util.Log;
 
 import androidx.lifecycle.MutableLiveData;
@@ -19,11 +14,7 @@ import androidx.lifecycle.MutableLiveData;
 import com.connect_screen.mirror.job.Job;
 import com.connect_screen.mirror.job.YieldException;
 import com.connect_screen.mirror.shizuku.IUserService;
-import com.connect_screen.mirror.shizuku.ShizukuUtils;
-import com.connect_screen.mirror.shizuku.SurfaceControl;
 import com.connect_screen.mirror.shizuku.UserService;
-import com.topjohnwu.superuser.Shell;
-import com.topjohnwu.superuser.ShellUtils;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -73,16 +64,31 @@ public class State {
                     State.resumeJob();
                 });
             }
-            SharedPreferences preferences = Pref.getPreferences();
-            if (preferences != null && preferences.getInt("AUTO_GRANT_PERMISSION", 0) != BuildConfig.VERSION_CODE) {
-                preferences.edit().putInt("AUTO_GRANT_PERMISSION", BuildConfig.VERSION_CODE).apply();
-                State.log("授予媒体投影权限和悬浮窗权限");
-                try {
-                    State.userService.executeCommand("appops set com.connect_screen.mirror PROJECT_MEDIA allow");
-                    State.userService.executeCommand("appops set com.connect_screen.mirror SYSTEM_ALERT_WINDOW allow");
-                } catch (Throwable e) {
-                    // ignorepp
+            State.log("授予媒体投影权限和悬浮窗权限");
+            try {
+                String result = State.userService.executeCommand("appops get com.orbit SYSTEM_ALERT_WINDOW");
+                if (!result.contains("allow")) {
+                    State.userService.executeCommand("appops set com.orbit SYSTEM_ALERT_WINDOW allow");
                 }
+                result = State.userService.executeCommand("appops get com.orbit PROJECT_MEDIA");
+                if (!result.contains("allow")) {
+                    State.userService.executeCommand("appops set com.orbit PROJECT_MEDIA allow");
+                }
+                result = State.userService.executeCommand("appops get com.orbit ACTIVATE_VPN");
+                if (!result.contains("allow")) {
+                    State.userService.executeCommand("appops set com.orbit ACTIVATE_VPN allow");
+                }
+                result = State.userService.executeCommand("appops get com.orbit 10021");
+                if (!result.contains("allow")) {
+                    State.userService.executeCommand("appops set com.orbit 10021 allow");
+                }
+                result = State.userService.executeCommand("dumpsys deviceidle whitelist");
+                if (!result.contains(",com.orbit,")) {
+                    State.userService.executeCommand("dumpsys deviceidle whitelist +com.orbit");
+                }
+            } catch (Throwable e) {
+                // ignorepp
+                e.printStackTrace();
             }
         }
 

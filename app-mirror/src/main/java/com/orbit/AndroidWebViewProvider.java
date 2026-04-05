@@ -1,5 +1,6 @@
 package com.orbit;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Handler;
@@ -7,6 +8,7 @@ import android.os.Looper;
 import android.util.Log;
 import android.webkit.WebView;
 
+import java.lang.ref.Reference;
 import java.lang.ref.WeakReference;
 import java.util.Map;
 import java.util.Objects;
@@ -16,8 +18,8 @@ import aar.*;
 import aar.Runnable;
 
 public class AndroidWebViewProvider implements WebViewProvider {
-    private Context context;
-    private Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final Context context;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private static final Map<String, WebViweContext> activityMap = new ConcurrentHashMap<>();
 
     public AndroidWebViewProvider(Context context) {
@@ -36,8 +38,16 @@ public class AndroidWebViewProvider implements WebViewProvider {
         Log.i("AndroidWebViewProvider", "createAndStart");
         mainHandler.post(() -> {
             Log.i("AndroidWebViewProvider", "createAndStart: mainHandler.post");
-            if(id.equals("500") && OrbitApplication.activity.getClass().getName().contains("SplashActivity")) {
-                OrbitApplication.activity.finish();
+            Reference<Activity> activityRef = OrbitApplication.activity;
+            if(id.equals("500")) {
+                if(activityRef != null) {
+                    Activity activity = activityRef.get();
+                    if (activity != null) {
+                        if(activity.getClass().getName().contains("SplashActivity")) {
+                            activity.finish();
+                        }
+                    }
+                }
             }
             Intent i;
             if(id.equals("500")) {
@@ -84,7 +94,7 @@ public class AndroidWebViewProvider implements WebViewProvider {
     }
 
     private static class WebViweContext {
-        public final WeakReference<WebView> webView;
+        public final Reference<WebView> webView;
         public final java.lang.Runnable callback;
 
         private WebViweContext(WebView webView, java.lang.Runnable callback) {

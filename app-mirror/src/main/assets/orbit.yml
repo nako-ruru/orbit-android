@@ -18,5 +18,5 @@ file-transfer:
   path: 'D:\projects\orbital-client\filetransfer.exe'
   conf-path: 'D:\projects\orbital-client\cmd\filetransfer\application.yml'
 webview:
-  resources: http://100.70.17.53:6700/app/
+  resources: http://192.168.3.18:6700/app/
   i18n-tools-url: https://main.guanghe.asia
