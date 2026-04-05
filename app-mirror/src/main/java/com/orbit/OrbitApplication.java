@@ -16,6 +16,8 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.ref.Reference;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -27,7 +29,7 @@ import aar.Aar;
 public class OrbitApplication  extends Application {
 
     private boolean isInitialized;
-    public static Activity activity;
+    public static Reference<Activity> activity;
 
     @Override
     public void onCreate() {
@@ -38,7 +40,7 @@ public class OrbitApplication  extends Application {
         registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
             @Override
             public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
-                OrbitApplication.activity = activity;
+                OrbitApplication.activity = new WeakReference<>(activity);
                 Log.i("OrbitApplication", "onActivityCreated: " + activity);
                 if (!isInitialized) {
                     test(activity, id);
@@ -133,18 +135,6 @@ public class OrbitApplication  extends Application {
                 byte[] data = OrbitApplication.updateConfig(is, requireModified);
                 is.close();
                 Aar.runDaemon(data);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }).start();
-        new Thread(() -> {
-            try {
-                // 读取配置文件
-                InputStream is =  context.getAssets().open("orbit.yml");
-                byte[] data = new byte[is.available()];
-                is.read(data);
-                is.close();
-                Aar.runOrbit(data);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }

@@ -21,6 +21,8 @@ import com.connect_screen.mirror.Pref;
 import com.connect_screen.mirror.State;
 import com.orbit.MainActivity;
 
+import java.lang.ref.Reference;
+
 public class SunshineAudio {
     private static boolean audioPermissionRequested;
     private static boolean isMuted = false;
@@ -158,7 +160,11 @@ public class SunshineAudio {
                 return true;
             }
             audioPermissionRequested = true;
-            Activity activity = MainActivity.activity;
+            Reference<? extends Activity> activityRef = MainActivity.activity;
+            if (activityRef == null) {
+                return true;
+            }
+            Activity activity = activityRef.get();
             if (activity == null) {
                 return true;
             }

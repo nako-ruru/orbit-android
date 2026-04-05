@@ -54,6 +54,8 @@ import org.lsposed.hiddenapibypass.HiddenApiBypass;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.ref.Reference;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -71,7 +73,7 @@ public class MainActivity extends AppCompatActivity {
     private String mId;
     private WebView mWebView;
 
-    public static MainActivity activity;
+    public static Reference<MainActivity> activity;
 
     private final ActivityResultLauncher<Intent> projectionLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
         int resultCode = result.getResultCode();
@@ -159,7 +161,7 @@ public class MainActivity extends AppCompatActivity {
 
         Aar.registerMoonlightProvider(new AndroidMoonlightProvider(this));
 
-        activity = this;
+        activity = new WeakReference<>(this);
 
         mId = "500";
         mWebView = new WebView(this);
@@ -283,7 +285,7 @@ public class MainActivity extends AppCompatActivity {
     public void startMediaProjectionService() {
         MediaProjectionManager mediaProjectionManager = (MediaProjectionManager) this.getSystemService(Context.MEDIA_PROJECTION_SERVICE);
         if (mediaProjectionManager != null) {
-            TouchpadAccessibilityService.grantPermissionByClick(activity);
+            TouchpadAccessibilityService.grantPermissionByClick(this);
             Intent captureIntent = null;
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 captureIntent = mediaProjectionManager.createScreenCaptureIntent(MediaProjectionConfig.createConfigForDefaultDisplay());

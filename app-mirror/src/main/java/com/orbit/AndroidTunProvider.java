@@ -97,7 +97,7 @@ public class AndroidTunProvider implements TunProvider {
                 }
 
                 if (addr instanceof Inet4Address) {
-                    addresses.add(hostAddress);
+//                    addresses.add(hostAddress);
                 } else if (addr instanceof Inet6Address) {
                     if (!addr.isLinkLocalAddress()) {
                         addresses.add(hostAddress); // 这里只传 IP，不加括号

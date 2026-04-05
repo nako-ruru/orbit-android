@@ -16,13 +16,10 @@ public class ExitAll {
     public static void execute(Context context, boolean restart) {
         if (TouchpadAccessibilityService.getInstance() != null && ShizukuUtils.hasPermission()) {
             // 下次可自动获取
-            TouchpadAccessibilityService.getInstance().disableSelf();
-        }
-        if(MainActivity.activity != null) {
-            MainActivity.activity.finish();
+//            TouchpadAccessibilityService.getInstance().disableSelf();
         }
 
-        restartByAlarm(MainActivity.activity, SplashActivity.class);
+        restartByAlarm(context, SplashActivity.class);
     }
     public static void restartByAlarm(Context context, Class<?> cls) {
         Intent intent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
