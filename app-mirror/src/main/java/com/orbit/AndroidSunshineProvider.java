@@ -27,6 +27,7 @@ public class AndroidSunshineProvider implements SunshineProvider {
     /**
      * Golang 调用此方法: 一键启动投屏
      */
-    public static void requestStart(Context context) {
+    public void requestStart(Context context) {
+
     }
 }

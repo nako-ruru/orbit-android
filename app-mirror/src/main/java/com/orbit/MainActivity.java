@@ -292,6 +292,7 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 captureIntent = mediaProjectionManager.createScreenCaptureIntent();
             }
+            new RuntimeException().printStackTrace();
             projectionLauncher.launch(captureIntent);
         } else {
             throw new RuntimeException("无法获取 MediaProjectionManager 服务");

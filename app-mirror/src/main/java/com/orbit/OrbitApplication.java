@@ -2,6 +2,7 @@ package com.orbit;
 
 import android.app.Activity;
 import android.app.Application;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
@@ -12,6 +13,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+import com.pivovarit.function.ThrowingRunnable;
 
 import java.io.File;
 import java.io.IOException;
@@ -80,7 +82,7 @@ public class OrbitApplication  extends Application {
         });
     }
 
-    private static void test(Activity context, String id) {
+    private static void test(Context context, String id) {
         // 1. 注册驱动 (驱动持有 ApplicationContext 是安全的)
         Aar.registerWebViewDriver(new AndroidWebViewProvider(context));
         Aar.registerSunshineProvider(new AndroidSunshineProvider(context));
@@ -121,24 +123,20 @@ public class OrbitApplication  extends Application {
         }).start();
          */
         // 2. 在子线程中启动 Go 逻辑，避免阻塞主线程（UI 线程）
-        new Thread(() -> {
-            try {
-                Map<String, Object> requireModified = new HashMap<>();
-                requireModified.put("vpn.fixed-ips", fixedIpList);
-                String nativeLibraryDir = context.getApplicationInfo().nativeLibraryDir;
-                requireModified.put("streamer.path", new File(nativeLibraryDir, "libweb-server.so").getAbsoluteFile());
-                requireModified.put("streamer.streamer-path", new File(nativeLibraryDir, "libstreamer.so").getAbsoluteFile());
-                requireModified.put("streamer.workspace", new File(context.getFilesDir(), "streamer").getAbsoluteFile());
-                requireModified.put("npc.path", new File(nativeLibraryDir, "libnpc.so").getAbsoluteFile());
-                // 读取配置文件
-                InputStream is = context.getAssets().open("daemon.yml");
-                byte[] data = OrbitApplication.updateConfig(is, requireModified);
-                is.close();
-                Aar.runDaemon(data);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }).start();
+        new Thread(ThrowingRunnable.sneaky(() -> {
+            Map<String, Object> requireModified = new HashMap<>();
+            requireModified.put("vpn.fixed-ips", fixedIpList);
+            String nativeLibraryDir = context.getApplicationInfo().nativeLibraryDir;
+            requireModified.put("streamer.path", new File(nativeLibraryDir, "libweb-server.so").getAbsoluteFile());
+            requireModified.put("streamer.streamer-path", new File(nativeLibraryDir, "libstreamer.so").getAbsoluteFile());
+            requireModified.put("streamer.workspace", new File(context.getFilesDir(), "streamer").getAbsoluteFile());
+            requireModified.put("npc.path", new File(nativeLibraryDir, "libnpc.so").getAbsoluteFile());
+            // 读取配置文件
+            InputStream is = context.getAssets().open("daemon.yml");
+            byte[] data = OrbitApplication.updateConfig(is, requireModified);
+            is.close();
+            Aar.runDaemon(data);
+        })).start();
     }
 
 
