@@ -9,7 +9,6 @@ import android.os.Build;
 
 import com.connect_screen.mirror.TouchpadAccessibilityService;
 import com.connect_screen.mirror.shizuku.ShizukuUtils;
-import com.orbit.MainActivity;
 import com.orbit.SplashActivity;
 
 public class ExitAll {

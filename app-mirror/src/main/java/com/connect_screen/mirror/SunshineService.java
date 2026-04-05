@@ -79,17 +79,6 @@ public class SunshineService extends Service {
         super.onCreate();
         instance = this;
         createNotificationChannel();
-
-        // 修改这里：增加第三个参数指定服务类型
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            startForeground(
-                    NOTIFICATION_ID,
-                    createNotification(),
-                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
-            );
-        } else {
-            startForeground(NOTIFICATION_ID, createNotification());
-        }
     }
 
     @Override
@@ -115,7 +104,19 @@ public class SunshineService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.i("SunshineService", "onStartCommand: 0");
+        Log.i("SunshineService", "onStartCommand 运行了，intent 是否为空: " + (intent == null));
+
+        // 修改这里：增加第三个参数指定服务类型
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            startForeground(
+                    NOTIFICATION_ID,
+                    createNotification(),
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+            );
+        } else {
+            startForeground(NOTIFICATION_ID, createNotification());
+        }
+
         if (intent != null && intent.hasExtra("data")) {
             MediaProjectionManager mediaProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
             Intent data = intent.getParcelableExtra("data");
@@ -138,7 +139,6 @@ public class SunshineService extends Service {
         // 在后台线程中启动 Sunshine 服务器
         String sunshineName = "屏易连-" + Build.MANUFACTURER + "-" + Build.MODEL;
         SunshineServer.setSunshineName(sunshineName);
-        Set<String> ipAddresses = getAllWifiIpAddresses(this);
         probeH265();
 
         new Thread(() -> {
@@ -184,6 +184,20 @@ public class SunshineService extends Service {
         }, 2000);
         return START_NOT_STICKY;
     }
+
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        Log.i("SunshineService", "检测到划掉卡片，主动自杀");
+
+        // 1. 停止前台状态（撤销通知）
+        stopForeground(true);
+
+        // 2. 停止服务自身
+        stopSelf();
+
+        super.onTaskRemoved(rootIntent);
+    }
+
 
     private void preventAutoLock() {
         if (!ShizukuUtils.hasPermission()) {
