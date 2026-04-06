@@ -35,9 +35,7 @@ import androidx.webkit.WebViewAssetLoader;
 import androidx.webkit.WebViewCompat;
 
 import com.aventrix.jnanoid.jnanoid.NanoIdUtils;
-import com.azhon.appupdate.manager.DownloadManager;
 import com.connect_screen.mirror.MirrorMainActivity;
-import com.connect_screen.mirror.R;
 import com.connect_screen.mirror.State;
 import com.connect_screen.mirror.SunshineService;
 import com.connect_screen.mirror.TouchpadAccessibilityService;
@@ -68,6 +66,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import aar.Aar;
+import xyz.kumaraswamy.autostart.Autostart;
 
 public class MainActivity extends AppCompatActivity {
     private String mId;
@@ -531,14 +530,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean checkAutoStartStatus() {
-        try {
-            AppOpsManager appOps = (AppOpsManager) getSystemService(Context.APP_OPS_SERVICE);
-            // OP_RUN_IN_BACKGROUND 通常与自启动/后台运行逻辑相关
-            int mode = appOps.checkOpNoThrow("android:run_in_background", android.os.Process.myUid(), getPackageName());
-            return mode == AppOpsManager.MODE_ALLOWED;
-        } catch (Exception e) {
-            return false;
+        if(DeviceUtils.isXiaomi()) {
+            return Autostart.INSTANCE.getSafeState(this);
         }
+        return false;
     }
 
     private void syncAllPermissionsToWeb() {

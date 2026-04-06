@@ -37,7 +37,7 @@ android {
 
         missingDimensionStrategy 'root', 'nonRoot'
 
-        buildConfigField "String", "UPDATE_URL", "\"http://100.125.93.73:8811/repos/nako-ruru/orbit-android/releases/latest\""
+        buildConfigField "String", "UPDATE_URL", "\"http://192.168.3.253:8811/repos/nako-ruru/orbit-android/releases/latest\""
         // 调用函数自动获取
         versionCode getGitVersionCode()
     }
@@ -117,6 +117,7 @@ dependencies {
     implementation 'org.bouncycastle:bcprov-jdk18on:1.77'
     implementation 'org.bouncycastle:bcpkix-jdk18on:1.77'
     implementation 'io.github.azhon:appupdate:4.3.6'
+    implementation 'com.github.XomaDev:MIUI-autostart:v1.3'
 
     implementation files('./libs/orbit.aar')
     implementation project(':moonlight')
