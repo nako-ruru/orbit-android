@@ -1,21 +1,21 @@
-name: Manual Android Release
+name: Android AI Auto Release
 
 on:
   workflow_dispatch:
     inputs:
       source_ref:
-        description: "代码来源 (Branch, Tag 或 Commit SHA)"
+        description: "代码来源 (Branch/Tag/SHA)"
         required: true
         default: "main"
       release_tag:
-        description: "发布的 Tag 名字 (例如 v1.0.0)"
+        description: "本次发布的 Tag (如 v10)"
         required: true
       prerelease_flag:
         description: "标记为预发布 (Pre-release)"
         type: boolean
         default: false
       draft_flag:
-        description: "保存为草稿 (Draft)"
+        description: "是否存为草稿 (Draft)"
         type: boolean
         default: true
 
@@ -26,11 +26,11 @@ jobs:
   build-and-release:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
+      - name: Checkout Project
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.source_ref }}
-          fetch-depth: 0 # 核心：必须获取完整历史才能保证统计结果一致
+          fetch-depth: 0
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -39,62 +39,85 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Calculate Version and Inherit Logic
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Python Dependencies
+        run: |
+          pip install google-generativeai # 假设你用了这个库，如果没有请删除或替换
+
+      - name: Calculate Version and Strategy
         id: meta
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 1. 自动计算本次的 versionCode (与 Gradle 逻辑对齐)
-          VC=$(git rev-list --count HEAD)
-          echo "CURRENT_VC=$VC" >> $GITHUB_ENV
+          # 1. 自动计算本次的 versionCode (基于已有的 v* Tag 最大值 + 1)
+          git fetch --tags
+          MAX_TAG_NUM=$(git tag -l "v*" | sed 's/v//' | sort -n | tail -n 1 || echo "0")
+          CURRENT_VC=$((MAX_TAG_NUM + 1))
           
-          # 2. 获取上一个【已发布】的 Release (忽略草稿)
-          # 使用 gh release list 过滤掉 Draft，取最近的一个
-          LAST_RELEASE_TAG=$(gh release list --limit 1 --exclude-drafts | awk '{print $3}' || echo "")
+          # 2. 确定上一个 Tag 作为 AI Diff 的起点
+          LAST_TAG="v$MAX_TAG_NUM"
           
-          if [ -n "$LAST_RELEASE_TAG" ]; then
-            LAST_BODY=$(gh release view "$LAST_RELEASE_TAG" --json body -q '.body')
-          else
-            # 彻底没有发布记录时的初始值
-            LAST_BODY="lastNotifyVersionCode=0\nlastForceVersionCode=0"
-          fi
-          
-          # 3. 提取旧断点
-          OLD_NOTIFY=$(echo -e "$LAST_BODY" | grep "lastNotifyVersionCode=" | cut -d'=' -f2 || echo "0")
+          # 3. 从上个 Release Body 继承强制更新断点
+          LAST_BODY=$(gh release view "$LAST_TAG" --json body -q '.body' || echo "")
           OLD_FORCE=$(echo -e "$LAST_BODY" | grep "lastForceVersionCode=" | cut -d'=' -f2 || echo "0")
-          
-          echo "OLD_NOTIFY=$OLD_NOTIFY" >> $GITHUB_ENV
+
+          echo "VC=$CURRENT_VC" >> $GITHUB_ENV
+          echo "LAST_TAG=$LAST_TAG" >> $GITHUB_ENV
           echo "OLD_FORCE=$OLD_FORCE" >> $GITHUB_ENV
 
-      - name: Build Release APK
+      - name: Generate AI Notes
+        env:
+          HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
         run: |
-          # 将计算好的 VC 传给 Gradle，确保 APK 里的版本号正确
-          ./gradlew assembleRelease -Pvc=${{ env.CURRENT_VC }}
+          # 执行你的 Python 脚本
+          python .github/workflows/ai_release_notes.py \
+            --old ${{ env.LAST_TAG }} \
+            --new ${{ github.event.inputs.source_ref }} \
+            --repo . \
+            --output ai_content.md
 
-      - name: Create Release and Upload
+      - name: Build Release APK
+        run: ./gradlew assembleRelease -Pvc=${{ env.VC }}
+
+      - name: Create Release Task
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 策略逻辑：这里预设为继承旧值
-          # 如果你想在手动触发时就决定是否通知，可以额外增加 inputs 选项
-          FINAL_NOTIFY=${{ env.OLD_NOTIFY }}
-          FINAL_FORCE=${{ env.OLD_FORCE }}
+          # 读取 AI 生成的 Markdown 文本
+          # 如果文件不存在则提供回退信息
+          AI_SUMMARY=$(cat ai_content.md 2>/dev/null || echo "AI 摘要生成失败，请检查脚本输出。")
 
-          # 构造 Metadata 块
-          METADATA="---
+          # 构造元数据 (隐藏在注释中)
+          METADATA="<!--
           RELEASE_METADATA_START
-          versionCode=${{ env.CURRENT_VC }}
-          lastNotifyVersionCode=$FINAL_NOTIFY
-          lastForceVersionCode=$FINAL_FORCE
-          RELEASE_METADATA_END"
+          versionCode=${{ env.VC }}
+          lastNotifyVersionCode=${{ env.VC }}
+          lastForceVersionCode=${{ env.OLD_FORCE }}
+          RELEASE_METADATA_END
+          -->"
 
-          # 创建 Release (根据输入决定是 Draft 还是 Pre-release)
+          FINAL_BODY="### ✨ AI 自动更新摘要\n$AI_SUMMARY\n\n$METADATA"
+
+          # 拼装参数：处理 draft 和 prerelease 标志
+          PRERELEASE_OPT=""
+          if [ "${{ github.event.inputs.prerelease_flag }}" = "true" ]; then
+            PRERELEASE_OPT="--prerelease"
+          fi
+
+          DRAFT_OPT=""
+          if [ "${{ github.event.inputs.draft_flag }}" = "true" ]; then
+            DRAFT_OPT="--draft"
+          fi
+
+          # 执行发布
           gh release create ${{ github.event.inputs.release_tag }} \
             --target ${{ github.event.inputs.source_ref }} \
             --title "Release ${{ github.event.inputs.release_tag }}" \
-            --notes "这里是你的更新日志 (编辑时请保留下方的元数据)\n\n$METADATA" \
-            ${{ github.event.inputs.prerelease_flag == 'true' && '--prerelease' || '' }} \
-            ${{ github.event.inputs.draft_flag == 'true' && '--draft' || '' }}
-
-          # 上传编译好的 APK
-          gh release upload ${{ github.event.inputs.release_tag }} app/build/outputs/apk/release/*.apk --clobber
+            --notes "$FINAL_BODY" \
+            $DRAFT_OPT \
+            $PRERELEASE_OPT \
+            app/build/outputs/apk/release/*.apk
