@@ -24,9 +24,6 @@ import okhttp3.Response;
 
 public class AutoUpdate {
 
-    // 替换为你的代理地址
-    private static final String proxyUrl = BuildConfig.UPDATE_URL;
-
     /**
      * 检查更新静态方法
      * @param activity 必须传入 Activity，因为 DownloadManager 需要 Activity 的 Context 来弹窗
@@ -35,7 +32,7 @@ public class AutoUpdate {
         final ObjectMapper mapper = new ObjectMapper();
         final OkHttpClient client = new OkHttpClient();
 
-        Request request = new Request.Builder().url(proxyUrl).build();
+        Request request = new Request.Builder().url(BuildConfig.UPDATE_URL).build();
 
         client.newCall(request).enqueue(new Callback() {
             @Override
@@ -62,20 +59,19 @@ public class AutoUpdate {
                 }
 
                 // 3. 核心版本比对逻辑
-                int currentVC = BuildConfig.VERSION_CODE;
 
                 // 如果线上版本不大于当前版本，直接退出
-                if (meta.versionCode <= currentVC) {
+                if (meta.versionCode <= BuildConfig.VERSION_CODE) {
                     return;
                 }
 
                 // 只有当“通知断点”大于当前版本时，才触发弹窗提醒 (实现静默更新)
-                if (meta.lastNotifyVersionCode <= currentVC) {
+                if (meta.lastNotifyVersionCode <= BuildConfig.VERSION_CODE) {
                     return;
                 }
 
                 // 4. 确定是否强制更新
-                final boolean isForce = meta.lastForceVersionCode > currentVC;
+                final boolean isForce = meta.lastForceVersionCode > BuildConfig.VERSION_CODE;
 
                 // 5. 寻找有效的 APK Asset 对象
                 GitHubRelease.Asset targetAsset = null;

@@ -165,9 +165,9 @@ public class SunshineService extends Service {
 
         // 监听显示器变化
         DisplayManager displayManager = (DisplayManager) getSystemService(Context.DISPLAY_SERVICE);
-        MirrorDisplayMonitor.init(displayManager);
-        MirrorDisplaylinkMonitor.init(this);
-        State.refreshMainActivity();
+//        MirrorDisplayMonitor.init(displayManager);
+//        MirrorDisplaylinkMonitor.init(this);
+//        State.refreshMainActivity();
         Handler handler = new Handler();
         handler.postDelayed(() -> {
             if (ShizukuUtils.hasPermission() && State.userService == null) {

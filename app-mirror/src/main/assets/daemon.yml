@@ -1,5 +1,5 @@
 vars:
-  base_ip: '192.168.3.18'
+  base_ip: '100.70.17.53'
 log-dir: console
 desktop-signal-url: ws://{{.base_ip}}:6700/ws/desktop
 api: http://{{.base_ip}}:6700
