@@ -167,6 +167,9 @@ public class MirrorMainActivity extends AppCompatActivity implements IMainActivi
 
     // 添加初始化主界面控件的方法
     private void initHomeControls() {
+        if(true) {
+            return;
+        }
         settingsBtn = findViewById(R.id.settingsBtn);
         screenOffBtn = findViewById(R.id.screenOffBtn);
         touchScreenBtn = findViewById(R.id.touchScreenBtn);
@@ -329,6 +332,9 @@ public class MirrorMainActivity extends AppCompatActivity implements IMainActivi
 
     // 修改 updateUI 方法
     private void updateUI(MirrorUiState state) {
+        if(true) {
+            return;
+        }
         if (state.errorStatusText != null) {
             mirrorStatus.setText(state.errorStatusText);
             settingsBtn.setVisibility(View.VISIBLE);
@@ -352,6 +358,9 @@ public class MirrorMainActivity extends AppCompatActivity implements IMainActivi
 
     // 修改 refresh 方法
     public void refresh() {
+        if(true) {
+            return;
+        }
         if (State.uiState.getValue().errorStatusText != null) {
             return;
         }

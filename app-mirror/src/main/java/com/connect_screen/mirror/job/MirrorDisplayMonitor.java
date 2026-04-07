@@ -56,11 +56,13 @@ public class MirrorDisplayMonitor {
                     if (State.getCurrentActivity() != null) {
                         State.getCurrentActivity().finish();
                     }
+                    /*
                     Intent intent = new Intent(SunshineService.instance, MirrorMainActivity.class);
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                     ActivityOptions options = ActivityOptions.makeBasic();
                     options.setLaunchDisplayId(Display.DEFAULT_DISPLAY);
                     SunshineService.instance.startActivity(intent, options.toBundle());
+                    */
                 }, 1000);
             }
 
