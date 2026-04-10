@@ -74,6 +74,13 @@ public class StreamerService extends Service {
         return START_STICKY;
     }
 
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        // 2. 停止服务自身
+        stopSelf();
+        super.onTaskRemoved(rootIntent);
+    }
+
     private void startWebServer() throws IOException, InterruptedException {
         File writableDir = new File(getFilesDir(), "streamer");
         copyAssetsFolder(this, "streamer", writableDir);
