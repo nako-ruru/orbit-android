@@ -133,4 +133,4 @@ jobs:
             --notes "$FINAL_BODY" \
             $DRAFT_OPT \
             $PRERELEASE_OPT \
-            app/build/outputs/apk/release/*.apk
+            **/build/outputs/apk/**/*.apk
