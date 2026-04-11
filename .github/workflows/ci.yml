@@ -82,7 +82,9 @@ jobs:
             --output ai_content.md
 
       - name: Build Release APK
-        run: ./gradlew assembleRelease -Pvc=${{ env.VC }}
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease -Pvc=${{ env.VC }}
 
       - name: Create Release Task
         env:
