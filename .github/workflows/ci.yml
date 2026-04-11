@@ -139,15 +139,21 @@ jobs:
           if [ "${{ github.event.inputs.draft_flag }}" = "true" ]; then
             DRAFT_OPT="--draft"
           fi
-
-          # 获取签名后的 APK 路径（由签名插件输出）
-          SIGNED_APK="${{ steps.sign_app.outputs.signedReleaseFile }}"
           
-          # 执行发布，只上传签名后的那个 APK
+          # 1. 获取插件输出的那个尴尬的路径
+           RAW_SIGNED_APK="${{ steps.sign_app.outputs.signedReleaseFile }}"
+          
+          # 2. 定义一个漂亮的名字
+           CLEAN_NAME="orbit-android-${{ github.event.inputs.release_tag }}.apk"
+          
+          # 3. 重命名文件
+          mv "$RAW_SIGNED_APK" "./$CLEAN_NAME"
+          
+          # 4. 发布这个漂亮名字的文件
           gh release create ${{ github.event.inputs.release_tag }} \
             --target ${{ github.event.inputs.source_ref }} \
             --title "Release ${{ github.event.inputs.release_tag }}" \
             --notes "$FINAL_BODY" \
             $DRAFT_OPT \
             $PRERELEASE_OPT \
-            "$SIGNED_APK"
+            "./$CLEAN_NAME"
