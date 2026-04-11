@@ -18,3 +18,5 @@ local.properties
 /thread_dump.txt
 /app-mirror/src/main/assets/.idea
 /.vscode/
+/keystore_base64.txt
+/release.jks
