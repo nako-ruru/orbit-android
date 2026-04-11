@@ -19,13 +19,13 @@ def main():
     diff_text = result.stdout.strip()
 
     if not diff_text:
-        print("⚠️ No changes detected.");
+        print("⚠️ No changes detected.")
         sys.exit(0)
 
     # 3. 调用 AI
     token = os.getenv("HF_API_TOKEN")
     if not token:
-        print("❌ Error: HF_API_TOKEN is missing.");
+        print("❌ Error: HF_API_TOKEN is missing.")
         sys.exit(1)
 
     client = InferenceClient(api_key=token)
@@ -45,7 +45,7 @@ def main():
         print(f"✅ AI content saved to {args.output}")
 
     except Exception as e:
-        print(f"❌ AI Error: {e}");
+        print(f"❌ AI Error: {e}")
         sys.exit(1)
 
 

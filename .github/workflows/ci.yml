@@ -75,6 +75,17 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease -Pvc=${{ env.VC }}
 
+      # 1. 签名步骤
+      - name: Sign APK
+        uses: r0adkll/sign-android-release@v1
+        id: sign_app
+        with:
+          releaseDirectory: app-mirror/build/outputs/apk/release
+          signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
+          alias: ${{ secrets.KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -126,11 +137,14 @@ jobs:
             DRAFT_OPT="--draft"
           fi
 
-          # 执行发布
+          # 获取签名后的 APK 路径（由签名插件输出）
+          SIGNED_APK="${{ steps.sign_app.outputs.signedReleaseFile }}"
+          
+          # 执行发布，只上传签名后的那个 APK
           gh release create ${{ github.event.inputs.release_tag }} \
             --target ${{ github.event.inputs.source_ref }} \
             --title "Release ${{ github.event.inputs.release_tag }}" \
             --notes "$FINAL_BODY" \
             $DRAFT_OPT \
             $PRERELEASE_OPT \
-            **/build/outputs/apk/**/*.apk
+            "$SIGNED_APK"
