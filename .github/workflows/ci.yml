@@ -75,6 +75,9 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease -Pvc=${{ env.VC }}
 
+      - name: Install Build Tools
+        run: echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;29.0.3"
+
       # 1. 签名步骤
       - name: Sign APK
         uses: r0adkll/sign-android-release@v1
@@ -85,7 +88,6 @@ jobs:
           alias: ${{ secrets.KEY_ALIAS }}
           keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
-          buildToolsVersion: "34.0.0"
 
       - name: Set up Python
         uses: actions/setup-python@v5
