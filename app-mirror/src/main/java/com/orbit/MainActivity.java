@@ -22,10 +22,7 @@ import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.util.Log;
 import android.webkit.JavascriptInterface;
-import android.webkit.WebResourceRequest;
-import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
-import android.webkit.WebViewClient;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -147,6 +144,8 @@ public class MainActivity extends AppCompatActivity {
     private final ActivityResultLauncher<String[]> runtimePermissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
             }    );
 
+    private boolean permissionsPageLoaded;
+
     public MainActivity() {
         super();
         Log.i("LIFECYCLE", MainActivity.class.getName());
@@ -186,6 +185,7 @@ public class MainActivity extends AppCompatActivity {
             // 方法二：专门处理权限的方法
             @JavascriptInterface
             public void notifyPermssionsPageLoaded() {
+                permissionsPageLoaded = true;
                 syncAllPermissionsToWeb();
             }
         }, "_android_bridge");
@@ -197,18 +197,6 @@ public class MainActivity extends AppCompatActivity {
         if(bindings != null && !bindings.isBlank()) {
             WebViewCompat.addDocumentStartJavaScript(mWebView, injectBindings(bindings), Collections.singleton("*"));
         }
-        mWebView.setWebViewClient(new WebViewClient() {
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                syncAllPermissionsToWeb();
-            }
-            @Override
-            public WebResourceResponse shouldInterceptRequest(
-                    WebView view,
-                    WebResourceRequest request) {
-                return assetLoader.shouldInterceptRequest(request.getUrl());
-            }
-        });
         mWebView.loadUrl(getIntent().getStringExtra("URL"));
         setContentView(mWebView);
     }
@@ -537,6 +525,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void syncAllPermissionsToWeb() {
+        if (!permissionsPageLoaded) {
+            return;
+        }
         runOnUiThread(ThrowingRunnable.sneaky(() -> {
             // 1. 读取权限结构 JSON5（支持注释）
             String structureJson5 = loadJSONFromAsset("permission_definitions.json5");
@@ -572,11 +563,13 @@ public class MainActivity extends AppCompatActivity {
             // 4. 构建最终数据
             ObjectNode finalData = mapper.createObjectNode();
             finalData.set("groups", groups);
-
             // 5. 转成 JSON 字符串并调用 JS
             String finalJson = mapper.writeValueAsString(finalData);
-            String jsCode = "document.getElementById('permissionFrame').contentWindow.updatePermissionUI(" + finalJson + ")";
-
+            String jsCode = String.format("""
+                    if(window.updatePermissionUI) {
+                        updatePermissionUI(%s);
+                    }
+                    """, finalJson);
             mWebView.evaluateJavascript(jsCode, null);
         }));
     }
