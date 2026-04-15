@@ -22,11 +22,13 @@ import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.util.Log;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.webkit.WebViewAssetLoader;
 import androidx.webkit.WebViewCompat;
@@ -65,7 +67,7 @@ import java.util.stream.Collectors;
 import aar.Aar;
 import xyz.kumaraswamy.autostart.Autostart;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends androidx.activity.ComponentActivity {
     private String mId;
     private WebView mWebView;
 
@@ -197,6 +199,14 @@ public class MainActivity extends AppCompatActivity {
         if(bindings != null && !bindings.isBlank()) {
             WebViewCompat.addDocumentStartJavaScript(mWebView, injectBindings(bindings), Collections.singleton("*"));
         }
+        mWebView.setWebViewClient(new WebViewClient() {
+            @Override
+            public WebResourceResponse shouldInterceptRequest(
+                    WebView view,
+                    WebResourceRequest request) {
+                return assetLoader.shouldInterceptRequest(request.getUrl());
+            }
+        });
         mWebView.loadUrl(getIntent().getStringExtra("URL"));
         setContentView(mWebView);
     }
@@ -279,7 +289,6 @@ public class MainActivity extends AppCompatActivity {
             } else {
                 captureIntent = mediaProjectionManager.createScreenCaptureIntent();
             }
-            new RuntimeException().printStackTrace();
             projectionLauncher.launch(captureIntent);
         } else {
             throw new RuntimeException("无法获取 MediaProjectionManager 服务");
@@ -565,11 +574,7 @@ public class MainActivity extends AppCompatActivity {
             finalData.set("groups", groups);
             // 5. 转成 JSON 字符串并调用 JS
             String finalJson = mapper.writeValueAsString(finalData);
-            String jsCode = String.format("""
-                    if(window.updatePermissionUI) {
-                        updatePermissionUI(%s);
-                    }
-                    """, finalJson);
+            String jsCode = String.format("                  updatePermissionUI(%s);             ", finalJson);
             mWebView.evaluateJavascript(jsCode, null);
         }));
     }
@@ -625,13 +630,6 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
-
-    // 权限定义文件路径
-    private static final String PERMISSION_DEFINITIONS_FILE = "permission_definitions.json";
-
-    // 多语言文件路径模板
-    private static final String I18N_FILE_TEMPLATE = "permission_i18n_%s.json";
-
 
     /**
      * 从 assets 读取 JSON 文件
