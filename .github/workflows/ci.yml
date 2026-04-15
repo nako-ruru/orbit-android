@@ -141,10 +141,10 @@ jobs:
           fi
           
           # 1. 获取插件输出的那个尴尬的路径
-           RAW_SIGNED_APK="${{ steps.sign_app.outputs.signedReleaseFile }}"
+          RAW_SIGNED_APK="${{ steps.sign_app.outputs.signedReleaseFile }}"
           
           # 2. 定义一个漂亮的名字
-           CLEAN_NAME="orbit-android-${{ github.event.inputs.release_tag }}.apk"
+          CLEAN_NAME="orbit-android.apk"
           
           # 3. 重命名文件
           mv "$RAW_SIGNED_APK" "./$CLEAN_NAME"
