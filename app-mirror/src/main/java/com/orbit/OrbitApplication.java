@@ -91,6 +91,7 @@ public class OrbitApplication  extends Application {
         Aar.registerPathProvider(new AndroidPathProvider(context));
         Aar.registerFileTransferProvider(new AndroidFileTransferProvider(context));
         Aar.registerStreamerProvider(new AndroidStreamerProvider(context));
+        Aar.registerAuthProvider(new AndroidAuthProvider(context));
 
         List<String> fixedIpList = new ArrayList<>();
         Random random = new Random();

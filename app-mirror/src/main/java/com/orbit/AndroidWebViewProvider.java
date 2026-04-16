@@ -68,7 +68,7 @@ public class AndroidWebViewProvider implements WebViewProvider {
     }
 
     @Override
-    public void postToUI(Runnable r) {
+    public void dispatch(Runnable r) {
         mainHandler.post(r::run);
     }
 

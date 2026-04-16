@@ -144,7 +144,7 @@ jobs:
           RAW_SIGNED_APK="${{ steps.sign_app.outputs.signedReleaseFile }}"
           
           # 2. 定义一个漂亮的名字
-          CLEAN_NAME="orbit-android.apk"
+          CLEAN_NAME="orbit_android.apk"
           
           # 3. 重命名文件
           mv "$RAW_SIGNED_APK" "./$CLEAN_NAME"

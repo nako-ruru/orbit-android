@@ -178,13 +178,10 @@ public class MainActivity extends androidx.activity.ComponentActivity {
             public String callGo(String name, String args) {
                 return Aar.callBinding(mId, name, args);
             }
-            // 方法二：专门处理权限的方法
             @JavascriptInterface
             public void requestPermission(String type) {
-                // 直接在这里写跳转逻辑，或者调用你写的 handlePermissionJump(type)
                 handlePermissionRequest(type);
             }
-            // 方法二：专门处理权限的方法
             @JavascriptInterface
             public void notifyPermssionsPageLoaded() {
                 permissionsPageLoaded = true;
@@ -229,6 +226,20 @@ public class MainActivity extends androidx.activity.ComponentActivity {
             syncAllPermissionsToWeb();
         }
     };
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        // 1. 这一步很重要，更新当前的 Intent
+        setIntent(intent);
+
+        // 2. 拿到 code
+        Uri uri = intent.getData();
+        if (uri != null && "myapp".equals(uri.getScheme())) {
+            // 直接调用你的 Provider 静态方法把 code 给 Go
+            AndroidAuthProvider.handleResult(uri);
+        }
+    }
 
     @Override
     protected void onPostResume() {
