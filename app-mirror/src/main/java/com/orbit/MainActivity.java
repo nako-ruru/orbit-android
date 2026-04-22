@@ -45,7 +45,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.pivovarit.function.ThrowingRunnable;
 
 import org.lsposed.hiddenapibypass.HiddenApiBypass;
 
@@ -146,8 +145,6 @@ public class MainActivity extends androidx.activity.ComponentActivity {
     private final ActivityResultLauncher<String[]> runtimePermissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
             }    );
 
-    private boolean permissionsPageLoaded;
-
     public MainActivity() {
         super();
         Log.i("LIFECYCLE", MainActivity.class.getName());
@@ -183,9 +180,8 @@ public class MainActivity extends androidx.activity.ComponentActivity {
                 handlePermissionRequest(type);
             }
             @JavascriptInterface
-            public void notifyPermssionsPageLoaded() {
-                permissionsPageLoaded = true;
-                syncAllPermissionsToWeb();
+            public String fetchPermissions() throws IOException {
+                return MainActivity.this.fetchPermissions();
             }
         }, "_android_bridge");
         String jsInit = getIntent().getStringExtra("JS_INIT");
@@ -211,19 +207,16 @@ public class MainActivity extends androidx.activity.ComponentActivity {
     private final Handler mHandler = new Handler(Looper.getMainLooper());
 
     private final Runnable mPermissionAction = () -> {
-        if(!isFinishing() && !isDestroyed()) {
-            if(hasWindowFocus()) {
-                runOnUiThread(() -> {
-                    // 检查 SunshineService 是否已经在运行，如果没有运行才启动
-                    Log.i("GoWebViewActivity", "SunshineService.instance = " + SunshineService.instance);
-                    if (SunshineService.instance == null) {
-                        startMediaProjectionService();
-                    } else {
-                        State.log("SunshineService 服务已在运行");
-                    }
-                });
-            }
-            syncAllPermissionsToWeb();
+        if(!isFinishing() && !isDestroyed() && hasWindowFocus()) {
+            runOnUiThread(() -> {
+                // 检查 SunshineService 是否已经在运行，如果没有运行才启动
+                Log.i("GoWebViewActivity", "SunshineService.instance = " + SunshineService.instance);
+                if (SunshineService.instance == null) {
+                    startMediaProjectionService();
+                } else {
+                    State.log("SunshineService 服务已在运行");
+                }
+            });
         }
     };
 
@@ -246,6 +239,21 @@ public class MainActivity extends androidx.activity.ComponentActivity {
         super.onPostResume();
         mHandler.removeCallbacks(mPermissionAction);
         mHandler.postDelayed(mPermissionAction, 1 * 1000);
+        mWebView.evaluateJavascript(""" 
+            if (window.onAppResume) {
+                onAppResume()
+            }
+        """, null);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        mWebView.evaluateJavascript("""
+            if (window.onAppPause) {
+                onAppPause()
+            }
+                """, null);
     }
 
     @Override
@@ -304,12 +312,6 @@ public class MainActivity extends androidx.activity.ComponentActivity {
         } else {
             throw new RuntimeException("无法获取 MediaProjectionManager 服务");
         }
-    }
-    @Override
-    public void finish() {
-        // 强制打印当前的调用栈，不要管系统怎么调的
-        Log.e("TraceFinish", "MainActivity finish 被调用", new Throwable());
-        super.finish();
     }
 
     /**
@@ -544,50 +546,44 @@ public class MainActivity extends androidx.activity.ComponentActivity {
         return false;
     }
 
-    private void syncAllPermissionsToWeb() {
-        if (!permissionsPageLoaded) {
-            return;
-        }
-        runOnUiThread(ThrowingRunnable.sneaky(() -> {
-            // 1. 读取权限结构 JSON5（支持注释）
-            String structureJson5 = loadJSONFromAsset("permission_definitions.json5");
-            ObjectMapper mapper = new ObjectMapper();
-            mapper.configure(JsonParser.Feature.ALLOW_UNQUOTED_FIELD_NAMES, true);
-            mapper.configure(JsonParser.Feature.ALLOW_SINGLE_QUOTES, true);
-            mapper.configure(JsonReadFeature.ALLOW_TRAILING_COMMA.mappedFeature(), true);
-            mapper.configure(JsonParser.Feature.ALLOW_COMMENTS, true);
-            // 读取 JSON 文件成树结构
-            JsonNode rootNode = mapper.readValue(structureJson5, JsonNode.class);
+    private String fetchPermissions() throws IOException {
+        // 1. 读取权限结构 JSON5（支持注释）
+        String structureJson5 = loadJSONFromAsset("permission_definitions.json5");
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.configure(JsonParser.Feature.ALLOW_UNQUOTED_FIELD_NAMES, true);
+        mapper.configure(JsonParser.Feature.ALLOW_SINGLE_QUOTES, true);
+        mapper.configure(JsonReadFeature.ALLOW_TRAILING_COMMA.mappedFeature(), true);
+        mapper.configure(JsonParser.Feature.ALLOW_COMMENTS, true);
+        // 读取 JSON 文件成树结构
+        JsonNode rootNode = mapper.readValue(structureJson5, JsonNode.class);
 
-            // 确保 groups 是数组
-            ArrayNode groups = (ArrayNode) rootNode.get("groups");
+        // 确保 groups 是数组
+        ArrayNode groups = (ArrayNode) rootNode.get("groups");
 
-            // 2. 获取当前所有权限状态
-            Map<String, Boolean> statusMap = getAllPermissionsStatus();
+        // 2. 获取当前所有权限状态
+        Map<String, Boolean> statusMap = getAllPermissionsStatus();
 
-            // 3. 注入权限状态到 groups
-            for (JsonNode groupNode : groups) {
-                ArrayNode permissions = (ArrayNode) groupNode.get("permissions");
+        // 3. 注入权限状态到 groups
+        for (JsonNode groupNode : groups) {
+            ArrayNode permissions = (ArrayNode) groupNode.get("permissions");
 
-                for (JsonNode permNode : permissions) {
-                    String permId = permNode.get("id").asText();
-                    boolean granted = statusMap.getOrDefault(permId, false);
+            for (JsonNode permNode : permissions) {
+                String permId = permNode.get("id").asText();
+                boolean granted = statusMap.getOrDefault(permId, false);
 
-                    // 这里 JsonNode 是不可变的，需要转成 ObjectNode 才能 put
-                    if (permNode instanceof ObjectNode) {
-                        ((ObjectNode) permNode).put("granted", granted);
-                    }
+                // 这里 JsonNode 是不可变的，需要转成 ObjectNode 才能 put
+                if (permNode instanceof ObjectNode) {
+                    ((ObjectNode) permNode).put("granted", granted);
                 }
             }
+        }
 
-            // 4. 构建最终数据
-            ObjectNode finalData = mapper.createObjectNode();
-            finalData.set("groups", groups);
-            // 5. 转成 JSON 字符串并调用 JS
-            String finalJson = mapper.writeValueAsString(finalData);
-            String jsCode = String.format("                  updatePermissionUI(%s);             ", finalJson);
-            mWebView.evaluateJavascript(jsCode, null);
-        }));
+        // 4. 构建最终数据
+        ObjectNode finalData = mapper.createObjectNode();
+        finalData.set("groups", groups);
+        // 5. 转成 JSON 字符串并调用 JS
+        String finalJson = mapper.writeValueAsString(finalData);
+        return finalJson;
     }
 
     /**
@@ -616,28 +612,19 @@ public class MainActivity extends androidx.activity.ComponentActivity {
         return status;
     }
 
-
     private void requestIgnoreBatteryOptimizations() {
-        // 1. 获取电源管理器
         PowerManager powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        if (powerManager != null && !powerManager.isIgnoringBatteryOptimizations(getPackageName())) {
 
-        if (powerManager != null) {
-            // 2. 检查当前 App 是否已经在白名单（无限制）中
-            if (!powerManager.isIgnoringBatteryOptimizations(getPackageName())) {
+            Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+            intent.setData(Uri.parse("package:" + getPackageName()));
 
-                // 3. 如果不在白名单，则构建 Intent 准备弹出系统对话框
-                // 注意：ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS 必须配合 "package:包名" 数据
-                Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-                intent.setData(Uri.parse("package:" + getPackageName()));
-
-                // 4. 启动跳转
-                try {
-                    startActivity(intent);
-                } catch (Exception e) {
-                    // 部分极少数机型可能不支持直接弹出，跳转到列表页作为兜底
-                    Intent fallbackIntent = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
-                    startActivity(fallbackIntent);
-                }
+            try {
+                // 使用统一的 Launcher 启动
+                commonLauncher.launch(intent);
+            } catch (Exception e) {
+                Intent fallbackIntent = new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+                commonLauncher.launch(fallbackIntent);
             }
         }
     }
