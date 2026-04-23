@@ -255,7 +255,7 @@ public class SunshineMouse {
         }
         if (release) {
             handleTouchEventUp(0, singlePoint.x, singlePoint.y, false);
-            singlePoint = null;
+//            singlePoint = null;
         } else {
             handleTouchEventDown(0, singlePoint.x, singlePoint.y);
         }

@@ -7,9 +7,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.media.projection.MediaProjection;
-import android.media.projection.MediaProjectionConfig;
-import android.media.projection.MediaProjectionManager;
 import android.net.Uri;
 import android.net.VpnService;
 import android.os.Binder;
@@ -36,7 +33,6 @@ import androidx.webkit.WebViewCompat;
 import com.aventrix.jnanoid.jnanoid.NanoIdUtils;
 import com.connect_screen.mirror.MirrorMainActivity;
 import com.connect_screen.mirror.State;
-import com.connect_screen.mirror.SunshineService;
 import com.connect_screen.mirror.TouchpadAccessibilityService;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.json.JsonReadFeature;
@@ -71,11 +67,6 @@ public class MainActivity extends androidx.activity.ComponentActivity {
     private WebView mWebView;
 
     public static Reference<MainActivity> activity;
-
-    private final ActivityResultLauncher<Intent> projectionLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
-
-
-    });
 
     private final ActivityResultLauncher<Intent> safLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
         int resultCode = result.getResultCode();
@@ -176,20 +167,6 @@ public class MainActivity extends androidx.activity.ComponentActivity {
 
     private final Handler mHandler = new Handler(Looper.getMainLooper());
 
-    private final Runnable mPermissionAction = () -> {
-        if(!isFinishing() && !isDestroyed() && hasWindowFocus()) {
-            runOnUiThread(() -> {
-                // 检查 SunshineService 是否已经在运行，如果没有运行才启动
-                Log.i("GoWebViewActivity", "SunshineService.instance = " + SunshineService.instance);
-                if (SunshineService.instance == null) {
-                    startMediaProjectionService();
-                } else {
-                    State.log("SunshineService 服务已在运行");
-                }
-            });
-        }
-    };
-
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
@@ -266,22 +243,6 @@ public class MainActivity extends androidx.activity.ComponentActivity {
         }
     }
 
-    public void startMediaProjectionService() {
-        MediaProjectionManager mediaProjectionManager = (MediaProjectionManager) this.getSystemService(Context.MEDIA_PROJECTION_SERVICE);
-        if (mediaProjectionManager != null) {
-            TouchpadAccessibilityService.grantPermissionByClick(this);
-            Intent captureIntent = null;
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                captureIntent = mediaProjectionManager.createScreenCaptureIntent(MediaProjectionConfig.createConfigForDefaultDisplay());
-            } else {
-                captureIntent = mediaProjectionManager.createScreenCaptureIntent();
-            }
-            projectionLauncher.launch(captureIntent);
-        } else {
-            throw new RuntimeException("无法获取 MediaProjectionManager 服务");
-        }
-    }
-
     /**
      * 核心权限跳转逻辑
      * @param type 由 JS 传过来的权限标识符
@@ -300,12 +261,6 @@ public class MainActivity extends androidx.activity.ComponentActivity {
                 }
                 return;
             case "projection":
-                // 投屏权限：注意这不会跳转设置页，而是直接弹窗
-                MediaProjectionManager projectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
-                if (projectionManager != null) {
-                    // 注意：这个结果必须通过特定的 launcher 接收并保存 Intent
-                    projectionLauncher.launch(projectionManager.createScreenCaptureIntent());
-                }
                 return;
             case "power":
                 requestIgnoreBatteryOptimizations();

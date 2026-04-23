@@ -38,12 +38,16 @@ public class FloatingButtonService extends Service {
     private boolean autoHide;
 
     public static void startForMirror() {
-        if (!Pref.getShowFloatingInMirrorMode()) {
+        startForMirror(State.getContext());
+    }
+
+    public static void startForMirror(Context context) {
+        if (false) {
             return;
         }
-        Intent intent = new Intent(State.getContext(), FloatingButtonService.class);
+        Intent intent = new Intent(context, FloatingButtonService.class);
         intent.putExtra("display_id", Display.DEFAULT_DISPLAY);
-        State.getContext().startService(intent);
+        context.startService(intent);
     }
 
     @Override

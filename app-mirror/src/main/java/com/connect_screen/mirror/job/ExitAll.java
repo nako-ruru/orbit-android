@@ -1,32 +1,13 @@
 package com.connect_screen.mirror.job;
 
-import android.app.ActivityOptions;
 import android.app.AlarmManager;
-import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 
-import androidx.core.app.NotificationCompat;
-
-import com.connect_screen.mirror.TouchpadAccessibilityService;
-import com.connect_screen.mirror.shizuku.ShizukuUtils;
-import com.orbit.SplashActivity;
-
 public class ExitAll {
     public static void execute(Context context, boolean restart) {
-        if (TouchpadAccessibilityService.getInstance() != null && ShizukuUtils.hasPermission()) {
-            // 下次可自动获取
-//            TouchpadAccessibilityService.getInstance().disableSelf();
-        }
-
-        restartByAlarm(context, SplashActivity.class);
-    }
-
-    public static void restartByAlarm(Context context, Class<?> cls) {
         Intent intent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
 
