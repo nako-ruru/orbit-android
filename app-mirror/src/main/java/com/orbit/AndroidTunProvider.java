@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.VpnService;
 import android.os.ParcelFileDescriptor;
+import android.util.Log;
 
 import java.net.Inet4Address;
 import java.net.Inet6Address;
@@ -62,6 +63,7 @@ public class AndroidTunProvider implements TunProvider {
     }
 
     public AndroidTunProvider(Context context, String[] fixedIps) {
+        Log.i("AndroidTunProvider", "AndroidTunProvider");
         this.context = context.getApplicationContext();
         this.fixedIps = fixedIps;
     }

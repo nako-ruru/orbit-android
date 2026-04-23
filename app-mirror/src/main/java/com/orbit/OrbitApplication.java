@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.Application;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 
@@ -45,7 +46,6 @@ public class OrbitApplication  extends Application {
                 OrbitApplication.activity = new WeakReference<>(activity);
                 Log.i("OrbitApplication", "onActivityCreated: " + activity);
                 if (!isInitialized) {
-                    test(activity, id);
                     isInitialized = true;
                 }
             }
@@ -80,9 +80,12 @@ public class OrbitApplication  extends Application {
                 Log.i("OrbitApplication", "onActivityDestroyed: " + activity);
             }
         });
+
+        startKeepAliveService();
     }
 
-    private static void test(Context context, String id) {
+    public static void test(Context context, String id) {
+
         // 1. 注册驱动 (驱动持有 ApplicationContext 是安全的)
         Aar.registerWebViewDriver(new AndroidWebViewProvider(context));
         Aar.registerSunshineProvider(new AndroidSunshineProvider(context));
@@ -123,6 +126,7 @@ public class OrbitApplication  extends Application {
             }
         }).start();
          */
+
         // 2. 在子线程中启动 Go 逻辑，避免阻塞主线程（UI 线程）
         new Thread(ThrowingRunnable.sneaky(() -> {
             Map<String, Object> requireModified = new HashMap<>();
@@ -136,10 +140,28 @@ public class OrbitApplication  extends Application {
             InputStream is = context.getAssets().open("daemon.yml");
             byte[] data = OrbitApplication.updateConfig(is, requireModified);
             is.close();
+            Log.i("OrbitApplication", "Aar.runDaemon(data)");
             Aar.runDaemon(data);
+        })).start();
+
+        new Thread(ThrowingRunnable.sneaky(() -> {
+            // 读取配置文件
+            InputStream is =  context.getAssets().open("orbit.yml");
+            byte[] data = new byte[is.available()];
+            is.read(data);
+            is.close();
+            Aar.runOrbit(data);
         })).start();
     }
 
+    private void startKeepAliveService() {
+        Intent serviceIntent = new Intent(this, KeepAliveService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent);
+        } else {
+            startService(serviceIntent);
+        }
+    }
 
     /**
      * 修改任意层次的配置
