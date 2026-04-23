@@ -73,38 +73,8 @@ public class MainActivity extends androidx.activity.ComponentActivity {
     public static Reference<MainActivity> activity;
 
     private final ActivityResultLauncher<Intent> projectionLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
-        int resultCode = result.getResultCode();
-        Intent data = result.getData();
-        if (resultCode == RESULT_OK && data != null) {
-            State.log("用户授予了投屏权限");
-            if (SunshineService.instance == null) {
-                Intent sunshineServiceIntent = new Intent(this, SunshineService.class);
-                sunshineServiceIntent.putExtra("data", data);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    startForegroundService(sunshineServiceIntent);
-                } else {
-                    startService(sunshineServiceIntent);
-                }
-                State.log("启动 SunshineService 服务");
-            } else {
-                MediaProjectionManager mediaProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
-                State.setMediaProjection(mediaProjectionManager.getMediaProjection(RESULT_OK, data));
-                State.getMediaProjection().registerCallback(new MediaProjection.Callback() {
-                    @Override
-                    public void onStop() {
-                        super.onStop();
-                        State.log("MediaProjection onStop 回调");
-                    }
-                }, null);
-                State.resumeJob();
-            }
-        } else {
-            State.log("用户拒绝了投屏权限");
-//                refresh();
-            State.resumeJob();
-        }
 
-        AutoUpdate.checkUpdate(this);
+
     });
 
     private final ActivityResultLauncher<Intent> safLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -156,8 +126,8 @@ public class MainActivity extends androidx.activity.ComponentActivity {
 
         super.onCreate(savedInstanceState);
 
+        AutoUpdate.checkUpdate(this);
         Aar.registerMoonlightProvider(new AndroidMoonlightProvider(this));
-
         activity = new WeakReference<>(this);
 
         mId = "500";
@@ -237,8 +207,6 @@ public class MainActivity extends androidx.activity.ComponentActivity {
     @Override
     protected void onPostResume() {
         super.onPostResume();
-        mHandler.removeCallbacks(mPermissionAction);
-        mHandler.postDelayed(mPermissionAction, 1 * 1000);
         mWebView.evaluateJavascript(""" 
             if (window.onAppResume) {
                 onAppResume()
