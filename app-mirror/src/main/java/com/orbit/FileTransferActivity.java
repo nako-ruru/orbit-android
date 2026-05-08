@@ -39,8 +39,11 @@ public class FileTransferActivity  extends AppCompatActivity {
         mWebView.addJavascriptInterface(new Object() {
             @JavascriptInterface
             public String callGo(String name, String args) {
-                String v = Aar.callBinding(mId, name, args);
-                return v;
+                try {
+                    return Aar.callBinding(mId, name, args);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
             }
         }, "_android_bridge_file_transfer");
 
@@ -57,7 +60,6 @@ public class FileTransferActivity  extends AppCompatActivity {
         return Arrays.stream(names.split(","))
                 .map(String::trim)
                 .map(FileTransferActivity::injectBinding)
-                .peek(x -> Log.i("injectBindings",  x))
                 .collect(Collectors.joining());
     }
     private static String injectBinding(String name) {

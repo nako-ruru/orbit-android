@@ -210,6 +210,7 @@
     window._goCallbacks = {};
     window._resolvePromise = function(id, result) {
         if (window._goCallbacks[id]) {
+            console.log(`_resolvePromise`);
             window._goCallbacks[id].resolve(result);
         }
         delete window._goCallbacks[id];
@@ -249,9 +250,12 @@
             this.os = os.os;
             this.userHome = os.userHome;
             this.pathSeparator = this.os === "windows" ? "\\" : "/";
+            console.log(`FilePanel#constructor`, 100);
             this.render();
+            console.log(`FilePanel#constructor`, 200);
             this.bindEvents();
             this.initRoots();
+            console.log(`FilePanel#constructor`, 300);
         }
 
         isWindows() {
@@ -890,8 +894,15 @@
             .map(x => ({
                 name: x.name,
                 isDir: x.isDir
-            }))
-        goTransfer(remotePanel.currentPath, localPanel.currentPath, selectedX, download)
+            }));
+        let remotePath = ((p, os)=> {
+            if (os === "windows") {
+                let regex = /^\/*(?<driver>[a-z]+):?[\/\\]*(?<path>.*)$/i;
+                return p.replace(regex, "/$<driver>:/$<path>");
+            }
+            return p;
+        })(remotePanel.currentPath, remotePanel.os);
+        goTransfer(remotePath, localPanel.currentPath, selectedX, download)
             .then(res => {
                 addTransferTask(srcPath, targetPath, selected, download, res);
             })
@@ -1093,6 +1104,7 @@
     let localOS, remoteOS;
 
     function initUI() {
+        console.log(`initUI`, 100);
         if (localOS && remoteOS) {
             remotePanel = new FilePanel("remotePanel", true, remoteOS);
             localPanel = new FilePanel("localPanel", false, localOS);

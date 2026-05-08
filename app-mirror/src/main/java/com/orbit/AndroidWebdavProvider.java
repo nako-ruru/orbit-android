@@ -64,10 +64,16 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
     @Override
     public void mkdir(String s) throws Exception {
         Uri uri = getRootUri(s);
-        java.io.File parentFile = new java.io.File(s);
-        DocumentFile parentDocFile = findDocumentFile(uri, parentFile.getParent());
-        if(parentDocFile.findFile(parentFile.getName()) == null) {
-            parentDocFile.createDirectory(parentFile.getName());
+        java.io.File file = new java.io.File(s);
+        DocumentFile parentDocFile = findDocumentFile(uri, file.getParent());
+        DocumentFile docFile = findChildDocumentFile(uri, parentDocFile, file.getName());
+        if (docFile == null || !docFile.exists()) {
+            DocumentsContract.createDocument(
+                    context.getContentResolver(),
+                    parentDocFile.getUri(),
+                    DocumentsContract.Document.MIME_TYPE_DIR,
+                    file.getName()
+            );
         }
     }
 
@@ -78,9 +84,15 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
         if ((goFlags & 64) != 0) {
             DocumentFile parentDocFile = findDocumentFile(uri, new java.io.File(s).getParent());
             String fileName = new java.io.File(s).getName();
-            docFile = parentDocFile.findFile(fileName);
+            docFile = findChildDocumentFile(uri, parentDocFile, fileName);
             if (docFile == null || !docFile.exists()) {
-                docFile = parentDocFile.createFile(getMimeType(fileName), fileName); // 真正的创建动作
+                Uri docUri = DocumentsContract.createDocument(
+                        context.getContentResolver(),
+                        parentDocFile.getUri(),
+                        getMimeType(fileName),
+                        fileName
+                );// 真正的创建动作
+                docFile = DocumentFile.fromSingleUri(context, docUri);
             }
         } else {
             docFile = findDocumentFile(uri, s);
@@ -119,15 +131,12 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
 
     @Override
     public FileInfo stat(String s) throws Exception {
-        FileInfo info;
         if(s.matches("^\\s*/+\\s*$")) {
-            info = SimpleFileInfo.createDir();
-        } else {
-            Uri uri = getRootUri(s);
-            DocumentFile file = findDocumentFile(uri, s);
-            info = SimpleFileInfo.create(file.isDirectory(), file.getName(), file.length(), file.lastModified(), file.getType());
+            return SimpleFileInfo.createDir();
         }
-        return info;
+        Uri uri = getRootUri(s);
+        DocumentFile file = findDocumentFile(uri, s);
+        return SimpleFileInfo.create(file.isDirectory(), file.getName(), file.length(), file.lastModified(), file.getType());
     }
 
     private Stream<Pair<String, DocumentFile>> getMountDocumentFiles() throws JsonProcessingException {
@@ -203,7 +212,7 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
             }
 
             if (!found) {
-                throw new RuntimeException("Path not found: " + part);
+                throw new FileNotFoundException(part);
             }
         }
 
@@ -213,6 +222,35 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
 
         // 返回 DocumentFile 接口，完美兼容原有代码
         return DocumentFile.fromSingleUri(context, finalUri);
+    }
+
+    private DocumentFile findChildDocumentFile(Uri rootUri, DocumentFile parentDocFile, String childName) {
+        Uri parentDocUri = parentDocFile.getUri();
+        // 1. 从 Uri 中提取 Document ID
+        String parentDocId = DocumentsContract.getDocumentId(parentDocUri);
+
+        // 2. 构建指向子文件的查询 Uri
+        // 注意：如果是从 TreeUri 获得的，建议使用 buildChildDocumentsUriUsingTree
+        Uri childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(parentDocUri, parentDocId);
+        // 3. 定义我们一次性要取回的列 (Projection)
+        String[] projection = { DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME };
+
+        // 4. 只进行一次 query，获取整个结果集
+        try (Cursor cursor = context.getContentResolver().query(childrenUri, projection, null, null, null)) {
+            if (cursor != null) {
+                while (cursor.moveToNext()) {
+                    if (childName.equals(cursor.getString(1))) {
+                        String currentDocId = cursor.getString(0);
+                        // 3. 核心：根据最终 DocId 构建一个具有“树权限”的 SingleUri
+                        // 只有这样构建的 Uri 才能让 DocumentFile 对象继续拥有读写权限
+                        Uri finalUri = DocumentsContract.buildDocumentUriUsingTree(rootUri, currentDocId);
+                        // 返回 DocumentFile 接口，完美兼容原有代码
+                        return DocumentFile.fromSingleUri(context, finalUri);
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     public static List<FileInfo> listChildrenMetadata(Context context, DocumentFile parentDocFile, long count) {
@@ -334,6 +372,12 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
         @Override
         public String mimeType() {
             return mimeType;
+        }
+    }
+
+    private static class FileNotFoundException extends RuntimeException {
+        public FileNotFoundException(String path) {
+            super(String.format("FILE_NOT_FOUND: %s", path));
         }
     }
 }

@@ -82,8 +82,8 @@ public class StreamerService extends Service {
     }
 
     private void startWebServer() throws IOException, InterruptedException {
-        File writableDir = new File(getFilesDir(), "streamer");
-        copyAssetsFolder(this, "streamer", writableDir);
+        File writableDir = new File(getFilesDir(), "streamer/static");
+        copyAssetsFolder(this, "streamer/static", writableDir);
     }
 
     @Override

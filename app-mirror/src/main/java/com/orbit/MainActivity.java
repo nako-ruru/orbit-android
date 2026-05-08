@@ -21,6 +21,7 @@ import android.util.Log;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
@@ -131,9 +132,10 @@ public class MainActivity extends androidx.activity.ComponentActivity {
                 .build();
 
         mWebView.getSettings().setJavaScriptEnabled(true);
+        mWebView.getSettings().setCacheMode(WebSettings.LOAD_NO_CACHE);
         mWebView.addJavascriptInterface(new Object() {
             @JavascriptInterface
-            public String callGo(String name, String args) {
+            public String callGo(String name, String args) throws Exception {
                 return Aar.callBinding(mId, name, args);
             }
             @JavascriptInterface

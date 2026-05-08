@@ -85,8 +85,8 @@ public class NebulaService extends VpnService {
         try {
             Builder builder = new Builder()
                     .setSession("DemoVPN")
-                    .addAllowedApplication("com.orbit")
-                    .addAllowedApplication("com.android.shell")
+//                    .addAllowedApplication("com.orbit")
+//                    .addAllowedApplication("com.android.shell")
                     .addRoute("fdc8:d0db:a315:cb00::0", 64)
             ;
             for(String address: intent.getStringArrayExtra("FIXED_IPS")) {

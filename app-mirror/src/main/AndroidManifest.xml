@@ -110,6 +110,8 @@
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:label="ORBIT"
             android:theme="@style/Theme.AppCompat.NoActionBar"
+            windowSoftInputMode="adjustResize"
+            android:fitsSystemWindows="true"
             >
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
