@@ -223,7 +223,19 @@ public class MainActivity extends androidx.activity.ComponentActivity {
                 .collect(Collectors.joining());
     }
     private static String injectBinding(String name) {
-        return String.format("window.%s = (...args) => _android_bridge.callGo('%s', JSON.stringify(args));", name, name);
+        String script = String.format("""
+    window.%s =  (...args) => {
+      let res = _android_bridge.callGo('%s', JSON.stringify(args));
+      try {
+                          // 如果是 JSON 字符串，说明是 Object 模式
+                          return JSON.parse(res);
+                      } catch (e) {
+                          // 如果解析失败，说明是性能敏感的 Raw String 模式
+                          return res;
+                      }
+    };
+    """, name, name);
+        return script;
     }
 
     @Override

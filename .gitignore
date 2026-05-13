@@ -20,3 +20,7 @@ local.properties
 /.vscode/
 /keystore_base64.txt
 /release.jks
+/app-mirror/src/main/assets/streamer
+/app-mirror/src/main/jniLibs/arm64-v8a/libstreamer.so
+/app-mirror/src/main/jniLibs/arm64-v8a/libweb-server.so
+/app-mirror/libs

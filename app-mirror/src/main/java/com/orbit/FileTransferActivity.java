@@ -1,12 +1,18 @@
 package com.orbit;
 
+import android.app.AlertDialog;
 import android.os.Bundle;
 import android.util.Log;
 import android.webkit.JavascriptInterface;
+import android.webkit.JsResult;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.webkit.WebViewAssetLoader;
 import androidx.webkit.WebViewCompat;
 
 import java.util.Arrays;
@@ -33,7 +39,32 @@ public class FileTransferActivity  extends AppCompatActivity {
         mWebView = new WebView(this);
         AndroidWebViewProvider.bind(mId, mWebView, this::finish);
 
-        mWebView.setWebChromeClient(new WebChromeClient());
+        WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
+                // 映射 /assets/ 到 APK assets 目录
+                .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
+                .build();
+        mWebView.setWebViewClient(new WebViewClient() {
+            @Override
+            public WebResourceResponse shouldInterceptRequest(
+                    WebView view,
+                    WebResourceRequest request) {
+                return assetLoader.shouldInterceptRequest(request.getUrl());
+            }
+            
+        });
+        mWebView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onJsConfirm(WebView view, String url, String message, final JsResult result) {
+                new AlertDialog.Builder(view.getContext())
+                        .setTitle(null) // 直接传 null，彻底干掉标题栏，连“提示”两个字都不要
+                        .setMessage(message)
+                        .setPositiveButton(android.R.string.ok, (d, w) -> result.confirm())
+                        .setNegativeButton(android.R.string.cancel, (d, w) -> result.cancel())
+                        .setOnCancelListener(d -> result.cancel())
+                        .show();
+                return true;
+            }
+        });
         mWebView.getSettings().setJavaScriptEnabled(true);
         mWebView.getSettings().setDomStorageEnabled(true);
         mWebView.addJavascriptInterface(new Object() {
@@ -68,6 +99,12 @@ public class FileTransferActivity  extends AppCompatActivity {
         return new Promise(function(resolve, reject) {
             try {
                 var res = _android_bridge_file_transfer.callGo('%s', JSON.stringify(args));
+                  try {
+                          // 如果是 JSON 字符串，说明是 Object 模式
+                          res = JSON.parse(res);
+                      } catch (e) {
+                          // 如果解析失败，说明是性能敏感的 Raw String 模式
+                      }
                 resolve(res);
             } catch (e) {
                 reject(e);

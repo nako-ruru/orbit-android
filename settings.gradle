@@ -25,4 +25,4 @@ include ':app-mirror'
 include ':hidden-api-stub'
 include ':moonlight'
 
-project(':moonlight').projectDir = file('../moonlight-android/app')
+project(':moonlight').projectDir = file('moonlight-android/app')
