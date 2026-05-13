@@ -40,6 +40,30 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk
+
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        id: setup-ndk
+        with:
+          ndk-version: r25c # 建议根据你的项目需求选择版本
+          add-to-path: true
+
+      # 5. 执行构建命令
+      - name: Build Release
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: |
+          chmod +x ./build-streamer.sh
+          ./build-streamer.sh
+
+
       - name: Calculate Version and Strategy
         id: meta
         env:
