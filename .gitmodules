@@ -19,9 +19,12 @@
 [submodule "app-mirror/src/main/cpp/dependencies/Simple-Web-Server"]
 	path = app-mirror/src/main/cpp/dependencies/Simple-Web-Server
 	url = https://gitlab.com/eidheim/Simple-Web-Server.git
-[submodule "app-mirror/src/main/rust/moonlight-web-stream.git"]
-	path = app-mirror/src/main/rust/moonlight-web-stream.git
-	url = https://github.com/MrCreativ3001/moonlight-web-stream.git
+[submodule "app-mirror/src/main/rust/moonlight-web-stream"]
+	path = app-mirror/src/main/rust/moonlight-web-stream
+	url = https://github.com/nako-ruru/moonlight-web-stream.git
 [submodule "moonlight-android"]
 	path = moonlight-android
 	url = https://github.com/nako-ruru/moonlight-android.git
+[submodule "app-mirror/src/main/go/rclone"]
+	path = app-mirror/src/main/go/rclone
+	url = https://github.com/rclone/rclone.git
