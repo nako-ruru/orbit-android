@@ -26,6 +26,22 @@ jobs:
   build-and-release:
     runs-on: ubuntu-latest
     steps:
+      - name: Free Disk Space (The Heavy Way)
+        run: |
+          echo "Before cleaning:"
+          df -h
+          # 删除 .NET
+          sudo rm -rf /usr/share/dotnet
+          # 删除 Haskell (GHC)
+          sudo rm -rf /opt/ghc
+          # 删除一些不常用的 Android 组件 (保留 API 33)
+          sudo rm -rf /usr/local/lib/android/sdk/platforms/android-28
+          sudo rm -rf /usr/local/lib/android/sdk/platforms/android-29
+          sudo rm -rf /usr/local/lib/android/sdk/platforms/android-30
+          sudo rm -rf /usr/local/lib/android/sdk/ndk/25.* # 删掉旧版 NDK
+          echo "After cleaning:"
+          df -h
+
       - name: Checkout Project
         uses: actions/checkout@v4
         with:
@@ -94,10 +110,6 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease -Pvc=${{ env.VC }}
 
-      - name: Install Build Tools
-        run: echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;29.0.3"
-
-      # 1. 签名步骤
       - name: Sign APK
         uses: r0adkll/sign-android-release@v1
         id: sign_app
