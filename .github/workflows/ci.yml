@@ -41,12 +41,10 @@ jobs:
           cache: gradle
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@nightly # 改为 nightly
         with:
+          toolchain: nightly-2026-02-13 # 匹配日志里的版本
           targets: aarch64-linux-android
-
-      - name: Ensure Android target installed
-        run: rustup target add aarch64-linux-android
 
       - name: Install cargo-ndk
         run: cargo install cargo-ndk
