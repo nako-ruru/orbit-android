@@ -65,8 +65,8 @@ jobs:
           ./script/build-streamer.sh
           chmod +x ./script/build-rclone.sh
           ./script/build-rclone.sh
-          chmod +x ./script/orbit.sh
-          ./script/orbit.sh
+          chmod +x ./script/build-orbit.sh
+          ./script/build-orbit.sh
 
       - name: Calculate Version and Strategy
         id: meta
