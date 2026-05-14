@@ -91,15 +91,6 @@ jobs:
 
       - name: Build Release APK
         run: |
-          # 1. 下载到上级目录，方便平级引用
-          curl -o /tmp/moonlight.zip https://github-runner.guanghe.asia:2096/moonlight-android.zip -H "Authorization: Bearer YVNadQnQkXiWZ4t3u0sapYYDQVBZD4k2"
-          
-          # -j 参数可以去掉压缩包内的顶层目录名，或者根据你的压缩包结构调整
-          unzip -o /tmp/moonlight.zip -d ../
-          
-          # 3. 检查一下目录结构（调试用，如果报错可以看日志）
-          ls -R ../moonlight-android | head -n 20
-          
           chmod +x gradlew
           ./gradlew assembleRelease -Pvc=${{ env.VC }}
 
