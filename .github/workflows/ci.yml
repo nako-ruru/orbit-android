@@ -56,13 +56,16 @@ jobs:
           add-to-path: true
 
       # 5. 执行构建命令
-      - name: Build Release
+      - name: Build Components
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
-          chmod +x ./build-streamer.sh
-          ./build-streamer.sh
-
+          chmod +x ./script/build-streamer.sh
+          ./script/build-streamer.sh
+          chmod +x ./script/build-rclone.sh
+          ./script/build-rclone.sh
+          chmod +x ./script/orbit.sh
+          ./script/orbit.sh
 
       - name: Calculate Version and Strategy
         id: meta
