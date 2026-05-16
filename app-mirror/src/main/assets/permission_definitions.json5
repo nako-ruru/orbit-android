@@ -30,7 +30,7 @@
       groupDescKey: "keepalive_desc",
       icon: "⚙️",
       permissions: [
-        { id: "autostart", nameKey: "perm_autostart_name", descKey: "perm_autostart_desc", icon: "🚀", required: false },
+//        { id: "autostart", nameKey: "perm_autostart_name", descKey: "perm_autostart_desc", icon: "🚀", required: false },
         { id: "popup", nameKey: "perm_popup_name", descKey: "perm_popup_desc", icon: "💬", required: false },
         { id: "power", nameKey: "perm_power_name", descKey: "perm_power_desc", icon: "⚡", required: false },
         { id: "alarm", nameKey: "perm_alarm_name", descKey: "perm_alarm_desc", icon: "⏰", required: false }

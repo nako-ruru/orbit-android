@@ -54,7 +54,6 @@ public class ProjectionPermissionActivity extends AppCompatActivity {
 //                refresh();
                         State.resumeJob();
                     }
-                    finish(); // 拿完钥匙赶紧闪人
                 }
         );
 

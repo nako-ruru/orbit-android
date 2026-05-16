@@ -81,19 +81,19 @@ public class OrbitApplication  extends Application {
             }
         });
 
+
+        // 1. 注册驱动 (驱动持有 ApplicationContext 是安全的)
+        Aar.registerWebViewDriver(new AndroidWebViewProvider(this));
+        Aar.registerSunshineProvider(new AndroidSunshineProvider(this));
+        Aar.registerDeviceInfoProvider(new AndroidDeviceInfoProvider(this));
+        Aar.registerFSProvider(new AndroidWebdavProvider(this));
+        Aar.registerPathProvider(new AndroidPathProvider(this));
+        Aar.registerFileTransferProvider(new AndroidFileTransferProvider(this));
+        Aar.registerStreamerProvider(new AndroidStreamerProvider(this));
         startKeepAliveService();
     }
 
     public static void test(Context context, String id) {
-
-        // 1. 注册驱动 (驱动持有 ApplicationContext 是安全的)
-        Aar.registerWebViewDriver(new AndroidWebViewProvider(context));
-        Aar.registerSunshineProvider(new AndroidSunshineProvider(context));
-        Aar.registerDeviceInfoProvider(new AndroidDeviceInfoProvider(context));
-        Aar.registerFSProvider(new AndroidWebdavProvider(context));
-        Aar.registerPathProvider(new AndroidPathProvider(context));
-        Aar.registerFileTransferProvider(new AndroidFileTransferProvider(context));
-        Aar.registerStreamerProvider(new AndroidStreamerProvider(context));
 
         List<String> fixedIpList = new ArrayList<>();
         Random random = new Random();
@@ -144,15 +144,6 @@ public class OrbitApplication  extends Application {
             is.close();
             Log.i("OrbitApplication", "Aar.runDaemon(data)");
             Aar.runDaemon(data);
-        })).start();
-
-        new Thread(ThrowingRunnable.sneaky(() -> {
-            // 读取配置文件
-            InputStream is =  context.getAssets().open("orbit.yml");
-            byte[] data = new byte[is.available()];
-            is.read(data);
-            is.close();
-            Aar.runOrbit(data);
         })).start();
     }
 

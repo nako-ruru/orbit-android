@@ -94,7 +94,7 @@
         <activity
             android:name="com.orbit.SplashActivity"
             android:exported="true"
-            android:launchMode="singleTask"
+            android:launchMode="standard"
             >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
