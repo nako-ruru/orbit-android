@@ -16,7 +16,6 @@ def getGitVersionCode() {
 android {
     namespace 'com.connect_screen.mirror'
     compileSdk 34
-    buildToolsVersion "34.0.0"
 
     defaultConfig {
         applicationId "com.orbit"

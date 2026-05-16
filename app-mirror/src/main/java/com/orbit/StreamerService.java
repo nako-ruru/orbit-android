@@ -83,6 +83,9 @@ public class StreamerService extends Service {
 
     private void startWebServer() throws IOException, InterruptedException {
         File writableDir = new File(getFilesDir(), "streamer/static");
+        if(writableDir.exists()) {
+            writableDir.delete();
+        }
         copyAssetsFolder(this, "streamer/static", writableDir);
     }
 

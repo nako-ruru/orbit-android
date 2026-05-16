@@ -120,6 +120,7 @@ public class MainActivity extends androidx.activity.ComponentActivity {
 
         AutoUpdate.checkUpdate(this);
         Aar.registerMoonlightProvider(new AndroidMoonlightProvider(this));
+        Aar.registerAuthProvider(new AndroidAuthProvider(this));
         activity = new WeakReference<>(this);
 
         mId = "500";
@@ -171,6 +172,7 @@ public class MainActivity extends androidx.activity.ComponentActivity {
 
     @Override
     protected void onNewIntent(Intent intent) {
+        Log.i("MainActivity", "onNewIntent called!");
         super.onNewIntent(intent);
         // 1. 这一步很重要，更新当前的 Intent
         setIntent(intent);

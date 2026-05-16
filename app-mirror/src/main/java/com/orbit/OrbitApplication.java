@@ -94,7 +94,6 @@ public class OrbitApplication  extends Application {
         Aar.registerPathProvider(new AndroidPathProvider(context));
         Aar.registerFileTransferProvider(new AndroidFileTransferProvider(context));
         Aar.registerStreamerProvider(new AndroidStreamerProvider(context));
-        Aar.registerAuthProvider(new AndroidAuthProvider(context));
 
         List<String> fixedIpList = new ArrayList<>();
         Random random = new Random();
@@ -110,12 +109,15 @@ public class OrbitApplication  extends Application {
             fixedIpList.add(ip);
         }
 //        fixedIpList.add("10.249.128.128");
-        String[] fixedIpArray = fixedIpList.toArray(new String[0]);
-        AndroidTunProvider tunProvider = new AndroidTunProvider(context, fixedIpArray);
-        Aar.registerTunProvider(tunProvider);
 
-        Intent intent = new Intent(context, StreamerService.class);
-        context.startForegroundService(intent);
+        new Thread(() -> {
+            String[] fixedIpArray = fixedIpList.toArray(new String[0]);
+            AndroidTunProvider tunProvider = new AndroidTunProvider(context, fixedIpArray);
+            Aar.registerTunProvider(tunProvider);
+
+            Intent intent = new Intent(context, StreamerService.class);
+            context.startForegroundService(intent);
+        }).start();
 
         /*
         new Thread(() -> {

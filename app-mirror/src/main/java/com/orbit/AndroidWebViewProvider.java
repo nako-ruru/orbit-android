@@ -20,17 +20,17 @@ import aar.Runnable;
 public class AndroidWebViewProvider implements WebViewProvider {
     private final Context context;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
-    private static final Map<String, WebViweContext> activityMap = new ConcurrentHashMap<>();
+    private static final Map<String, WebViweContext> webviweMap = new ConcurrentHashMap<>();
 
     public AndroidWebViewProvider(Context context) {
         this.context = context;
     }
 
     public static void bind(String id, WebView webView, java.lang.Runnable callback) {
-        activityMap.put(id, new WebViweContext(Objects.requireNonNull(webView), callback));
+        webviweMap.put(id, new WebViweContext(Objects.requireNonNull(webView), callback));
     }
     public static void unbind(String id) {
-        activityMap.remove(id);
+        webviweMap.remove(id);
     }
 
     @Override
@@ -38,17 +38,6 @@ public class AndroidWebViewProvider implements WebViewProvider {
         Log.i("AndroidWebViewProvider", "createAndStart");
         mainHandler.post(() -> {
             Log.i("AndroidWebViewProvider", "createAndStart: mainHandler.post");
-            Reference<Activity> activityRef = OrbitApplication.activity;
-            if(id.equals("500")) {
-                if(activityRef != null) {
-                    Activity activity = activityRef.get();
-                    if (activity != null) {
-                        if(activity.getClass().getName().contains("SplashActivity")) {
-                            activity.finish();
-                        }
-                    }
-                }
-            }
             Intent i;
             if(id.equals("500")) {
                 Log.i("AndroidWebViewProvider", "createAndStart: 3");
@@ -65,6 +54,18 @@ public class AndroidWebViewProvider implements WebViewProvider {
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             context.startActivity(i);
             Log.i("AndroidWebViewProvider", "createAndStart: 5");
+
+            Reference<Activity> activityRef = OrbitApplication.activity;
+            if(id.equals("500")) {
+                if(activityRef != null) {
+                    Activity activity = activityRef.get();
+                    if (activity != null) {
+                        if(activity.getClass().getName().contains("SplashActivity")) {
+                            activity.finish();
+                        }
+                    }
+                }
+            }
         });
     }
 
@@ -76,7 +77,7 @@ public class AndroidWebViewProvider implements WebViewProvider {
     @Override
     public void evaluateJS(String id, String js) {
         mainHandler.post(() -> {
-            WebViweContext ref = activityMap.get(id);
+            WebViweContext ref = webviweMap.get(id);
             if (ref != null && ref.webView.get() != null) {
                 WebView webView = ref.webView.get();
                 webView.evaluateJavascript(js, null);
@@ -87,7 +88,7 @@ public class AndroidWebViewProvider implements WebViewProvider {
     @Override
     public void close(String id) {
         mainHandler.post(() -> {
-            WebViweContext ref = activityMap.get(id);
+            WebViweContext ref = webviweMap.get(id);
             if (ref != null && ref.callback != null) {
                 ref.callback.run();
             }

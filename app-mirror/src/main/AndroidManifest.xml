@@ -94,8 +94,8 @@
         <activity
             android:name="com.orbit.SplashActivity"
             android:exported="true"
-            android:launchMode="standard"
-            android:theme="@android:style/Theme.NoDisplay"> <!-- 关键：NoDisplay 让它不占位 -->
+            android:launchMode="singleTask"
+            >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
