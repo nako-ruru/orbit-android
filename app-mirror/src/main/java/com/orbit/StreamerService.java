@@ -65,8 +65,12 @@ public class StreamerService extends Service {
 
         new Thread(() -> {
             try {
-                startWebServer();
-            } catch (IOException |InterruptedException e) {
+                File writableDir = new File(getFilesDir(), "streamer/static");
+                if(writableDir.exists()) {
+                    writableDir.delete();
+                }
+                copyAssetsFolder(this, "streamer/static", writableDir);
+            } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         }).start();
@@ -79,14 +83,6 @@ public class StreamerService extends Service {
         // 2. 停止服务自身
         stopSelf();
         super.onTaskRemoved(rootIntent);
-    }
-
-    private void startWebServer() throws IOException, InterruptedException {
-        File writableDir = new File(getFilesDir(), "streamer/static");
-        if(writableDir.exists()) {
-            writableDir.delete();
-        }
-        copyAssetsFolder(this, "streamer/static", writableDir);
     }
 
     @Override

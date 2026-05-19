@@ -1,6 +1,7 @@
 package com.orbit;
 
 import android.Manifest;
+import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.AlarmManager;
 import android.app.AppOpsManager;
 import android.content.Context;
@@ -18,6 +19,7 @@ import android.os.PowerManager;
 import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.util.Log;
+import android.view.accessibility.AccessibilityManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -55,6 +57,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
@@ -346,8 +349,29 @@ public class MainActivity extends androidx.activity.ComponentActivity {
 
     // 2. 无障碍服务 (注意：需要填入你自己的服务类名)
     private boolean checkAccStatus() {
-        return TouchpadAccessibilityService.isAccessibilityServiceEnabled(this);
+        return isAccessibilitySettingsOn(this, TouchpadAccessibilityService.class);
     }
+
+    public static boolean isAccessibilitySettingsOn(Context context, Class<?> serviceClass) {
+        AccessibilityManager am = (AccessibilityManager) context.getSystemService(Context.ACCESSIBILITY_SERVICE);
+        if (am == null) {
+            return false;
+        }
+
+        // 获取所有已启用的无障碍服务（此处传入 FEEDBACK_GENERIC，也可以传入 FEEDBACK_ALL_MASK）
+        List<AccessibilityServiceInfo> enabledServices = am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_GENERIC);
+
+        // 拼接出你服务的完整组件名，格式为: "包名/全类名"
+        String expectedComponentName = context.getPackageName() + "/" + serviceClass.getName();
+
+        for (AccessibilityServiceInfo service : enabledServices) {
+            if (expectedComponentName.equals(service.getId())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
 
     // 3. 悬浮窗
     private boolean checkOverlayStatus() {

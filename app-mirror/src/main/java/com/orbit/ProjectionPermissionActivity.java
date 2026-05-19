@@ -7,11 +7,14 @@ import android.media.projection.MediaProjectionConfig;
 import android.media.projection.MediaProjectionManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.Gravity;
+import android.view.WindowManager;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.connect_screen.mirror.R;
 import com.connect_screen.mirror.State;
 import com.connect_screen.mirror.SunshineService;
 
@@ -70,5 +73,26 @@ public class ProjectionPermissionActivity extends AppCompatActivity {
             captureIntent = mm.createScreenCaptureIntent();
         }
         launcher.launch(captureIntent);
+/*
+        setContentView(R.layout.activity_notification);
+
+        // 关键控制：让这个 Activity 之外的空白区域，允许用户的触摸事件穿透到后面的看电影 App 中
+        getWindow().addFlags(
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
+                        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL |
+                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+        );
+
+        // 把窗口宽度强制拉满，靠顶对齐
+        WindowManager.LayoutParams lp = getWindow().getAttributes();
+        lp.width = WindowManager.LayoutParams.MATCH_PARENT;
+        lp.height = WindowManager.LayoutParams.WRAP_CONTENT;
+        lp.gravity = Gravity.TOP; // 贴在屏幕顶部
+        getWindow().setAttributes(lp);
+
+        // 点断开按钮时，停止投屏，finish
+        findViewById(R.id.btn_disconnect).setOnClickListener(v -> {
+        });
+*/
     }
 }

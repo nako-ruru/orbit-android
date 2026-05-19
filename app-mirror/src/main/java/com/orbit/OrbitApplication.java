@@ -10,6 +10,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.connect_screen.mirror.job.ExitAll;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -28,6 +29,7 @@ import java.util.Map;
 import java.util.Random;
 
 import aar.Aar;
+import fi.iki.elonen.NanoHTTPD;
 
 public class OrbitApplication  extends Application {
 
@@ -110,14 +112,45 @@ public class OrbitApplication  extends Application {
         }
 //        fixedIpList.add("10.249.128.128");
 
-        new Thread(() -> {
+        new Thread(ThrowingRunnable.sneaky(() -> {
             String[] fixedIpArray = fixedIpList.toArray(new String[0]);
             AndroidTunProvider tunProvider = new AndroidTunProvider(context, fixedIpArray);
             Aar.registerTunProvider(tunProvider);
 
+            NanoHTTPD httpd = new NanoHTTPD(9723) {
+                @Override
+                public Response serve(IHTTPSession session) {
+                    Log.d("TestServer", "serve");
+                    // 获取 URL 路径，例如 /trigger
+                    String uri = session.getUri();
+                    // 获取参数，例如 ?cmd=open
+                    java.util.Map<String, String> params = session.getParms();
+
+                    if ("/trigger".equals(uri)) {
+                        String cmd = params.get("cmd");
+
+                        // --- 在这里执行你的测试逻辑 ---
+                        ExitAll.execute(context, true);
+
+                        return newFixedLengthResponse("Android 已接收指令: " + cmd);
+                    }
+
+                    return newFixedLengthResponse("Server 正在运行，但路径不匹配");
+                }
+            };
+            httpd.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false);
+            Log.d("TestServer", "Server 已启动，监听端口 9723");
+
+            File writableDir = new File(context.getFilesDir(), "streamer/static");
+            if (writableDir.exists()) {
+                writableDir.delete();
+            }
+            StreamerService.copyAssetsFolder(context, "streamer/static", writableDir);
+            /*
             Intent intent = new Intent(context, StreamerService.class);
             context.startForegroundService(intent);
-        }).start();
+             */
+        })).start();
 
         /*
         new Thread(() -> {

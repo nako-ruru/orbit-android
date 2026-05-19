@@ -17,4 +17,16 @@
         <item name="android:windowIsFloating">true</item>
         <item name="android:backgroundDimEnabled">false</item>
     </style>
+    <style name="Theme.NotificationExtensionActivity" parent="Theme.AppCompat.Dialog">
+        <!-- 核心：去掉原生 Dialog 的黑边框和暗化背景（不让背景变黑） -->
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowFrame">@null</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:backgroundDimEnabled">false</item> <!-- 关键：背景不置灰 -->
+
+        <!-- 让它浮在最上层 -->
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:excludeFromRecents">true</item>
+    </style>
 </resources> 

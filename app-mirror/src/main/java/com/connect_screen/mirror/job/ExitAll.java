@@ -20,10 +20,10 @@ public class ExitAll {
         // 使用 setAlarmClock，这是优先级最高的闹钟类型，
         // 系统会为了这个闹钟专门准备 CPU 资源，不容易被冻结。
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            AlarmManager.AlarmClockInfo info = new AlarmManager.AlarmClockInfo(System.currentTimeMillis() + 1000, pIntent);
+            AlarmManager.AlarmClockInfo info = new AlarmManager.AlarmClockInfo(System.currentTimeMillis() + 0, pIntent);
             alarmManager.setAlarmClock(info, pIntent);
         } else {
-            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + 1000, pIntent);
+            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + 0, pIntent);
         }
 
         android.os.Process.killProcess(android.os.Process.myPid());

@@ -204,7 +204,7 @@ public class TouchpadAccessibilityService extends AccessibilityService {
             }
             if (topWindow.isFocused()) {
                 android.util.Log.d("AccessibilityService", "已经有焦点了，无需再设置焦点");
-                return false;
+                return true;
             }
             android.util.Log.d("AccessibilityService", "找到最上层窗口，层级: " + topLayer);
 

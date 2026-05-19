@@ -5,11 +5,14 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
 
 import androidx.core.app.NotificationCompat;
+
+import com.connect_screen.mirror.R;
 
 public class KeepAliveService extends Service {
     private static final String CHANNEL_ID = "keep_alive_channel";
@@ -46,7 +49,15 @@ public class KeepAliveService extends Service {
 
         // 【关键】启动为前台服务
         // 这一步能让你的 Go 协程在后台不被冷冻
-        startForeground(1, notification);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            startForeground(
+                    5,
+                    createNotification(),
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING
+            );
+        } else {
+            startForeground(5, createNotification());
+        }
 
         OrbitApplication.test(this, "1");
     }
@@ -57,6 +68,13 @@ public class KeepAliveService extends Service {
     }
 
     @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        // 2. 停止服务自身
+        stopSelf();
+        super.onTaskRemoved(rootIntent);
+    }
+
+    @Override
     public void onDestroy() {
         // 4. 服务销毁时一定要记得释放，否则用户手机会一直耗电！
         if (wakeLock != null && wakeLock.isHeld()) {
@@ -64,6 +82,14 @@ public class KeepAliveService extends Service {
             wakeLock = null;
         }
         super.onDestroy();
+    }
+
+    private Notification createNotification() {
+        return new NotificationCompat.Builder(this, CHANNEL_ID)
+                .setContentTitle("屏易连")
+                .setContentText("Sunshine 服务正在运行")
+                .setSmallIcon(R.mipmap.ic_orbit)
+                .build();
     }
 
     @Override

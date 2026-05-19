@@ -19,6 +19,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.BIND_VPN_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
     <!-- Android 14+ 必须显式声明这个特定类型的权限 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
@@ -40,39 +41,6 @@
         >
 
         <activity
-            android:name=".MirrorMainActivity"
-            android:launchMode="singleTask"
-            android:exported="false"
-            android:icon="@mipmap/ic_orbit"
-            android:label="ORBIT"
-            android:theme="@style/AppTheme" >
-        </activity>
-        
-        <activity
-            android:name=".MirrorSettingsActivity"
-            android:launchMode="singleTask"
-            android:exported="false"
-            android:theme="@style/AppTheme" />
-        
-        <activity
-            android:name=".AboutActivity"
-            android:launchMode="singleTask"
-            android:exported="false"
-            android:theme="@style/AppTheme" />
-        
-        <activity
-            android:name=".MirrorActivity"
-            android:launchMode="singleTask"
-            android:exported="false"
-            android:theme="@style/AppTheme" />
-
-        <activity
-            android:name=".PureBlackActivity"
-            android:launchMode="singleTask"
-            android:exported="false"
-            android:theme="@style/AppTheme" />
-
-        <activity
             android:name=".TouchscreenActivity"
             android:launchMode="singleTask"
             android:exported="false"
@@ -83,12 +51,6 @@
             android:launchMode="singleTask"
             android:exported="false"
             android:screenOrientation="portrait"
-            android:theme="@style/AppTheme" />
-        
-        <activity
-            android:name=".BridgeActivity"
-            android:launchMode="singleTask"
-            android:exported="false"
             android:theme="@style/AppTheme" />
 
         <activity
@@ -207,7 +169,7 @@
             android:enabled="true"
             android:exported="false" />
         <service android:name="com.orbit.KeepAliveService"
-            android:foregroundServiceType="specialUse|dataSync"
+            android:foregroundServiceType="remoteMessaging"
             android:enabled="true"
             android:exported="false"  />
         <activity
