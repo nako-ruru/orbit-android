@@ -75,10 +75,10 @@ public class SunshineService extends Service {
 
     @Override
     public void onCreate() {
-        Log.i("SunshineService", "onCreate: 0");
         super.onCreate();
         instance = this;
         createNotificationChannel();
+        startForeground(NOTIFICATION_ID, createNotification());
     }
 
     @Override
@@ -91,7 +91,6 @@ public class SunshineService extends Service {
         } catch (Exception e) {
             // ignore
         }
-        //MirrorDisplaylinkMonitor.release(this);
         State.unbindUserService();
     }
 
@@ -104,19 +103,6 @@ public class SunshineService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.i("SunshineService", "onStartCommand 运行了，intent 是否为空: " + (intent == null));
-
-        // 修改这里：增加第三个参数指定服务类型
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            startForeground(
-                    NOTIFICATION_ID,
-                    createNotification(),
-                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
-            );
-        } else {
-            startForeground(NOTIFICATION_ID, createNotification());
-        }
-
         if (intent != null && intent.hasExtra("data")) {
             MediaProjectionManager mediaProjectionManager = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
             Intent data = intent.getParcelableExtra("data");
@@ -165,9 +151,9 @@ public class SunshineService extends Service {
 
         // 监听显示器变化
         DisplayManager displayManager = (DisplayManager) getSystemService(Context.DISPLAY_SERVICE);
-//        MirrorDisplayMonitor.init(displayManager);
-//        MirrorDisplaylinkMonitor.init(this);
-//        State.refreshMainActivity();
+        MirrorDisplayMonitor.init(displayManager);
+        MirrorDisplaylinkMonitor.init(this);
+        State.refreshMainActivity();
         return START_NOT_STICKY;
     }
 

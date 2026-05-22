@@ -95,7 +95,6 @@ public class SunshineServer {
 
 
     public static void stopVirtualDisplay() {
-        Log.e("Finder", "stopVirtualDisplay called!", new Throwable());
         new Handler(Looper.getMainLooper()).post(() -> {
             State.log("停止 Moonlight 投屏");
             CreateVirtualDisplay.powerOnScreen();

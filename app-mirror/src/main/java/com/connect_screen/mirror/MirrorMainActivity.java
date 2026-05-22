@@ -12,7 +12,6 @@ import android.media.projection.MediaProjectionManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
-import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -31,13 +30,12 @@ import com.connect_screen.mirror.shizuku.ShizukuUtils;
 import org.lsposed.hiddenapibypass.HiddenApiBypass;
 
 import java.lang.ref.WeakReference;
-import java.util.Random;
 
 import rikka.shizuku.Shizuku;
 import com.topjohnwu.superuser.Shell;
 
 public class MirrorMainActivity extends AppCompatActivity implements IMainActivity {
-/*
+
     static {
         // Set settings before the main shell can be created
         Shell.enableVerboseLogging = BuildConfig.DEBUG;
@@ -45,11 +43,8 @@ public class MirrorMainActivity extends AppCompatActivity implements IMainActivi
                 .setFlags(Shell.FLAG_MOUNT_MASTER)
                 .setTimeout(10));
     }
-*/
-    public static int REQUEST_CODE_MEDIA_PROJECTION ; // 定义一个请求码
-    static {
-        REQUEST_CODE_MEDIA_PROJECTION = new Random().nextInt(5000);
-    }
+
+    public static final int REQUEST_CODE_MEDIA_PROJECTION = 1001; // 定义一个请求码
     public static final int REQUEST_RECORD_AUDIO_PERMISSION = 1002;
     public static final String TAG = "MirrorMainActivity";
 
@@ -70,7 +65,7 @@ public class MirrorMainActivity extends AppCompatActivity implements IMainActivi
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQUEST_RECORD_AUDIO_PERMISSION) {
-//            State.resumeJob();
+            State.resumeJob();
         } else {
             State.log("未知权限请求代码: " + requestCode);
         }
@@ -79,7 +74,7 @@ public class MirrorMainActivity extends AppCompatActivity implements IMainActivi
     private void onRequestShizukuPermissionsResult(int requestCode, int grantResult) {
         if (requestCode == AcquireShizuku.SHIZUKU_PERMISSION_REQUEST_CODE) {
             State.log("Shizuku 权限请求结果: " + (grantResult == PackageManager.PERMISSION_GRANTED ? "已授权" : "被拒绝"));
-//            State.resumeJob();
+            State.resumeJob();
         } else {
             State.log("未知 Shizuku 请求代码: " + requestCode);
         }
@@ -88,7 +83,6 @@ public class MirrorMainActivity extends AppCompatActivity implements IMainActivi
     private final Shizuku.OnRequestPermissionResultListener REQUEST_PERMISSION_RESULT_LISTENER =
         this::onRequestShizukuPermissionsResult;
 
-    /*
     @Override
     protected void attachBaseContext(Context base) {
         super.attachBaseContext(base);
@@ -100,15 +94,14 @@ public class MirrorMainActivity extends AppCompatActivity implements IMainActivi
                 android.util.Log.e("MainActivity", "添加隐藏API豁免失败: " + e.getMessage());
             }
         }
-    }*/
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         // 设置 State.currentActivity 为当前的 MainActivity 实例
-//        State.setCurrentActivity(this);
+        State.setCurrentActivity(this);
 
-        /*
         // 添加保持屏幕常亮的标志
         getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
@@ -123,24 +116,19 @@ public class MirrorMainActivity extends AppCompatActivity implements IMainActivi
             ensureAccessiblityServiceStarted();
         }
 
-         */
-
         // 检查 SunshineService 是否已经在运行，如果没有运行才启动
         if (SunshineService.instance == null) {
-//            startMediaProjectionService();
+            startMediaProjectionService();
         } else {
             State.log("SunshineService 服务已在运行");
         }
         
-//        Shizuku.addRequestPermissionResultListener(REQUEST_PERMISSION_RESULT_LISTENER);
+        Shizuku.addRequestPermissionResultListener(REQUEST_PERMISSION_RESULT_LISTENER);
 
         // 移除默认的 ActionBar
-        /*
         if (getSupportActionBar() != null) {
             getSupportActionBar().hide();
         }
-
-         */
 
         setContentView(R.layout.activity_main);
 
@@ -167,9 +155,6 @@ public class MirrorMainActivity extends AppCompatActivity implements IMainActivi
 
     // 添加初始化主界面控件的方法
     private void initHomeControls() {
-        if(true) {
-            return;
-        }
         settingsBtn = findViewById(R.id.settingsBtn);
         screenOffBtn = findViewById(R.id.screenOffBtn);
         touchScreenBtn = findViewById(R.id.touchScreenBtn);
@@ -226,31 +211,20 @@ public class MirrorMainActivity extends AppCompatActivity implements IMainActivi
     @Override
     protected void onResume() {
         super.onResume();
-//        State.setCurrentActivity(this);
-//        refresh();
-    }
-
-    @Override
-    public void finish() {
-        // 强制打印当前的调用栈，不要管系统怎么调的
-        Log.e("TraceFinish", "MirrorMainActivity finish 被调用", new Throwable());
-        super.finish();
+        State.setCurrentActivity(this);
+        refresh();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        Log.e("TraceFinish", "MirrorMainActivity onDestroy 被调用", new Throwable());
-//        Shizuku.removeRequestPermissionResultListener(REQUEST_PERMISSION_RESULT_LISTENER);
-//        State.setCurrentActivity(null);
+        Shizuku.removeRequestPermissionResultListener(REQUEST_PERMISSION_RESULT_LISTENER);
+        State.setCurrentActivity(null);
     }
     
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if(true) {
-            return;
-        }
        
         if (requestCode == REQUEST_CODE_MEDIA_PROJECTION) {
             if (resultCode == RESULT_OK && data != null) {
@@ -309,9 +283,6 @@ public class MirrorMainActivity extends AppCompatActivity implements IMainActivi
     }
 
     public void startMediaProjectionService() {
-        if (true) {
-            return;
-        }
         MediaProjectionManager mediaProjectionManager = (MediaProjectionManager) this.getSystemService(Context.MEDIA_PROJECTION_SERVICE);
         if (mediaProjectionManager != null) {
             Intent captureIntent = null;
@@ -332,9 +303,6 @@ public class MirrorMainActivity extends AppCompatActivity implements IMainActivi
 
     // 修改 updateUI 方法
     private void updateUI(MirrorUiState state) {
-        if(true) {
-            return;
-        }
         if (state.errorStatusText != null) {
             mirrorStatus.setText(state.errorStatusText);
             settingsBtn.setVisibility(View.VISIBLE);
@@ -358,9 +326,6 @@ public class MirrorMainActivity extends AppCompatActivity implements IMainActivi
 
     // 修改 refresh 方法
     public void refresh() {
-        if(true) {
-            return;
-        }
         if (State.uiState.getValue().errorStatusText != null) {
             return;
         }

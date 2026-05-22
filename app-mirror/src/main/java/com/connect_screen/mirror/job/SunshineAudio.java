@@ -107,9 +107,11 @@ public class SunshineAudio {
     }
 
     private static boolean shouldUseShizukuAudio() {
+        /*
         if (Pref.getDisableRemoteSubmix()) {
             return false;
         }
+         */
         return State.userService != null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S;
     }
 
