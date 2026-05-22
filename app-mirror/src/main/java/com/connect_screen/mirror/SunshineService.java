@@ -168,20 +168,6 @@ public class SunshineService extends Service {
 //        MirrorDisplayMonitor.init(displayManager);
 //        MirrorDisplaylinkMonitor.init(this);
 //        State.refreshMainActivity();
-        Handler handler = new Handler();
-        handler.postDelayed(() -> {
-            if (ShizukuUtils.hasPermission() && State.userService == null) {
-                State.log("try start shizuku user service");
-                State.bindUserService();
-                handler.postDelayed(() -> {
-                    if (ShizukuUtils.hasPermission() && State.userService == null) {
-                        State.log("shizuku user service 启动失败，请取消 shizuku 授权并再次授予。try start user service again");
-                        State.unbindUserService();
-                        State.bindUserService();
-                    }
-                }, 15 * 1000);
-            }
-        }, 2000);
         return START_NOT_STICKY;
     }
 

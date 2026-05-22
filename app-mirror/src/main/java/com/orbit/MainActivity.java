@@ -37,6 +37,7 @@ import com.aventrix.jnanoid.jnanoid.NanoIdUtils;
 import com.connect_screen.mirror.MirrorMainActivity;
 import com.connect_screen.mirror.State;
 import com.connect_screen.mirror.TouchpadAccessibilityService;
+import com.connect_screen.mirror.shizuku.ShizukuUtils;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.json.JsonReadFeature;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -45,6 +46,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.lsposed.hiddenapibypass.HiddenApiBypass;
 
 import java.io.IOException;
@@ -64,6 +67,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import aar.Aar;
+import rikka.shizuku.Shizuku;
 import xyz.kumaraswamy.autostart.Autostart;
 
 public class MainActivity extends androidx.activity.ComponentActivity {
@@ -103,6 +107,23 @@ public class MainActivity extends androidx.activity.ComponentActivity {
             }
         }
     });
+
+    // 1. 定义 Shizuku 权限请求的回调监听器
+    private final Shizuku.OnRequestPermissionResultListener shizukuPermissionListener = (requestCode, grantResult) -> {
+        // 这里的 requestCode 就是你传进去的 200
+        if (requestCode == 200) {
+            // PackageManager.PERMISSION_GRANTED = 0，代表用户点了“允许”
+            if (grantResult == PackageManager.PERMISSION_GRANTED) {
+                System.out.println("[Shizuku] 用户已点击允许！立刻开始修改权限清单...");
+                // 【核心核心】在这里执行你通过 Shizuku 修改本应用权限的逻辑！
+                checkAndGrantNotificationPermission();
+
+            } else {
+                System.out.println("[Shizuku] 用户点击了拒绝！");
+                // 可以通知前端 WebView：用户拒绝了，保持步骤 3 的高亮，提示用户必须允许
+            }
+        }
+    };
 
     private final ActivityResultLauncher<Intent> commonLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),    result -> {
         }    );
@@ -150,6 +171,34 @@ public class MainActivity extends androidx.activity.ComponentActivity {
             public String fetchPermissions() throws IOException {
                 return MainActivity.this.fetchPermissions();
             }
+            @JavascriptInterface
+            public void openExternalUrl(String url) {
+                MainActivity.this.openBrowser(url);
+            }
+            @JavascriptInterface
+            public String getShizukuStatus() throws JSONException {
+                return MainActivity.this.getShizukuStatus();
+            }
+            @JavascriptInterface
+            public void requestShizukuPermission() {
+                MainActivity.this.requestShizukuPermission();
+            }
+            /**
+             * 对应前端的：window._android_bridge.openShizuku()
+             * 专属方法：直接打开 Shizuku
+             */
+            @android.webkit.JavascriptInterface
+            public void openShizuku() {
+                MainActivity.this.openShizuku();
+            }
+            /**
+             * 对应前端的：window._android_bridge.openApp('moe.shizuku.privileged.api')
+             * 通用方法：通过包名打开任意第三方应用（未来你可能用来打开 Rclone 或其他配套工具）
+             */
+            @android.webkit.JavascriptInterface
+            public void openApp(String packageName) {
+                MainActivity.this.openApp(packageName);
+            }
         }, "_android_bridge");
         String jsInit = getIntent().getStringExtra("JS_INIT");
         if(jsInit != null && !jsInit.isBlank()) {
@@ -168,7 +217,11 @@ public class MainActivity extends androidx.activity.ComponentActivity {
             }
         });
         mWebView.loadUrl(getIntent().getStringExtra("URL"));
+        mWebView.setWebContentsDebuggingEnabled(true);
         setContentView(mWebView);
+
+        // 2. 在应用创建时，把监听器注册到 Shizuku 中
+        Shizuku.addRequestPermissionResultListener(shizukuPermissionListener);
     }
 
     private final Handler mHandler = new Handler(Looper.getMainLooper());
@@ -246,6 +299,8 @@ public class MainActivity extends androidx.activity.ComponentActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        // 3. 必须在销毁时注销，否则会导致内存泄漏（死掉的 Activity 还被 Shizuku 引用着）
+        Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener);
         // 彻底销毁，防止 Activity 销毁后任务还跑出来导致的内存泄漏
         mHandler.removeCallbacksAndMessages(null);
         AndroidWebViewProvider.unbind(mId);
@@ -260,6 +315,23 @@ public class MainActivity extends androidx.activity.ComponentActivity {
         } else {
             State.log("未知权限请求代码: " + requestCode);
         }
+    }
+
+    // 真正执行修改权限清单的方法
+    private void checkAndGrantNotificationPermission() {
+        Handler handler = new Handler();
+        handler.post(() -> {
+            if (ShizukuUtils.hasPermission() && State.userService == null) {
+                State.log("try start shizuku user service");
+                State.bindUserService()
+                        .thenRun(() -> {
+                            mWebView.evaluateJavascript(""" 
+                // onAppResume 会强制更新ui
+                onAppResume();
+        """, null);
+                        });
+            }
+        });
     }
 
     /**
@@ -604,4 +676,89 @@ public class MainActivity extends androidx.activity.ComponentActivity {
         return new String(buffer, StandardCharsets.UTF_8);
     }
 
+    private void openBrowser(String downloadListUrl ) {
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(downloadListUrl));
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 确保在独立的任务栈中打开
+        this.startActivity(intent);
+    }
+
+    private String getShizukuStatus() throws JSONException {
+        boolean isInstalled = false;
+        boolean isRunning = false;
+        boolean isAuthorized = false;
+
+        // 1. 判断是否安装了 Shizuku 应用
+        try {
+            // Shizuku 的官方包名是 "moe.shizuku.privileged.api"
+            this.getPackageManager().getPackageInfo("moe.shizuku.privileged.api", 0);
+            isInstalled = true;
+        } catch (PackageManager.NameNotFoundException e) {
+            isInstalled = false;
+        }
+
+        // 2. 判断 Shizuku 服务是否正在后台运行 (通过通信管道是否畅通来判断)
+        if (isInstalled) {
+            isRunning = Shizuku.pingBinder();
+        }
+
+        // 3. 判断当前 App 是否获得了 Shizuku 的授权
+        if (isRunning) {
+            isAuthorized = Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED;
+        }
+
+        // 4. 组装成前端需要的 JSON 结构
+        JSONObject result = new JSONObject();
+        result.put("installed", isInstalled);
+        result.put("running", isRunning);
+        result.put("authorized", isAuthorized);
+
+        return result.toString();
+    }
+
+    private void requestShizukuPermission() {
+        this.runOnUiThread(() -> {
+            if (Shizuku.pingBinder()) {
+                // 弹出我们之前讨论过的 “要允许 ORBIT 使用 Shizuku 吗？” 对话框
+                Shizuku.requestPermission(200);
+            }
+        });
+    }
+
+    /**
+     * 对应前端的：window._android_bridge.openShizuku()
+     * 专属方法：直接打开 Shizuku
+     */
+    @android.webkit.JavascriptInterface
+    public void openShizuku() {
+        // 直接调用通用的打开方法，传入 Shizuku 的官方包名
+        openApp("moe.shizuku.privileged.api");
+    }
+
+    /**
+     * 对应前端的：window._android_bridge.openApp('moe.shizuku.privileged.api')
+     * 通用方法：通过包名打开任意第三方应用（未来你可能用来打开 Rclone 或其他配套工具）
+     */
+    @android.webkit.JavascriptInterface
+    public void openApp(String packageName) {
+        if (this == null || packageName == null || packageName.isEmpty()) {
+            return;
+        }
+
+        try {
+            PackageManager packageManager = this.getPackageManager();
+            // 1. 获取该应用启动的入口 Intent (Launch Intent)
+            Intent intent = packageManager.getLaunchIntentForPackage(packageName);
+
+            if (intent != null) {
+                // 2. 加上必备标记，确保在 WebView 的 Context 或非 Activity 容器中也能安全拉起
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                this.startActivity(intent);
+            } else {
+                // 如果找不到入口，说明应用可能被禁用了，或者是个纯后台没有界面的服务（Shizuku 肯定有界面，所以理论上不会走这里）
+                System.out.println("[Bridge] 找不到该应用的启动入口: " + packageName);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 }

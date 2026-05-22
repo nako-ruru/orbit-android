@@ -7,12 +7,15 @@ import android.app.Service;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
 import android.os.PowerManager;
 
 import androidx.core.app.NotificationCompat;
 
 import com.connect_screen.mirror.R;
+import com.connect_screen.mirror.State;
+import com.connect_screen.mirror.shizuku.ShizukuUtils;
 
 public class KeepAliveService extends Service {
     private static final String CHANNEL_ID = "keep_alive_channel";
@@ -64,6 +67,13 @@ public class KeepAliveService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        Handler handler = new Handler();
+        handler.post(() -> {
+            if (ShizukuUtils.hasPermission() && State.userService == null) {
+                State.log("try start shizuku user service");
+                State.bindUserService();
+            }
+        });
         return START_STICKY; // 被杀后尝试自动拉起
     }
 
