@@ -19,6 +19,38 @@ struct AVPacket;
 
 namespace video {
 
+  // 动态参数调节类型
+  enum class dynamic_param_type_e : int {
+    RESOLUTION,        // 分辨率 - 值：2个int (width, height)
+    FPS,               // 帧率 - 值：1个float
+    BITRATE,           // 码率 (Kbps) - 值：1个int
+    QP,                // 量化参数 - 值：1个int
+    FEC_PERCENTAGE,    // FEC百分比 - 值：1个int
+    PRESET,            // 编码预设 - 值：1个int
+    ADAPTIVE_QUANTIZATION, // 自适应量化 - 值：1个bool
+    MULTI_PASS,        // 多遍编码 - 值：1个int
+    VBV_BUFFER_SIZE,   // VBV缓冲区大小 - 值：1个int
+    MAX_PARAM_TYPE
+  };
+
+  // 动态参数值联合体
+  union dynamic_param_value_t {
+    int int_value;
+    int int_array_value[2];
+    bool bool_value;
+    float float_value;
+  };
+
+  // 动态参数结构
+  struct dynamic_param_t {
+    dynamic_param_type_e type;
+    dynamic_param_value_t value;
+    bool valid;
+  };
+
+  // 动态参数调节事件类型
+  using dynamic_param_change_event_t = safe::mail_raw_t::event_t<dynamic_param_t>;
+
   /* Encoding configuration requested by remote client */
   struct config_t {
     int width;  // Video width in pixels

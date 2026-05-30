@@ -10,12 +10,6 @@ import com.connect_screen.mirror.State;
 
 public class ExitAll {
     public static void execute(Context context, boolean restart) {
-        if (State.mirrorVirtualDisplay != null) {
-            State.mirrorVirtualDisplay.release();
-        }
-
-        State.displaylinkState.destroy();        
-
 		Intent intent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
 

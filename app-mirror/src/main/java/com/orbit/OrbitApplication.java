@@ -10,7 +10,9 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.connect_screen.mirror.State;
 import com.connect_screen.mirror.job.ExitAll;
+import com.connect_screen.mirror.job.SunshineServer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -35,6 +37,7 @@ public class OrbitApplication  extends Application {
 
     private boolean isInitialized;
     public static Reference<Activity> activity;
+    private static AndroidClipboardProvider clipboardProvider;
 
     @Override
     public void onCreate() {
@@ -92,10 +95,12 @@ public class OrbitApplication  extends Application {
         Aar.registerPathProvider(new AndroidPathProvider(this));
         Aar.registerFileTransferProvider(new AndroidFileTransferProvider(this));
         Aar.registerStreamerProvider(new AndroidStreamerProvider(this));
+        Aar.registerClipboardProvider(clipboardProvider = new AndroidClipboardProvider(this));
         startKeepAliveService();
     }
 
     public static void test(Context context, String id) {
+        clipboardProvider.watch0();
 
         List<String> fixedIpList = new ArrayList<>();
         Random random = new Random();
@@ -127,15 +132,13 @@ public class OrbitApplication  extends Application {
                     java.util.Map<String, String> params = session.getParms();
 
                     if ("/trigger".equals(uri)) {
-                        String cmd = params.get("cmd");
-
                         // --- 在这里执行你的测试逻辑 ---
                         ExitAll.execute(context, true);
-
-                        return newFixedLengthResponse("Android 已接收指令: " + cmd);
+                    } else if("/resolution".equals(uri)) {
+                        SunshineServer.raiseResolutionChange(1280, 576);
                     }
 
-                    return newFixedLengthResponse("Server 正在运行，但路径不匹配");
+                    return NanoHTTPD.newFixedLengthResponse(  Response.Status.NO_CONTENT,   "text/plain","")  ;
                 }
             };
             httpd.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false);

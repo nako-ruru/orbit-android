@@ -55,6 +55,8 @@ namespace mail {
   MAIL(invalidate_ref_frames);
   MAIL(gamepad_feedback);
   MAIL(hdr);
+  MAIL(dynamic_param_change);
+  MAIL(resolution_change);
 #undef MAIL
 
 }  // namespace mail

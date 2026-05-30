@@ -104,11 +104,13 @@ public class SunshineServer {
                 SunshineMouse.autoRotateAndScaleForMoonlight = null;
             }
             if (State.mirrorVirtualDisplay != null) {
-                State.mirrorVirtualDisplay.release();
-                State.mirrorVirtualDisplay = null;
+//                State.mirrorVirtualDisplay.release();
+//                State.mirrorVirtualDisplay = null;
             }
+            /*
             Context context = State.getContext();
             ExitAll.execute(context, true);
+             */
         });
     }
 
@@ -156,5 +158,5 @@ public class SunshineServer {
     }
 
     public static native boolean exitServer();
-
+    public static native void raiseResolutionChange(int width, int height);
 }

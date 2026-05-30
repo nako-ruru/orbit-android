@@ -2,6 +2,8 @@ package com.connect_screen.mirror.job;
 
 import android.content.Context;
 import android.hardware.display.DisplayManager;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Surface;
 
 
@@ -34,14 +36,14 @@ public class ProjectViaMoonlight implements Job {
     @Override
     public void start() throws YieldException {
         if (!requestMediaProjectionPermission()) {
-            return;
+//            return;
         }
         Context context = State.getContext();
         if (context == null) {
             return;
         }
         // 创建AudioRecord
-        if (shouldSendAudio) {
+        if (false && shouldSendAudio) {
             if (SunshineAudio.sendAudio(context, packetDuration)) {
                 return;
             }

@@ -10,8 +10,10 @@ public class LandscapeAutoScaler {
     public final float[] landscapeMvpMatrix;
     private final float[] identityMvpMatrix;
     private final ExternalTextureRenderer externalTextureRenderer;
-    private final int width;
-    private final int height;
+
+    // 🚨 修正 1：去掉 final 关键字，使其允许热更新
+    private int width;
+    private int height;
     private final int fbo;
     private int frameCounter;
     private boolean hasSymmetricBlackBar = false;
@@ -30,6 +32,30 @@ public class LandscapeAutoScaler {
         identityMvpMatrix = new float[16];
         android.opengl.Matrix.setIdentityM(identityMvpMatrix, 0);
         android.opengl.Matrix.scaleM(identityMvpMatrix, 0, 1, 1, 1.0f);
+    }
+
+    // ✨ 新增 2：对外暴露的尺寸热更新接口
+    public void updateSize(int newWidth, int newHeight, boolean force) {
+        if (!force && this.width == newWidth && this.height == newHeight) {
+            return;
+        }
+        android.util.Log.d("LandscapeAutoScaler", "📐 裁切缩放器感知尺寸变更: " + this.width + "x" + this.height + " -> " + newWidth + "x" + newHeight);
+
+        this.width = newWidth;
+        this.height = newHeight;
+
+        // 🚨 关键：清空旧的黑边残留状态，防止用旧的黑边大小去套用新尺寸
+        this.hasSymmetricBlackBar = false;
+        this.leftRightBlackBarSize = 0;
+        this.topBottomBlackBarSize = 0;
+
+        // 强制下一帧（frameCounter = 0）立刻重新触发一轮精准的黑边检测
+        this.frameCounter = 0;
+
+        // 先还原为标准单位矩阵，避免画面在检测完成前错位
+        for(int i = 0; i < identityMvpMatrix.length; i++) {
+            landscapeMvpMatrix[i] = identityMvpMatrix[i];
+        }
     }
 
     public void onFrame() {

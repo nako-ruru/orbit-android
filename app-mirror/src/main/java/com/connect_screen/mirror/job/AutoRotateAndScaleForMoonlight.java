@@ -229,7 +229,52 @@ public class AutoRotateAndScaleForMoonlight {
             landscapeInputSurface = new Surface(landscapeInputSurfaceTexture);
 
             // 使用inputSurface创建虚拟显示器
-            if (State.mirrorVirtualDisplay == null && State.getMediaProjection() != null) {
+            if (State.mirrorVirtualDisplay != null) {
+                android.util.Log.i("AutoRotateAndScaleForMoonlight", "🔄 [转屏复用] 检测到状态变更，准备执行：竖屏 -> 横屏 视口重校准...");
+
+                DisplayMetrics metrics = new DisplayMetrics();
+                display.getRealMetrics(metrics);
+
+                // 1. 重新捕获手机当前的真实物理方向
+                isLandscape = metrics.widthPixels > metrics.heightPixels;
+                if (!autoRotate) {
+                    isLandscape = true;
+                }
+
+                // 2. 严密计算对应的系统外壳尺寸
+                int finalWidth = isLandscape ? virtualDisplayArgs.width : virtualDisplayArgs.height;
+                int finalHeight = isLandscape ? virtualDisplayArgs.height : virtualDisplayArgs.width;
+                Surface targetSurface = isLandscape ? landscapeInputSurface : portraitInputSurface;
+
+                try {
+                    // 3. 动态调整 Android 系统虚拟显示器的物理分辨率壳
+                    State.mirrorVirtualDisplay.resize(finalWidth, finalHeight, virtualDisplayArgs.dpi);
+                    State.mirrorVirtualDisplay.setSurface(targetSurface);
+
+                    // 4. 🔥【核心拨乱反正】：根据手机实际方向，向 OpenGL 线程投喂完全匹配的物理尺寸！
+                    renderHandler.post(() -> {
+                        android.util.Log.i("AutoRotateAndScaleForMoonlight", "🎮 OpenGL 线程执行拉伸。当前物理横屏状态 IsLandscape = " + isLandscape);
+
+                        if (isLandscape) {
+                            // 🚀 当手机转为横屏时：视口和离屏纹理必须彻底放开，扩容到完整的 1280 x 576 宽屏空间！
+                            GLES20.glViewport(0, 0, virtualDisplayArgs.width, virtualDisplayArgs.height);
+                            if (landscapeRenderer != null) {
+                                landscapeRenderer.updateSize(virtualDisplayArgs.width, virtualDisplayArgs.height, true);
+                            }
+                        } else {
+                            // 📱 当手机处于竖屏时：限制视口和渲染器为倒转的 576 x 1280 窄屏空间
+                            GLES20.glViewport(0, 0, virtualDisplayArgs.height, virtualDisplayArgs.width);
+                            if (landscapeRenderer != null) {
+                                landscapeRenderer.updateSize(virtualDisplayArgs.height, virtualDisplayArgs.width, true);
+                            }
+                        }
+                    });
+
+                    android.util.Log.i("AutoRotateAndScaleForMoonlight", "🎉 全链路【竖转横】物理视口扩容同步成功！");
+                } catch (Exception e) {
+                    android.util.Log.e("AutoRotateAndScaleForMoonlight", "复用通道异常: " + e.getMessage());
+                }
+            } else if (State.mirrorVirtualDisplay == null && State.getMediaProjection() != null) {
                 stopVirtualDisplay();
                 DisplayMetrics metrics = new DisplayMetrics();
                 display.getRealMetrics(metrics);
@@ -250,15 +295,7 @@ public class AutoRotateAndScaleForMoonlight {
                         null);
                 State.setMediaProjection(null);
                 FloatingButtonService.startForMirror();
-            } else if (State.mirrorVirtualDisplay != null) {
-                DisplayMetrics metrics = new DisplayMetrics();
-                display.getRealMetrics(metrics);
-                boolean isLandscape = metrics.widthPixels > metrics.heightPixels;
-                Surface targetSurface = isLandscape ? landscapeInputSurface : portraitInputSurface;
-
-                State.mirrorVirtualDisplay.setSurface(targetSurface);
             }
-
 
         });
 
@@ -379,16 +416,22 @@ public class AutoRotateAndScaleForMoonlight {
         private int[] fbo = new int[1];
         private int[] tempTexture = new int[1];
 
+        // ✨ 新增：缓存当前实际工作的宽高
+        private int currentWidth;
+        private int currentHeight;
+
         public LandscapeRenderer(int inputTextureId, EGLDisplay eglDisplay, EGLSurface eglOutputSurface, int width, int height, boolean autoScale) {
             this.externalTextureRenderer = new ExternalTextureRenderer(inputTextureId);
             this.eglDisplay = eglDisplay;
             this.eglOutputSurface = eglOutputSurface;
             this.autoScale = autoScale;
+            this.currentWidth = width;
+            this.currentHeight = height;
 
             // 创建临时纹理
             GLES20.glGenTextures(1, tempTexture, 0);
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, tempTexture[0]);
-            GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, width, height, 0,  // 修改高度为完整高度
+            GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, width, height, 0,
                     GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, null);
             GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
             GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
@@ -401,7 +444,6 @@ public class AutoRotateAndScaleForMoonlight {
             GLES20.glFramebufferTexture2D(GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0,
                     GLES20.GL_TEXTURE_2D, tempTexture[0], 0);
 
-            // 检查FBO状态
             int status = GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER);
             if (status != GLES20.GL_FRAMEBUFFER_COMPLETE) {
                 android.util.Log.e("AutoRotateAndScaleForMoonlight", "FBO创建失败，状态: " + status);
@@ -410,8 +452,33 @@ public class AutoRotateAndScaleForMoonlight {
             this.landscapeAutoScaler = new LandscapeAutoScaler(externalTextureRenderer, width, height, fbo[0]);
         }
 
+        // ✨ 在 LandscapeRenderer 的 updateSize 方法中追加通知：
+        public void updateSize(int newWidth, int newHeight, boolean force) {
+            if (!force && this.currentWidth == newWidth && this.currentHeight == newHeight) {
+                return;
+            }
+            android.util.Log.d("AutoRotateAndScaleForMoonlight", "📐 确认执行热扩容重算! 尺寸: " + newWidth + "x" + newHeight + ", force=" + force);
+
+            this.currentWidth = newWidth;
+            this.currentHeight = newHeight;
+
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, tempTexture[0]);
+            GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA, newWidth, newHeight, 0,
+                    GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, null);
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0);
+
+            if (this.landscapeAutoScaler != null) {
+                // 让裁切器也强行重置内部的 frameCounter = 0
+                this.landscapeAutoScaler.updateSize(newWidth, newHeight, force);
+            }
+        }
+
         public void onFrameAvailable(SurfaceTexture surfaceTexture) {
             surfaceTexture.updateTexImage();
+
+            // 🚨 修正核心：绘制前强行修正 Viewport 视口为当前的最新真实宽高，拒绝写死旧参数
+            GLES20.glViewport(0, 0, currentWidth, currentHeight);
+
             externalTextureRenderer.renderFrame(landscapeAutoScaler.landscapeMvpMatrix);
             EGL14.eglSwapBuffers(eglDisplay, eglOutputSurface);
             if (autoScale) {
@@ -421,7 +488,6 @@ public class AutoRotateAndScaleForMoonlight {
 
         public void release() {
             this.externalTextureRenderer.release();
-            // 清理额外的资源
             GLES20.glDeleteFramebuffers(1, fbo, 0);
             GLES20.glDeleteTextures(1, tempTexture, 0);
         }

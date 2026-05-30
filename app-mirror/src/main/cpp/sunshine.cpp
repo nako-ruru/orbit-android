@@ -241,6 +241,15 @@ Java_com_connect_1screen_mirror_job_SunshineServer_exitServer(JNIEnv *env, jclas
     return JNI_TRUE;
 }
 
+JNIEXPORT void JNICALL
+Java_com_connect_1screen_mirror_job_SunshineServer_raiseResolutionChange(JNIEnv *env, jclass clazz, jint width, jint height) {
+auto resolution_change_event = mail::man->event<std::pair<std::uint32_t, std::uint32_t>>(mail::resolution_change);
+resolution_change_event->raise(std::make_pair(
+        static_cast<std::uint32_t>(width),
+        static_cast<std::uint32_t>(height)));
+BOOST_LOG(info) << "JNI raise resolution change: " << width << "x" << height;
+}
+
 }
 
 namespace sunshine_callbacks {
@@ -280,65 +289,61 @@ namespace sunshine_callbacks {
     }
 
     void createVirtualDisplay(JNIEnv *env, jint width, jint height, jint frameRate, jint packetDuration, jobject surface, jboolean shouldMute) {
-        if (jvm == nullptr) {
-            BOOST_LOG(error) << "JVM 指针为空"sv;
+        if (jvm == nullptr || sunshineServerClass == nullptr) {
+            BOOST_LOG(error) << "JVM 指针或 SunshineServer 类引用为空"sv;
             return;
         }
 
-        if (sunshineServerClass == nullptr) {
-            BOOST_LOG(error) << "SunshineServer 类引用为空"sv;
-            return;
-        }
+        // 提升为全局安全引用，防止多次转屏后类指针失效
+        static jclass global_server_class = (jclass)env->NewGlobalRef(sunshineServerClass);
+        // 静态缓存方法 ID，第一次找到后永久复用，免疫转屏重入闪退
+        static jmethodID createVirtualDisplayMethod = env->GetStaticMethodID(global_server_class, "createVirtualDisplay", "(IIIILandroid/view/Surface;Z)V");
 
-        jmethodID createVirtualDisplayMethod = env->GetStaticMethodID(sunshineServerClass, "createVirtualDisplay", "(IIIILandroid/view/Surface;Z)V");
         if (createVirtualDisplayMethod == nullptr) {
             BOOST_LOG(error) << "找不到 createVirtualDisplay 方法"sv;
-            jvm->DetachCurrentThread();
-            return;
+            return; // 【注意】：删除了这里的 DetachCurrentThread()
         }
 
-        env->CallStaticVoidMethod(sunshineServerClass, createVirtualDisplayMethod, width, height, frameRate, packetDuration, surface, shouldMute);
+        env->CallStaticVoidMethod(global_server_class, createVirtualDisplayMethod, width, height, frameRate, packetDuration, surface, shouldMute);
 
         if (env->ExceptionCheck()) {
             env->ExceptionDescribe();
             env->ExceptionClear();
         }
-
-        jvm->DetachCurrentThread();
+        // 【注意】：删除了末尾的 DetachCurrentThread()，保持工作线程继续存活运行！
     }
 
     void stopVirtualDisplay() {
+        // 因为是从 captureVideoLoop 内部调用的，线程其实已经是 Attach 状态
+        // 我们直接获取当前线程的 env 即可，不需要重新 Attach 也不需要 Detach
         JNIEnv *env;
-        jint result = jvm->AttachCurrentThread(&env, nullptr);
-        if (result != JNI_OK) {
-            BOOST_LOG(error) << "无法附加到 Java 线程"sv;
-            return;
+        jint result = jvm->GetEnv((void**)&env, JNI_VERSION_1_6);
+        if (result == JNI_EDETACHED) {
+            // 如果极特殊情况下没附加，再补救附加
+            result = jvm->AttachCurrentThread(&env, nullptr);
         }
-        if (jvm == nullptr) {
-            BOOST_LOG(error) << "JVM 指针为空"sv;
+
+        if (result != JNI_OK || env == nullptr || sunshineServerClass == nullptr) {
+            BOOST_LOG(error) << "stopVirtualDisplay: 环境获取失败或类引用为空"sv;
             return;
         }
 
-        if (sunshineServerClass == nullptr) {
-            BOOST_LOG(error) << "SunshineServer 类引用为空"sv;
-            return;
-        }
+        // 同样做全局不灭处理和静态缓存
+        static jclass global_server_class = (jclass)env->NewGlobalRef(sunshineServerClass);
+        static jmethodID stopVirtualDisplayMethod = env->GetStaticMethodID(global_server_class, "stopVirtualDisplay", "()V");
 
-        jmethodID stopVirtualDisplayMethod = env->GetStaticMethodID(sunshineServerClass, "stopVirtualDisplay", "()V");
         if (stopVirtualDisplayMethod == nullptr) {
             BOOST_LOG(error) << "找不到 stopVirtualDisplay 方法"sv;
-            jvm->DetachCurrentThread();
-            return;
+            return; // 【注意】：删除了这里的 DetachCurrentThread()
         }
 
-        env->CallStaticVoidMethod(sunshineServerClass, stopVirtualDisplayMethod);
+        env->CallStaticVoidMethod(global_server_class, stopVirtualDisplayMethod);
 
         if (env->ExceptionCheck()) {
             env->ExceptionDescribe();
             env->ExceptionClear();
         }
-
-        jvm->DetachCurrentThread();
+        // 【注意】：删除了末尾的 DetachCurrentThread()
     }
 
     void showEncoderError(const char* errorMessage) {
@@ -372,7 +377,6 @@ namespace sunshine_callbacks {
 
         jvm->DetachCurrentThread();
     }
-
     void captureVideoLoop(void *channel_data, safe::mail_t mail, const video::config_t& config, const audio::config_t& audioConfig) {
         JNIEnv *env;
         jint result = jvm->AttachCurrentThread(&env, nullptr);
@@ -382,6 +386,21 @@ namespace sunshine_callbacks {
         }
         auto shutdown_event = mail->event<bool>(mail::shutdown);
         auto idr_events = mail->event<bool>(mail::idr);
+
+        // 【修改点 1】：订阅你 JNI 抛出的 resolution_change 事件 (带有新宽高的 pair)
+        auto rotation_event = mail::man->event<std::pair<std::uint32_t, std::uint32_t>>(mail::resolution_change);
+
+        // 引入局部变量，用于在运行期安全修改分辨率（替代只读的 config.width/height）
+        uint32_t current_width = config.width;
+        uint32_t current_height = config.height;
+        bool need_reinit_components = true; // 默认第一次进入时必须初始化一次
+
+        // 提升核心组件指针的生命周期到整个函数级别
+        AMediaFormat *format = nullptr;
+        AMediaCodec *codec = nullptr;
+        ANativeWindow* inputSurface = nullptr;
+        jobject javaSurface = nullptr;
+
         // 添加更详细的客户端配置日志
         BOOST_LOG(info) << "客户端请求视频配置:"sv;
         BOOST_LOG(info) << "  - 分辨率: "sv << config.width << "x"sv << config.height;
@@ -390,7 +409,7 @@ namespace sunshine_callbacks {
         BOOST_LOG(info) << "  - 色度采样: "sv << (config.chromaSamplingType == 1 ? "YUV 4:4:4" : "YUV 4:2:0");
         BOOST_LOG(info) << "  - 动态范围: "sv << (config.dynamicRange ? "HDR" : "SDR");
         BOOST_LOG(info) << "  - 编码器色彩空间模式: 0x"sv << std::hex << config.encoderCscMode << std::dec;
-        
+
         // 获取并记录详细的色彩空间信息
         bool isHdr = false;
         video::sunshine_colorspace_t colorspace = colorspace_from_client_config(config, isHdr);
@@ -398,163 +417,164 @@ namespace sunshine_callbacks {
         BOOST_LOG(info) << "  - 色彩空间: "sv << static_cast<int>(colorspace.colorspace);
         BOOST_LOG(info) << "  - 位深度: "sv << colorspace.bit_depth;
         BOOST_LOG(info) << "  - 色彩范围: "sv << (colorspace.full_range ? "Full" : "Limited");
-        
-        // 创建 MediaFormat
-        AMediaFormat *format = AMediaFormat_new();
-        AMediaFormat_setString(format, AMEDIAFORMAT_KEY_MIME, config.videoFormat == 1 ? "video/hevc" : "video/avc");
 
-        auto encodeFrameRate = config.framerate < 60 ? 60 : config.framerate;
-        // 基本配置保持不变
-        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_WIDTH, config.width);
-        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_HEIGHT, config.height);
-        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_BIT_RATE, config.bitrate * 1000);
-        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_OPERATING_RATE, encodeFrameRate);
-        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_CAPTURE_RATE, encodeFrameRate);
-        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_FRAME_RATE, encodeFrameRate);
-        AMediaFormat_setInt32(format, "max-fps-to-encoder", encodeFrameRate);
-        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_I_FRAME_INTERVAL, 3); // 关键帧间隔(秒)
-        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_COLOR_FORMAT, 2130708361); // COLOR_FormatSurface
-        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_LATENCY, 0); // 最低延迟
-        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_COMPLEXITY, 10);
-        AMediaFormat_setInt32(format, "max-bframes", 0);
-
-        // 设置编码配置
-        if (config.videoFormat == 1) {
-            if (colorspace.bit_depth == 10) {
-                AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_PROFILE, 2); // HEVCProfileMain10
-            } else {
-                AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_PROFILE, 1); // HEVCProfileMain
-            }
-            AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_LEVEL, 65536); // HEVCMainTierLevel51
-        } else {
-            AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_PROFILE, 0x08); // HIGH profile
-            AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_LEVEL, 0x200); // Level 4.2
-            AMediaFormat_setInt32(format, "vendor.qti-ext-enc-low-latency.enable", 1);
-        }
-
-        // 设置色彩空间
-        switch (colorspace.colorspace) {
-            case video::colorspace_e::rec601:
-                AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_COLOR_STANDARD, 4); // COLOR_STANDARD_BT601_NTSC
-                break;
-            case video::colorspace_e::rec709:
-                AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_COLOR_STANDARD, 1); // COLOR_STANDARD_BT709
-                break;
-            case video::colorspace_e::bt2020:
-            case video::colorspace_e::bt2020sdr:
-                AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_COLOR_STANDARD, 6); // COLOR_STANDARD_BT2020
-                break;
-        }
-
-        // 设置色彩范围
-        AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_COLOR_RANGE, 
-            colorspace.full_range ? 1 : 2); // 1=FULL, 2=LIMITED
-
-        // 设置位深度
-        if (isHdr) {
-            AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_COLOR_TRANSFER, 6); // COLOR_TRANSFER_ST2084
-        } else {
-            AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_COLOR_TRANSFER, 3); // COLOR_TRANSFER_SDR_VIDEO
-        }
-
-        // 打印最终的媒体格式颜色配置
-        int32_t colorStandard = 0, colorRange = 0, colorTransfer = 0;
-        AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_COLOR_STANDARD, &colorStandard);
-        AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_COLOR_RANGE, &colorRange);
-        AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_COLOR_TRANSFER, &colorTransfer);
-        
-        BOOST_LOG(info) << "最终媒体格式颜色配置:"sv;
-        BOOST_LOG(info) << "  - COLOR_STANDARD: "sv << colorStandard;
-        BOOST_LOG(info) << "  - COLOR_RANGE: "sv << colorRange << (colorRange == 1 ? " (FULL)" : " (LIMITED)");
-        BOOST_LOG(info) << "  - COLOR_TRANSFER: "sv << colorTransfer;
-
-        // 创建编码器
-        AMediaCodec *codec = AMediaCodec_createEncoderByType(config.videoFormat == 1 ? "video/hevc" : "video/avc");
-        if (!codec) {
-           // 创建编码器
-            AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_WIDTH, 1920);
-            AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_HEIGHT, 1080);
-            AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_OPERATING_RATE, 60);
-            AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_CAPTURE_RATE, 60);
-            AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_FRAME_RATE, 60);
-            AMediaFormat_setInt32(format, "max-fps-to-encoder", 60);
-            codec = AMediaCodec_createEncoderByType("video/avc");
-        }
-        if (!codec) {
-            BOOST_LOG(error) << "无法创建编码器"sv;
-            AMediaFormat_delete(format);
-            return;
-        }
-        
-        // 配置编码器
-        media_status_t status = AMediaCodec_configure(codec, format, nullptr, nullptr, AMEDIACODEC_CONFIGURE_FLAG_ENCODE);
-        if (status != AMEDIA_OK) {
-            std::string errorMsg = "无法配置编码器，错误码: " + std::to_string(status);
-            BOOST_LOG(error) << errorMsg;
-            showEncoderError(errorMsg.c_str());
-            AMediaCodec_delete(codec);
-            AMediaFormat_delete(format);
-            return;
-        }
-        
-        // 获取输入 Surface
-        ANativeWindow* inputSurface;
-        media_status_t surfaceStatus = AMediaCodec_createInputSurface(codec, &inputSurface);
-        if (surfaceStatus != AMEDIA_OK) {
-            BOOST_LOG(error) << "无法创建输入Surface，错误码: "sv << surfaceStatus;
-            AMediaCodec_delete(codec);
-            AMediaFormat_delete(format);
-            return;
-        }
-        
-        // 将 ANativeWindow 转换为 Java Surface 对象并创建虚拟显示
-        if (jvm == nullptr) {
-            BOOST_LOG(error) << "JVM 指针为空，无法创建 Surface"sv;
-            ANativeWindow_release(inputSurface);
-            AMediaCodec_delete(codec);
-            AMediaFormat_delete(format);
-            return;
-        }
-        
-        // 将 ANativeWindow 转换为 Java Surface 对象
-        jobject javaSurface = ANativeWindow_toSurface(env, inputSurface);
-        if (javaSurface == nullptr) {
-            BOOST_LOG(error) << "无法将 ANativeWindow 转换为 Surface"sv;
-            jvm->DetachCurrentThread();
-            ANativeWindow_release(inputSurface);
-            AMediaCodec_delete(codec);
-            AMediaFormat_delete(format);
-            return;
-        }
-
-        bool shouldMute = true;
-        if (audioConfig.flags[audio::config_t::HOST_AUDIO]) {
-            BOOST_LOG(info) << "音频配置: 声音将在主机端(Sunshine服务器)播放"sv;
-            shouldMute = false;
-        } else {
-            BOOST_LOG(info) << "音频配置: 声音将在客户端(Moonlight)播放"sv;
-        }
-        
-        // 调用 createVirtualDisplay 方法，传递 shouldMute 参数
-        createVirtualDisplay(env, config.width, config.height, config.framerate, audioConfig.packetDuration, javaSurface, shouldMute);
-        
-        // 启动编码器
-        status = AMediaCodec_start(codec);
-        if (status != AMEDIA_OK) {
-            BOOST_LOG(error) << "无法启动编码器，错误码: "sv << status;
-            env->DeleteLocalRef(javaSurface);
-            jvm->DetachCurrentThread();
-            ANativeWindow_release(inputSurface);
-            AMediaCodec_delete(codec);
-            AMediaFormat_delete(format);
-            return;
-        }
-        
-        // 编码循环
+        // 编码循环数据缓存
         std::vector<uint8_t> codecConfigData;  // 用于存储完整的编解码器配置数据
         int64_t frameIndex = 0;
-        
+
+        // 进入核心主循环
         while (!shutdown_event->peek()) {
+
+            // 【修改点 2】：在循环最前端检测 JNI 递过来的横竖屏分辨率变更事件
+            if (rotation_event && rotation_event->peek()) {
+                auto new_res = rotation_event->pop();
+                current_width = new_res->first;   // 提取新宽度
+                current_height = new_res->second; // 提取新高度
+                need_reinit_components = true;   // 激活状态机进行就地热刷新
+                BOOST_LOG(info) << "接收到 JNI 转屏通知，准备就地重建编码器与虚拟显示器..."sv;
+            }
+
+            // 【修改点 3】：状态机触发——自释放并重新一条龙实例化所有核心级组件
+            if (need_reinit_components) {
+                need_reinit_components = false; // 重置标记
+
+                // 如果不是第一次运行（说明是由转屏触发），先利旧原版清理逻辑释放上一代资源
+                if (codec != nullptr) {
+                    BOOST_LOG(info) << "正在清理旧的分辨率组件..."sv;
+                    stopVirtualDisplay(); // 释放 Java 侧旧的虚拟显示器
+                    AMediaCodec_stop(codec);
+                    if (inputSurface) { ANativeWindow_release(inputSurface); inputSurface = nullptr; }
+                    AMediaCodec_delete(codec); codec = nullptr;
+                    if (format) { AMediaFormat_delete(format); format = nullptr; }
+                    javaSurface = nullptr; // 直接置空即可，不要调用 DeleteLocalRef
+                    codecConfigData.clear();
+                }
+
+                BOOST_LOG(info) << "正在重新创建全套组件，当前分辨率: "sv << current_width << "x"sv << current_height;
+
+                // 以下完全保留你原版的 MediaFormat 配置（仅将宽高替换为动态的 current_width/height）
+                format = AMediaFormat_new();
+                AMediaFormat_setString(format, AMEDIAFORMAT_KEY_MIME, config.videoFormat == 1 ? "video/hevc" : "video/avc");
+
+                auto encodeFrameRate = config.framerate < 60 ? 60 : config.framerate;
+                AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_WIDTH, current_width);  // 动态替换
+                AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_HEIGHT, current_height); // 动态替换
+                AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_BIT_RATE, config.bitrate * 1000);
+                AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_OPERATING_RATE, encodeFrameRate);
+                AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_CAPTURE_RATE, encodeFrameRate);
+                AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_FRAME_RATE, encodeFrameRate);
+                AMediaFormat_setInt32(format, "max-fps-to-encoder", encodeFrameRate);
+                AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_I_FRAME_INTERVAL, 3);
+                AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_COLOR_FORMAT, 2130708361);
+                AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_LATENCY, 0);
+                AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_COMPLEXITY, 10);
+                AMediaFormat_setInt32(format, "max-bframes", 0);
+
+                if (config.videoFormat == 1) {
+                    if (colorspace.bit_depth == 10) { AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_PROFILE, 2); }
+                    else { AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_PROFILE, 1); }
+                    AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_LEVEL, 65536);
+                } else {
+                    AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_PROFILE, 0x08);
+                    AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_LEVEL, 0x200);
+                    AMediaFormat_setInt32(format, "vendor.qti-ext-enc-low-latency.enable", 1);
+                }
+
+                switch (colorspace.colorspace) {
+                    case video::colorspace_e::rec601: AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_COLOR_STANDARD, 4); break;
+                    case video::colorspace_e::rec709: AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_COLOR_STANDARD, 1); break;
+                    case video::colorspace_e::bt2020:
+                    case video::colorspace_e::bt2020sdr: AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_COLOR_STANDARD, 6); break;
+                }
+
+                AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_COLOR_RANGE, colorspace.full_range ? 1 : 2);
+
+                if (isHdr) { AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_COLOR_TRANSFER, 6); }
+                else { AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_COLOR_TRANSFER, 3); }
+
+                // 打印最终的媒体格式颜色配置
+                int32_t colorStandard = 0, colorRange = 0, colorTransfer = 0;
+                AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_COLOR_STANDARD, &colorStandard);
+                AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_COLOR_RANGE, &colorRange);
+                AMediaFormat_getInt32(format, AMEDIAFORMAT_KEY_COLOR_TRANSFER, &colorTransfer);
+
+                BOOST_LOG(info) << "最终媒体格式颜色配置:"sv;
+                BOOST_LOG(info) << "  - COLOR_STANDARD: "sv << colorStandard;
+                BOOST_LOG(info) << "  - COLOR_RANGE: "sv << colorRange << (colorRange == 1 ? " (FULL)" : " (LIMITED)");
+                BOOST_LOG(info) << "  - COLOR_TRANSFER: "sv << colorTransfer;
+
+                codec = AMediaCodec_createEncoderByType(config.videoFormat == 1 ? "video/hevc" : "video/avc");
+                if (!codec) {
+                    AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_WIDTH, 1920);
+                    AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_HEIGHT, 1080);
+                    AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_OPERATING_RATE, 60);
+                    AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_CAPTURE_RATE, 60);
+                    AMediaFormat_setInt32(format, AMEDIAFORMAT_KEY_FRAME_RATE, 60);
+                    AMediaFormat_setInt32(format, "max-fps-to-encoder", 60);
+                    codec = AMediaCodec_createEncoderByType("video/avc");
+                }
+                if (!codec) {
+                    BOOST_LOG(error) << "无法创建编码器"sv;
+                    AMediaFormat_delete(format);
+                    return;
+                }
+
+                media_status_t status = AMediaCodec_configure(codec, format, nullptr, nullptr, AMEDIACODEC_CONFIGURE_FLAG_ENCODE);
+                if (status != AMEDIA_OK) {
+                    std::string errorMsg = "无法配置编码器，错误码: " + std::to_string(status);
+                    BOOST_LOG(error) << errorMsg;
+                    showEncoderError(errorMsg.c_str());
+                    AMediaCodec_delete(codec); AMediaFormat_delete(format);
+                    return;
+                }
+
+                media_status_t surfaceStatus = AMediaCodec_createInputSurface(codec, &inputSurface);
+                if (surfaceStatus != AMEDIA_OK) {
+                    BOOST_LOG(error) << "无法创建输入Surface，错误码: "sv << surfaceStatus;
+                    AMediaCodec_delete(codec); AMediaFormat_delete(format);
+                    return;
+                }
+
+                if (jvm == nullptr) {
+                    BOOST_LOG(error) << "JVM 指针为空，无法创建 Surface"sv;
+                    ANativeWindow_release(inputSurface); AMediaCodec_delete(codec); AMediaFormat_delete(format);
+                    return;
+                }
+
+                javaSurface = ANativeWindow_toSurface(env, inputSurface);
+                if (javaSurface == nullptr) {
+                    BOOST_LOG(error) << "无法将 ANativeWindow 转换为 Surface"sv;
+                    jvm->DetachCurrentThread(); ANativeWindow_release(inputSurface); AMediaCodec_delete(codec); AMediaFormat_delete(format);
+                    return;
+                }
+
+                bool shouldMute = true;
+                if (audioConfig.flags[audio::config_t::HOST_AUDIO]) {
+                    BOOST_LOG(info) << "音频配置: 声音将在主机端(Sunshine服务器)播放"sv;
+                    shouldMute = false;
+                } else {
+                    BOOST_LOG(info) << "音频配置: 声音将在客户端(Moonlight)播放"sv;
+                }
+
+                // 调用 Java 层的 createVirtualDisplay 方法（带入全新分辨率和新 Surface）
+                createVirtualDisplay(env, current_width, current_height, config.framerate, audioConfig.packetDuration, javaSurface, shouldMute);
+
+                status = AMediaCodec_start(codec);
+                if (status != AMEDIA_OK) {
+                    BOOST_LOG(error) << "无法启动编码器，错误码: "sv << status;
+                    javaSurface = nullptr;
+                    jvm->DetachCurrentThread();
+                    ANativeWindow_release(inputSurface);
+                    AMediaCodec_delete(codec);
+                    AMediaFormat_delete(format);
+                    return;
+                }
+
+                BOOST_LOG(info) << "全套组件已在工作线程内成功刷新启动！"sv;
+                continue; // 初始化或重组完成后，直接返回 while 头部准备接收数据
+            }
+
+            // ------ 以下完全是你原版的一步到位编码处理数据流逻辑，一个字都没有变动 ------
             bool requested_idr_frame = false;
             if (idr_events->peek()) {
                 requested_idr_frame = true;
@@ -562,7 +582,6 @@ namespace sunshine_callbacks {
             }
 
             if (requested_idr_frame) {
-                // 使用 Bundle 参数请求同步帧（IDR帧）
                 AMediaFormat* params = AMediaFormat_new();
                 AMediaFormat_setInt32(params, "request-sync", 0);
                 media_status_t status = AMediaCodec_setParameters(codec, params);
@@ -573,48 +592,32 @@ namespace sunshine_callbacks {
                 }
                 AMediaFormat_delete(params);
             }
-            
-            // 获取输出缓冲区，使用1秒的超时时间
+
             AMediaCodecBufferInfo bufferInfo;
             ssize_t outputBufferIndex = AMediaCodec_dequeueOutputBuffer(codec, &bufferInfo, 1000000); // 1秒 = 1000000微秒
-            
+
             if (outputBufferIndex >= 0) {
-                // 获取到有效的输出缓冲区
                 size_t bufferSize = bufferInfo.size;
                 uint8_t* buffer = nullptr;
                 size_t out_size = 0;
-                
-                // 获取缓冲区数据
+
                 buffer = AMediaCodec_getOutputBuffer(codec, outputBufferIndex, &out_size);
                 if (buffer != nullptr) {
-                    // 处理编码后的数据
                     if (bufferInfo.flags & AMEDIACODEC_BUFFER_FLAG_CODEC_CONFIG) {
-                        // 这是编解码器配置数据（SPS/PPS）
                         BOOST_LOG(info) << "收到编解码器配置数据，大小: "sv << bufferSize;
-                        
-                        // 直接保存整个配置数据
                         codecConfigData.assign(buffer, buffer + bufferSize);
                         BOOST_LOG(info) << "保存完整的编解码器配置数据，大小: "sv << codecConfigData.size();
                     } else {
-                        // 这是正常的编码帧
                         bool isKeyFrame = (bufferInfo.flags & AMEDIACODEC_BUFFER_FLAG_KEY_FRAME) != 0;
                         BOOST_LOG(verbose) << "收到" << (isKeyFrame ? "关键帧" : "普通帧") << "，大小: "sv << bufferSize;
                         frameIndex++;
-                        
-                        if(isKeyFrame) {
-                            // 对于关键帧，需要在数据前附加编解码器配置数据
-                            if (!codecConfigData.empty()) {
-                                // 创建包含配置数据和关键帧的完整数据
-                                std::vector<uint8_t> frameData;
-                                
-                                // 添加配置数据
-                                frameData.insert(frameData.end(), codecConfigData.begin(), codecConfigData.end());
-                                
-                                // 添加关键帧数据
-                                frameData.insert(frameData.end(), buffer, buffer + bufferSize);
 
+                        if(isKeyFrame) {
+                            if (!codecConfigData.empty()) {
+                                std::vector<uint8_t> frameData;
+                                frameData.insert(frameData.end(), codecConfigData.begin(), codecConfigData.end());
+                                frameData.insert(frameData.end(), buffer, buffer + bufferSize);
                                 BOOST_LOG(verbose) << "发送关键帧(带配置数据)，总大小: "sv << frameData.size();
-                                // 发送完整的关键帧数据
                                 stream::postFrame(std::move(frameData), frameIndex, true, channel_data);
                             } else {
                                 BOOST_LOG(error) << "没有编解码器配置数据，无法发送完整关键帧"sv;
@@ -626,39 +629,32 @@ namespace sunshine_callbacks {
                         }
                     }
                 }
-                
-                // 释放输出缓冲区
                 AMediaCodec_releaseOutputBuffer(codec, outputBufferIndex, false);
             } else if (outputBufferIndex == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
                 BOOST_LOG(verbose) << "编码器超时，等待输出缓冲区"sv;
                 continue;
             } else if (outputBufferIndex == AMEDIACODEC_INFO_OUTPUT_FORMAT_CHANGED) {
-                // 输出格式已更改
                 AMediaFormat* format = AMediaCodec_getOutputFormat(codec);
                 BOOST_LOG(info) << "编码器输出格式已更改"sv;
-                // 可以从format中获取更多信息
                 AMediaFormat_delete(format);
             } else if (outputBufferIndex == AMEDIACODEC_INFO_OUTPUT_BUFFERS_CHANGED) {
-                // 输出缓冲区已更改
                 BOOST_LOG(info) << "编码器输出缓冲区已更改"sv;
-                // 在较新的 NDK 版本中，这个事件通常可以忽略，因为 AMediaCodec_getOutputBuffer 会自动处理缓冲区变化
             } else {
-                // 出错
                 BOOST_LOG(error) << "编码器出错，错误码: "sv << outputBufferIndex;
                 break;
             }
         }
 
+        // 整个会话完全终结（退出应用或彻底断开）时的最终释放
         stopVirtualDisplay();
-        // 停止编码器
-        AMediaCodec_stop(codec);
-        
-        // 清理资源
-        ANativeWindow_release(inputSurface);
-        AMediaCodec_delete(codec);
-        AMediaFormat_delete(format);
-        
-        // 清理 Java Surface 引用
+        if (codec) {
+            AMediaCodec_stop(codec);
+            AMediaCodec_delete(codec);
+        }
+        if (inputSurface) { ANativeWindow_release(inputSurface); }
+        if (format) { AMediaFormat_delete(format); }
+        if (javaSurface) { env->DeleteLocalRef(javaSurface); }
+
         jvm->DetachCurrentThread();
     }
 

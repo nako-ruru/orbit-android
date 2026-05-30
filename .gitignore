@@ -26,3 +26,4 @@ local.properties
 /app-mirror/libs
 /app-mirror/src/main/jniLibs/arm64-v8a/libnpc.so
 /app-mirror/src/main/jniLibs/arm64-v8a/librclone.so
+/app-mirror/src/main/cpp/.idea
