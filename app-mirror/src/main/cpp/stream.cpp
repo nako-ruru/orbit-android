@@ -49,8 +49,6 @@ extern "C" {
 #define IDX_RUMBLE_TRIGGER_DATA 12
 #define IDX_SET_MOTION_EVENT 13
 #define IDX_SET_RGB_LED 14
-#define IDX_DYNAMIC_PARAM_CHANGE 18  // 统一动态参数调整消息类型（支持码率、分辨率等）
-#define IDX_RESOLUTION_CHANGE 19  // 分辨率变化通知
 
 static const short packetTypes[] = {
   0x0305,  // Start A
@@ -68,12 +66,6 @@ static const short packetTypes[] = {
   0x5500,  // Rumble triggers (Sunshine protocol extension)
   0x5501,  // Set motion event (Sunshine protocol extension)
   0x5502,  // Set RGB LED (Sunshine protocol extension)
-  0x5503,  // Set Adaptive triggers (Sunshine protocol extension)
-  0x5504,  // Microphone data (Sunshine protocol extension)
-  0x5505,  // Microphone config (Sunshine protocol extension)
-  0x5506,  // Dynamic parameter change (Sunshine protocol extension) - 统一动态参数调整
-  0x5507,  // Resolution change (Sunshine protocol extension) - 分辨率变化通知
-  0x5508,  // Clipboard sync (Sunshine protocol extension) - opaque payload forwarded to user-session GUI agent
 };
 
 namespace asio = boost::asio;
@@ -202,13 +194,6 @@ namespace stream {
 
     // Sunshine protocol extension
     SS_HDR_METADATA metadata;
-  };
-
-  struct control_resolution_change_t {
-    control_header_v2 header;
-
-    std::uint32_t width;
-    std::uint32_t height;
   };
 
   typedef struct control_encrypted_t {
@@ -902,36 +887,6 @@ namespace stream {
     return 0;
   }
 
-  int send_resolution_change(session_t *session, std::uint32_t width, std::uint32_t height) {
-    if (!session->control.peer) {
-      BOOST_LOG(warning) << "Couldn't send resolution change, still waiting for PING from Moonlight"sv;
-      // Still waiting for PING from Moonlight
-      return -1;
-    }
-
-    control_resolution_change_t plaintext {};
-    plaintext.header.type = packetTypes[IDX_RESOLUTION_CHANGE];
-    plaintext.header.payloadLength = sizeof(control_resolution_change_t) - sizeof(control_header_v2);
-
-    plaintext.width = util::endian::little(width);
-    plaintext.height = util::endian::little(height);
-
-    std::array<std::uint8_t,
-            sizeof(control_encrypted_t) + crypto::cipher::round_to_pkcs7_padded(sizeof(plaintext)) + crypto::cipher::tag_size>
-            encrypted_payload;
-
-    auto payload = encode_control(session, util::view(plaintext), encrypted_payload);
-    if (session->broadcast_ref->control_server.send(payload, session->control.peer)) {
-      TUPLE_2D(port, addr, platf::from_sockaddr_ex((sockaddr *) &session->control.peer->address.address));
-      BOOST_LOG(warning) << "Couldn't send resolution change to ["sv << addr << ':' << port << ']';
-
-      return -1;
-    }
-
-    BOOST_LOG(debug) << "Sent resolution change: " << width << "x" << height;
-    return 0;
-  }
-
   void controlBroadcastThread(control_server_t *server) {
     server->map(packetTypes[IDX_PERIODIC_PING], [](session_t *session, const std::string_view &payload) {
       BOOST_LOG(verbose) << "type [IDX_PERIODIC_PING]"sv;
@@ -965,108 +920,6 @@ namespace stream {
       BOOST_LOG(debug) << "type [IDX_REQUEST_IDR_FRAME]"sv;
 
       session->video.idr_events->raise(true);
-    });
-
-    // 辅助函数：处理分辨率变更
-    auto handle_resolution_change = [](session_t *session, int new_width, int new_height) {
-      int old_width = session->config.monitor.width;
-      int old_height = session->config.monitor.height;
-      
-      BOOST_LOG(info) << "Dynamic resolution change requested: " << old_width << "x" << old_height 
-                      << " -> " << new_width << "x" << new_height;
-
-      // 验证分辨率范围
-      constexpr int MAX_RESOLUTION = 16384;
-      if (new_width <= 0 || new_width > MAX_RESOLUTION || new_height <= 0 || new_height > MAX_RESOLUTION) {
-        BOOST_LOG(warning) << "Invalid resolution value: " << new_width << "x" << new_height;
-        return;
-      }
-
-      // 检查分辨率是否真的改变了
-      if (old_width == new_width && old_height == new_height) {
-        BOOST_LOG(debug) << "Resolution unchanged, ignoring request";
-        return;
-      }
-
-      // 检测是否是旋转导致的宽高互换（例如：1920x1080 -> 1080x1920）
-      bool is_rotation = (old_width == new_height && old_height == new_width);
-      if (is_rotation) {
-        BOOST_LOG(info) << "Detected display rotation: width and height swapped";
-      }
-
-      // 更新会话配置
-      session->config.monitor.width = new_width;
-      session->config.monitor.height = new_height;
-
-      // 创建临时的 launch_session_t 来更新显示设备配置
-      // 注意：必须按照结构体声明顺序初始化字段
-      rtsp_stream::launch_session_t temp_launch_session {};
-      temp_launch_session.id = session->launch_session_id;
-      temp_launch_session.width = new_width;
-      temp_launch_session.height = new_height;
-      temp_launch_session.fps = session->config.monitor.framerate;
-
-      // 更新显示设备配置（重新配置模式）
-      // 注意：这也会触发捕获端和编码器的重新初始化，以适配新的分辨率
-      if (is_rotation) {
-        BOOST_LOG(info) << "Reconfiguring display device for rotation: " << old_width << "x" << old_height 
-                        << " -> " << new_width << "x" << new_height;
-      }
-      else {
-        BOOST_LOG(info) << "Reconfiguring display device for new resolution: " << old_width << "x" << old_height 
-                        << " -> " << new_width << "x" << new_height;
-      }
-
-      // 请求 IDR 帧以确保客户端能正确显示新分辨率
-      // 这对于旋转场景特别重要，因为宽高互换需要新的关键帧
-      session->video.idr_events->raise(true);
-
-      // 注意：编码器和触摸端口的更新会在捕获端重新初始化时自动处理
-      // - 编码器会在重新初始化时使用新的宽高（通过 config.monitor.width/height）
-      // - 触摸端口会在视频捕获循环中通过 make_port() 自动更新
-      BOOST_LOG(info) << "Resolution change completed: " << new_width << "x" << new_height 
-                      << (is_rotation ? " (rotation detected)" : "");
-    };
-
-    // 统一动态参数更新协议 (IDX_DYNAMIC_PARAM_CHANGE)
-    // Payload 格式：
-    // - 参数类型 (int, 4字节): 0=分辨率, 1=FPS, 2=码率, 3=QP, 4=FEC, 5=预设, 6=自适应量化, 7=多遍编码, 8=VBV缓冲区
-    // - 参数值：
-    //   * 分辨率 (类型0): 2个int (8字节, width和height)
-    //   * FPS (类型1): 1个float (4字节)
-    //   * 其他单值参数（码率、QP等）: 1个int (4字节)
-    server->map(packetTypes[IDX_DYNAMIC_PARAM_CHANGE], [&, handle_resolution_change](session_t *session, const std::string_view &payload) {
-      BOOST_LOG(debug) << "type [IDX_DYNAMIC_PARAM_CHANGE]"sv;
-
-      constexpr size_t MIN_PAYLOAD_SIZE = sizeof(int);
-      if (payload.size() < MIN_PAYLOAD_SIZE) {
-        BOOST_LOG(warning) << "Invalid payload size for dynamic param change. Expected at least " 
-                           << MIN_PAYLOAD_SIZE << " bytes, got " << payload.size();
-        return;
-      }
-
-      const int param_type = *reinterpret_cast<const int *>(payload.data());
-      
-      if (param_type < 0 || param_type >= static_cast<int>(video::dynamic_param_type_e::MAX_PARAM_TYPE)) {
-        BOOST_LOG(warning) << "Invalid parameter type: " << param_type;
-        return;
-      }
-
-      const auto param_type_enum = static_cast<video::dynamic_param_type_e>(param_type);
-      
-      // 处理分辨率变更（需要两个int值）
-      if (param_type_enum == video::dynamic_param_type_e::RESOLUTION) {
-        constexpr size_t RESOLUTION_PAYLOAD_SIZE = sizeof(int) * 3;  // 类型 + width + height
-        if (payload.size() < RESOLUTION_PAYLOAD_SIZE) {
-          BOOST_LOG(warning) << "Invalid payload size for resolution change. Expected " 
-                             << RESOLUTION_PAYLOAD_SIZE << " bytes, got " << payload.size();
-          return;
-        }
-
-        const auto *resolution_data = reinterpret_cast<const int *>(payload.data());
-        handle_resolution_change(session, resolution_data[1], resolution_data[2]);
-        return;
-      }
     });
 
     server->map(packetTypes[IDX_INVALIDATE_REF_FRAMES], [&](session_t *session, const std::string_view &payload) {
@@ -1238,15 +1091,6 @@ namespace stream {
               auto hdr_info = hdr_queue->pop();
 
               send_hdr_mode(session, std::move(hdr_info));
-            }
-
-            auto &resolution_change_queue = session->control.resolution_change_queue;
-            while (session->control.peer && resolution_change_queue->peek()) {
-              auto resolution = resolution_change_queue->pop();
-              
-              if (resolution) {
-                send_resolution_change(session, resolution->first, resolution->second);
-              }
             }
           }
 

@@ -4,13 +4,14 @@ import android.app.Activity;
 import android.app.Application;
 import android.content.Context;
 import android.content.Intent;
+import android.hardware.display.DisplayManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Display;
 
 import androidx.annotation.NonNull;
 
-import com.connect_screen.mirror.State;
 import com.connect_screen.mirror.job.ExitAll;
 import com.connect_screen.mirror.job.SunshineServer;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -95,6 +96,7 @@ public class OrbitApplication  extends Application {
         Aar.registerPathProvider(new AndroidPathProvider(this));
         Aar.registerFileTransferProvider(new AndroidFileTransferProvider(this));
         Aar.registerStreamerProvider(new AndroidStreamerProvider(this));
+        Aar.registerDisplayTopologyProvider(new AndroidDisplayTopologyProvider(this));
         Aar.registerClipboardProvider(clipboardProvider = new AndroidClipboardProvider(this));
         startKeepAliveService();
     }
@@ -122,23 +124,31 @@ public class OrbitApplication  extends Application {
             AndroidTunProvider tunProvider = new AndroidTunProvider(context, fixedIpArray);
             Aar.registerTunProvider(tunProvider);
 
-            NanoHTTPD httpd = new NanoHTTPD(9723) {
+            NanoHTTPD httpd = new NanoHTTPD(59723) {
                 @Override
                 public Response serve(IHTTPSession session) {
-                    Log.d("TestServer", "serve");
                     // 获取 URL 路径，例如 /trigger
                     String uri = session.getUri();
-                    // 获取参数，例如 ?cmd=open
-                    java.util.Map<String, String> params = session.getParms();
-
-                    if ("/trigger".equals(uri)) {
-                        // --- 在这里执行你的测试逻辑 ---
+                    if ("/api/terminate".equalsIgnoreCase(uri) && session.getMethod() == Method.POST) {
                         ExitAll.execute(context, true);
-                    } else if("/resolution".equals(uri)) {
-                        SunshineServer.raiseResolutionChange(1280, 576);
+                        return NanoHTTPD.newFixedLengthResponse(  Response.Status.NO_CONTENT,   "text/plain","")  ;
+                    } else if(uri.toLowerCase().startsWith("/api/orientation/") && session.getMethod() == Method.POST) {
+                        DisplayManager dm = (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
+                        Display defaultDisplay = dm.getDisplay(Display.DEFAULT_DISPLAY);
+                        android.graphics.Point size = new android.graphics.Point();
+                        defaultDisplay.getRealSize(size);
+                        String orientation = uri.substring("/api/orientation/".length());
+                        switch (orientation.toUpperCase()) {
+                            case "LANDSCAPE":
+                                SunshineServer.raiseResolutionChange(size.x, size.y);
+                                break;
+                            case "PORTRAIT":
+                                SunshineServer.raiseResolutionChange(size.y, size.x);
+                                break;
+                        }
+                        return NanoHTTPD.newFixedLengthResponse(  Response.Status.NO_CONTENT,   "text/plain","")  ;
                     }
-
-                    return NanoHTTPD.newFixedLengthResponse(  Response.Status.NO_CONTENT,   "text/plain","")  ;
+                    return NanoHTTPD.newFixedLengthResponse(Response.Status.METHOD_NOT_ALLOWED, "text/plain", "");
                 }
             };
             httpd.start(NanoHTTPD.SOCKET_READ_TIMEOUT, false);
