@@ -6,6 +6,7 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.text.InputFilter;
 import android.text.InputType;
+import android.util.Log;
 import android.view.Surface;
 import android.widget.EditText;
 import android.widget.Toast;
@@ -94,6 +95,7 @@ public class SunshineServer {
 
 
     public static void stopVirtualDisplay() {
+        Log.e("Finder", "stopVirtualDisplay called!", new Throwable());
         new Handler(Looper.getMainLooper()).post(() -> {
             State.log("停止 Moonlight 投屏");
             CreateVirtualDisplay.powerOnScreen();
@@ -103,13 +105,35 @@ public class SunshineServer {
                 SunshineMouse.autoRotateAndScaleForMoonlight = null;
             }
             if (State.mirrorVirtualDisplay != null) {
-//                State.mirrorVirtualDisplay.release();
-//                State.mirrorVirtualDisplay = null;
+                State.mirrorVirtualDisplay.release();
+                State.mirrorVirtualDisplay = null;
             }
-            /*
             Context context = State.getContext();
             ExitAll.execute(context, true);
-             */
+        });
+    }
+
+    public static void resizeVirtualDisplay(int width, int height, Surface surface) {
+        // 1. 动态重新初始化鼠标边界
+        SunshineMouse.initialize(width, height);
+
+        // 2. 切回主线程安全修改底层 VirtualDisplay 属性
+        new Handler(Looper.getMainLooper()).post(() -> {
+            Log.i("Finder", "resizeVirtualDisplay 触发，全新分辨率: " + width + "x" + height);
+
+            if (State.mirrorVirtualDisplay != null) {
+                // Android 官方标准热重构接口：
+                // 调整虚拟画布的物理宽高尺寸，160 为标准的 DENSITY_MEDIUM (可根据项目实际替换)
+                State.mirrorVirtualDisplay.resize(width, height, 160);
+
+                // 将新分辨率下的 MediaCodec 编码输入源 Surface 替换给现有的虚拟显示器
+                if (surface != null) {
+                    State.mirrorVirtualDisplay.setSurface(surface);
+                }
+                State.log("虚拟显示器分辨率及输入 Surface 已就地平滑更新");
+            } else {
+                Log.e("Finder", "State.mirrorVirtualDisplay 为 null，热更新失败！");
+            }
         });
     }
 

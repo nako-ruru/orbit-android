@@ -6,11 +6,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 
-import com.connect_screen.mirror.State;
-
 public class ExitAll {
     public static void execute(Context context, boolean restart) {
-		Intent intent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
+        Intent intent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
 
         // 关键：不要只传 Intent，要让系统觉得这是一个来自闹钟的正式提醒

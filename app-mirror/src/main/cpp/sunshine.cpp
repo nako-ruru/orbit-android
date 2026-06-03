@@ -289,61 +289,93 @@ namespace sunshine_callbacks {
     }
 
     void createVirtualDisplay(JNIEnv *env, jint width, jint height, jint frameRate, jint packetDuration, jobject surface, jboolean shouldMute) {
-        if (jvm == nullptr || sunshineServerClass == nullptr) {
-            BOOST_LOG(error) << "JVM 指针或 SunshineServer 类引用为空"sv;
+        if (jvm == nullptr) {
+            BOOST_LOG(error) << "JVM 指针为空"sv;
             return;
         }
 
-        // 提升为全局安全引用，防止多次转屏后类指针失效
-        static jclass global_server_class = (jclass)env->NewGlobalRef(sunshineServerClass);
-        // 静态缓存方法 ID，第一次找到后永久复用，免疫转屏重入闪退
-        static jmethodID createVirtualDisplayMethod = env->GetStaticMethodID(global_server_class, "createVirtualDisplay", "(IIIILandroid/view/Surface;Z)V");
-
-        if (createVirtualDisplayMethod == nullptr) {
-            BOOST_LOG(error) << "找不到 createVirtualDisplay 方法"sv;
-            return; // 【注意】：删除了这里的 DetachCurrentThread()
+        if (sunshineServerClass == nullptr) {
+            BOOST_LOG(error) << "SunshineServer 类引用为空"sv;
+            return;
         }
 
-        env->CallStaticVoidMethod(global_server_class, createVirtualDisplayMethod, width, height, frameRate, packetDuration, surface, shouldMute);
+        jmethodID createVirtualDisplayMethod = env->GetStaticMethodID(sunshineServerClass, "createVirtualDisplay", "(IIIILandroid/view/Surface;Z)V");
+        if (createVirtualDisplayMethod == nullptr) {
+            BOOST_LOG(error) << "找不到 createVirtualDisplay 方法"sv;
+            jvm->DetachCurrentThread();
+            return;
+        }
+
+        env->CallStaticVoidMethod(sunshineServerClass, createVirtualDisplayMethod, width, height, frameRate, packetDuration, surface, shouldMute);
 
         if (env->ExceptionCheck()) {
             env->ExceptionDescribe();
             env->ExceptionClear();
         }
-        // 【注意】：删除了末尾的 DetachCurrentThread()，保持工作线程继续存活运行！
+
+        jvm->DetachCurrentThread();
     }
 
     void stopVirtualDisplay() {
-        // 因为是从 captureVideoLoop 内部调用的，线程其实已经是 Attach 状态
-        // 我们直接获取当前线程的 env 即可，不需要重新 Attach 也不需要 Detach
         JNIEnv *env;
-        jint result = jvm->GetEnv((void**)&env, JNI_VERSION_1_6);
-        if (result == JNI_EDETACHED) {
-            // 如果极特殊情况下没附加，再补救附加
-            result = jvm->AttachCurrentThread(&env, nullptr);
+        jint result = jvm->AttachCurrentThread(&env, nullptr);
+        if (result != JNI_OK) {
+            BOOST_LOG(error) << "无法附加到 Java 线程"sv;
+            return;
         }
-
-        if (result != JNI_OK || env == nullptr || sunshineServerClass == nullptr) {
-            BOOST_LOG(error) << "stopVirtualDisplay: 环境获取失败或类引用为空"sv;
+        if (jvm == nullptr) {
+            BOOST_LOG(error) << "JVM 指针为空"sv;
             return;
         }
 
-        // 同样做全局不灭处理和静态缓存
-        static jclass global_server_class = (jclass)env->NewGlobalRef(sunshineServerClass);
-        static jmethodID stopVirtualDisplayMethod = env->GetStaticMethodID(global_server_class, "stopVirtualDisplay", "()V");
-
-        if (stopVirtualDisplayMethod == nullptr) {
-            BOOST_LOG(error) << "找不到 stopVirtualDisplay 方法"sv;
-            return; // 【注意】：删除了这里的 DetachCurrentThread()
+        if (sunshineServerClass == nullptr) {
+            BOOST_LOG(error) << "SunshineServer 类引用为空"sv;
+            return;
         }
 
-        env->CallStaticVoidMethod(global_server_class, stopVirtualDisplayMethod);
+        jmethodID stopVirtualDisplayMethod = env->GetStaticMethodID(sunshineServerClass, "stopVirtualDisplay", "()V");
+        if (stopVirtualDisplayMethod == nullptr) {
+            BOOST_LOG(error) << "找不到 stopVirtualDisplay 方法"sv;
+            jvm->DetachCurrentThread();
+            return;
+        }
+
+        env->CallStaticVoidMethod(sunshineServerClass, stopVirtualDisplayMethod);
 
         if (env->ExceptionCheck()) {
             env->ExceptionDescribe();
             env->ExceptionClear();
         }
-        // 【注意】：删除了末尾的 DetachCurrentThread()
+
+        jvm->DetachCurrentThread();
+    }
+    void resizeVirtualDisplay(JNIEnv *env, jint width, jint height, jobject surface) {
+        if (jvm == nullptr) {
+            BOOST_LOG(error) << "JVM 指针为空"sv;
+            return;
+        }
+
+        if (sunshineServerClass == nullptr) {
+            BOOST_LOG(error) << "SunshineServer 类引用为空"sv;
+            return;
+        }
+
+        // 映射 Java 层新设计的 resizeVirtualDisplay 方法
+        jmethodID resizeVirtualDisplayMethod = env->GetStaticMethodID(sunshineServerClass, "resizeVirtualDisplay", "(IILandroid/view/Surface;)V");
+        if (resizeVirtualDisplayMethod == nullptr) {
+            BOOST_LOG(error) << "找不到 resizeVirtualDisplay 方法"sv;
+            return;
+        }
+
+        // 调用 Java 方法更新尺寸和 Surface
+        env->CallStaticVoidMethod(sunshineServerClass, resizeVirtualDisplayMethod, width, height, surface);
+
+        if (env->ExceptionCheck()) {
+            env->ExceptionDescribe();
+            env->ExceptionClear();
+        }
+
+        // 注意：这里绝对不能调用 jvm->DetachCurrentThread()，否则外层主循环线程的 env 会直接失效崩溃！
     }
 
     void showEncoderError(const char* errorMessage) {
@@ -438,10 +470,12 @@ namespace sunshine_callbacks {
             if (need_reinit_components) {
                 need_reinit_components = false; // 重置标记
 
-                // 如果不是第一次运行（说明是由转屏触发），先利旧原版清理逻辑释放上一代资源
-                if (codec != nullptr) {
-                    BOOST_LOG(info) << "正在清理旧的分辨率组件..."sv;
-                    stopVirtualDisplay(); // 释放 Java 侧旧的虚拟显示器
+                // 核心变动：判断是否为第一次进入
+                bool is_first_time = (codec == nullptr);
+
+                // 如果不是第一次运行（说明是由转屏触发），仅释放编码器，【不再调用 stopVirtualDisplay()】
+                if (!is_first_time) {
+                    BOOST_LOG(info) << "正在清理旧的编码器组件（保留VirtualDisplay）..."sv;
                     AMediaCodec_stop(codec);
                     if (inputSurface) { ANativeWindow_release(inputSurface); inputSurface = nullptr; }
                     AMediaCodec_delete(codec); codec = nullptr;
@@ -541,6 +575,15 @@ namespace sunshine_callbacks {
                     return;
                 }
 
+                // 安全防护：确保当前底层物理线程依然处于 Attach 状态
+                if (jvm->GetEnv((void**)&env, JNI_VERSION_1_6) == JNI_EDETACHED) {
+#ifdef __ANDROID__
+                    jvm->AttachCurrentThreadAsDaemon(&env, nullptr);
+#else
+                    jvm->AttachCurrentThread(&env, nullptr);
+#endif
+                }
+
                 javaSurface = ANativeWindow_toSurface(env, inputSurface);
                 if (javaSurface == nullptr) {
                     BOOST_LOG(error) << "无法将 ANativeWindow 转换为 Surface"sv;
@@ -556,8 +599,12 @@ namespace sunshine_callbacks {
                     BOOST_LOG(info) << "音频配置: 声音将在客户端(Moonlight)播放"sv;
                 }
 
-                // 调用 Java 层的 createVirtualDisplay 方法（带入全新分辨率和新 Surface）
-                createVirtualDisplay(env, current_width, current_height, config.framerate, audioConfig.packetDuration, javaSurface, shouldMute);
+                // 核心修改：根据运行期状态决定是全新创建还是动态缩放尺寸
+                if (is_first_time) {
+                    createVirtualDisplay(env, current_width, current_height, config.framerate, audioConfig.packetDuration, javaSurface, shouldMute);
+                } else {
+                    resizeVirtualDisplay(env, current_width, current_height, javaSurface);
+                }
 
                 status = AMediaCodec_start(codec);
                 if (status != AMEDIA_OK) {
@@ -571,10 +618,9 @@ namespace sunshine_callbacks {
                 }
 
                 BOOST_LOG(info) << "全套组件已在工作线程内成功刷新启动！"sv;
-                continue; // 初始化或重组完成后，直接返回 while 头部准备接收数据
+                continue;
             }
 
-            // ------ 以下完全是你原版的一步到位编码处理数据流逻辑，一个字都没有变动 ------
             bool requested_idr_frame = false;
             if (idr_events->peek()) {
                 requested_idr_frame = true;
@@ -594,7 +640,7 @@ namespace sunshine_callbacks {
             }
 
             AMediaCodecBufferInfo bufferInfo;
-            ssize_t outputBufferIndex = AMediaCodec_dequeueOutputBuffer(codec, &bufferInfo, 1000000); // 1秒 = 1000000微秒
+            ssize_t outputBufferIndex = AMediaCodec_dequeueOutputBuffer(codec, &bufferInfo, 1000000);
 
             if (outputBufferIndex >= 0) {
                 size_t bufferSize = bufferInfo.size;
@@ -645,7 +691,7 @@ namespace sunshine_callbacks {
             }
         }
 
-        // 整个会话完全终结（退出应用或彻底断开）时的最终释放
+        // 整个会话完全终结时的最终释放
         stopVirtualDisplay();
         if (codec) {
             AMediaCodec_stop(codec);
@@ -653,6 +699,11 @@ namespace sunshine_callbacks {
         }
         if (inputSurface) { ANativeWindow_release(inputSurface); }
         if (format) { AMediaFormat_delete(format); }
+
+        // 最终解绑安全检查
+        if (jvm->GetEnv((void**)&env, JNI_VERSION_1_6) == JNI_EDETACHED) {
+            jvm->AttachCurrentThread(&env, nullptr);
+        }
         if (javaSurface) { env->DeleteLocalRef(javaSurface); }
 
         jvm->DetachCurrentThread();
