@@ -1,14 +1,19 @@
 package com.connect_screen.mirror.shizuku;
 
 import android.annotation.SuppressLint;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.hardware.display.IDisplayManager;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
+import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.Log;
 
 import android.os.RemoteException;
@@ -106,6 +111,43 @@ public class UserService extends IUserService.Stub  {
         }
     }
 
+    @Override
+    public void setClipboardData(String text, String imagePath) {
+// 必须强制切到系统的 Main Looper（主线程），不然高版本 Android 直接吞掉操作
+        new Handler(Looper.getMainLooper()).post(() -> {
+            try {
+                System.out.println("OrbitShizuku: 卧槽！断点终于进来了！！！");
+
+                ClipboardManager cm = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
+                if (cm == null) return;
+
+                ClipData clip = null;
+                if (text != null && !text.isEmpty()) {
+                    clip = ClipData.newPlainText("text", text);
+                } else if (imagePath != null && !imagePath.isEmpty()) {
+                    Uri imageUri = Uri.parse("file://" + imagePath);
+                    clip = ClipData.newUri(context.getContentResolver(), "image", imageUri);
+                }
+
+                if (clip != null) {
+                    try {
+                        // 【高兼容反射】强行伪装成系统自带的 shell 进程，解决 Android 12/13/14 拒绝后台写入的策略
+                        java.lang.reflect.Method setPrimaryClipMethod = cm.getClass().getMethod(
+                                "setPrimaryClip", ClipData.class, String.class, int.class
+                        );
+                        setPrimaryClipMethod.invoke(cm, clip, "com.android.shell", 0);
+                        System.out.println("OrbitShizuku: 写入剪切板绝对成功了！");
+                    } catch (Exception ex) {
+                        // 老版本 Android 保底老老实实调用
+                        cm.setPrimaryClip(clip);
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("OrbitShizuku 底层爆了：");
+                e.printStackTrace();
+            }
+        });
+    }
     public boolean setScreenPower(int powerMode) {
         Log.i("UserService", "try to setScreenPower: " + powerMode);
         if (Build.VERSION.SDK_INT >= 35 && powerMode == SurfaceControl.POWER_MODE_NORMAL) {

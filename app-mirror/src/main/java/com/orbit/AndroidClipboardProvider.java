@@ -43,29 +43,32 @@ public class AndroidClipboardProvider implements ClipboardProvider {
     public void setData(ClipboardData data, String origin) throws Exception {
         mainHandler.post(ThrowingRunnable.sneaky(() -> {
             isSelfSetting = true;
+
             if (data.getText() != null && !data.getText().isEmpty()) {
-                if(false && ShizukuUtils.hasPermission()) {
-                    // 使用 Shizuku 执行 shell 命令，绕过后台应用无法访问剪贴板的限制
-                    String cmd = "cmd clipboard set \"" + data.getText().replace("\"", "\\\"") + "\"";
-                    // 伪代码：提交给你的 Shizuku 进程执行器
-//                    ShizukuUtils.executeCommand(cmd);
+                // ==================== 【文本类型】 ====================
+                if (ShizukuUtils.hasPermission()) {
+                    State.userService.setClipboardData(data.getText(), null);
                 } else {
-                    // 复制文本/HTML
                     ClipData clip = ClipData.newPlainText("text", data.getText());
-//                    cm.setPrimaryClip(clip);
+                    cm.setPrimaryClip(clip);
                 }
+
             } else if (data.getImageData() != null && data.getImageData().length > 0) {
-                if(ShizukuUtils.hasPermission()) {
+                // ==================== 【图片类型：合并文件路径】 ====================
 
+                // 统一写入外部缓存目录，不管是 Shizuku(adb) 还是你 App 自身，都能完美访问这个文件
+                File cacheFile = new File(context.getExternalCacheDir(), "clip_sync.png");
+                try (FileOutputStream fos = new FileOutputStream(cacheFile)) {
+                    fos.write(data.getImageData());
+                    fos.flush();
+                }
+
+                if (ShizukuUtils.hasPermission()) {
+                    // Shizuku 环境：直接把合并后的外部缓存绝对路径丢给 AIDL 接口
+                    State.userService.setClipboardData(null, cacheFile.getAbsolutePath());
                 } else {
-                    // 复制图片：先存入本地缓存，再通过 FileProvider 生成 Uri 塞入系统
-                    File cacheFile = new File(context.getCacheDir(), "clip_sync.png");
-                    try (FileOutputStream fos = new FileOutputStream(cacheFile)) {
-                        fos.write(data.getImageData());
-                        fos.flush();
-                    }
-
-                    String authority = context.getPackageName() + ".provider"; // 这样动态获取最稳妥，结果就是 "com.orbit.provider"
+                    // 非 Shizuku 环境：依然走你原有的 FileProvider 逻辑
+                    String authority = context.getPackageName() + ".provider"; // "com.orbit.provider"
                     Uri imageUri = FileProvider.getUriForFile(context, authority, cacheFile);
 
                     ClipData clip = ClipData.newUri(context.getContentResolver(), "image", imageUri);
@@ -74,7 +77,6 @@ public class AndroidClipboardProvider implements ClipboardProvider {
             }
         }));
     }
-
 
     @Override
     public void watch(ClipboardListener listener) throws Exception {

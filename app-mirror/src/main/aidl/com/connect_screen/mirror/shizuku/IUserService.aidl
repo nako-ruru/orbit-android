@@ -27,4 +27,6 @@ interface IUserService {
     boolean startRecordingAudio() = 10;
 
     boolean stopRecordingAudio() = 11;
+
+    void setClipboardData(String text, String imagePath) = 12;
 }
