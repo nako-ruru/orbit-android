@@ -20,6 +20,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -144,7 +145,7 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
         return mountPoints.stream()
                 .map(m -> {
                     DocumentFile doc = DocumentFile.fromTreeUri(context, Uri.parse(m.getUri()));
-                    return Pair.create(String.format("%s@%s", doc.getName(), m.getRootId()), doc);
+                    return Pair.create(m.getRootId(), doc);
                 });
     }
 
@@ -159,11 +160,10 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
 
     private Uri getRootUriByMountName(String mountName) throws JsonProcessingException {
         Set<MountPoint> mountPoints = getMountPoints();
-        String[] parts = mountName.split("@(?=[^@]*$)");
         MountPoint mp = mountPoints.stream()
-                .filter(m -> m.getRootId().equals(parts[1]))
+                .filter(m -> m.getRootId().equals(mountName))
                 .findAny()
-                .orElseThrow();
+                .orElseThrow(() -> new IllegalArgumentException("未找到挂载点: " + mountName));
         return Uri.parse(mp.getUri());
     }
 
@@ -171,7 +171,7 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
         String rootUriStr = prefs.getString("dir_uris", null);
         if(rootUriStr == null || rootUriStr.isBlank()) {
-            throw new RuntimeException();
+            return new HashSet<>();
         }
         Set<MountPoint> mountPoints = new ObjectMapper().readValue(rootUriStr,   new TypeReference<LinkedHashSet<MountPoint>>() {});
         return mountPoints;

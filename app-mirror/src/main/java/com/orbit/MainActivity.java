@@ -30,10 +30,10 @@ import android.webkit.WebViewClient;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.core.content.ContextCompat;
+import androidx.documentfile.provider.DocumentFile;
 import androidx.webkit.WebViewAssetLoader;
 import androidx.webkit.WebViewCompat;
 
-import com.aventrix.jnanoid.jnanoid.NanoIdUtils;
 import com.connect_screen.mirror.MirrorMainActivity;
 import com.connect_screen.mirror.State;
 import com.connect_screen.mirror.TouchpadAccessibilityService;
@@ -62,7 +62,6 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -78,28 +77,28 @@ public class MainActivity extends androidx.activity.ComponentActivity {
 
     private final ActivityResultLauncher<Intent> safLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
         int resultCode = result.getResultCode();
-        if (resultCode == RESULT_OK) {
-            Intent data = result.getData();
-            Uri uri = data.getData();
+        if (resultCode == RESULT_OK && result.getData() != null) {
+            Uri uri = result.getData().getData();
             getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-            String uris = "[]";
             try {
-                uris = prefs.getString("dir_uris", "[]");
-            } catch (RuntimeException e) {
-                Log.e("MainActivity", "asfLauncher", e);
-            }
-            try {
-                Set<MountPoint> mountPoints = new ObjectMapper().readValue(uris,   new TypeReference<LinkedHashSet<MountPoint>>() {});
-                if(!mountPoints.contains(MountPoint.createMount("0", uri.toString()))) {
-                    Set<String> rootIds = mountPoints.stream()
-                            .map(MountPoint::getRootId)
-                            .collect(Collectors.toSet());
-                    String newRootId;
-                    do {
-                        newRootId = NanoIdUtils.randomNanoId(new Random(), "0123456789abcdefghijklmnopqrstuvwxyz".toCharArray(), 6);
-                    } while (rootIds.contains(newRootId));
-                    mountPoints.add(MountPoint.createMount(newRootId, uri.toString()));
+                String uris = prefs.getString("dir_uris", "[]");
+                Set<MountPoint> mountPoints = new ObjectMapper().readValue(uris, new TypeReference<LinkedHashSet<MountPoint>>() {});
+                if (!mountPoints.contains(MountPoint.createMount("0", uri.toString()))) {
+                    // 2. 获取当前文件夹的真实原始名称
+                    DocumentFile doc = DocumentFile.fromTreeUri(this, uri);
+                    String baseName = doc.getName() != null ? doc.getName() : "Folder";
+
+                    // 3. 查重：看看目前已经存了多少个同名或带序号的 Root 了
+                    Set<String> existingIds = mountPoints.stream().map(MountPoint::getRootId).collect(Collectors.toSet());
+                    String uniqueRootId = baseName;
+                    int seq = 1;
+                    while (existingIds.contains(uniqueRootId)) {
+                        uniqueRootId = String.format("%s (%d)", baseName, seq++);
+                    }
+
+                    // 4. 把这个唯一的 "A" 或 "A (1)" 直接当做 rootId 存死
+                    mountPoints.add(MountPoint.createMount(uniqueRootId, uri.toString()));
                     prefs.edit().putString("dir_uris", new ObjectMapper().writeValueAsString(mountPoints)).apply();
                 }
             } catch (IOException e) {

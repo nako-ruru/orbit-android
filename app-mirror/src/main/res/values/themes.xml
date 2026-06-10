@@ -1,14 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 基础应用主题 -->
     <style name="X11Theme" parent="@style/Theme.AppCompat.DayNight.NoActionBar">
         <item name="android:windowActionBar">false</item>
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowTranslucentStatus">true</item>
         <item name="android:windowTranslucentNavigation">true</item>
     </style>
+
     <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
     </style>
-    <!-- 定义一个透明但属于 AppCompat 家族的主题 -->
+
     <style name="Theme.App.Translucent" parent="Theme.AppCompat.Light.NoActionBar">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
@@ -17,16 +18,21 @@
         <item name="android:windowIsFloating">true</item>
         <item name="android:backgroundDimEnabled">false</item>
     </style>
-    <style name="Theme.NotificationExtensionActivity" parent="Theme.AppCompat.Dialog">
-        <!-- 核心：去掉原生 Dialog 的黑边框和暗化背景（不让背景变黑） -->
-        <item name="android:windowBackground">@android:color/transparent</item>
-        <item name="android:windowFrame">@null</item>
-        <item name="android:windowNoTitle">true</item>
-        <item name="android:windowIsFloating">true</item>
-        <item name="android:backgroundDimEnabled">false</item> <!-- 关键：背景不置灰 -->
 
-        <!-- 让它浮在最上层 -->
+    <style name="Theme.NotificationExtensionActivity" parent="Theme.AppCompat.Dialog">
+        <item name="android:windowNoTitle">true</item>
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+
+        <item name="android:windowFrame">@null</item>
+        <item name="android:windowIsFloating">true</item>
+
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+
+        <item name="android:backgroundDimEnabled">false</item>
+
         <item name="android:windowFullscreen">false</item>
         <item name="android:excludeFromRecents">true</item>
     </style>
-</resources> 
+</resources>

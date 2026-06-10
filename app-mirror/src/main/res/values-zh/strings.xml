@@ -1,0 +1,5 @@
+<resources>
+    <string name="orbit_alert_title">🖥️ ORBIT 收到远程控制请求</string>
+    <string name="orbit_alert_desc">如果这不是您本人的操作，请立即点击断开。您也可以点击空白区域忽略此提示，后续可在“活跃会话”面板中随时关闭。</string>
+    <string name="orbit_btn_disconnect">断开</string>
+</resources>

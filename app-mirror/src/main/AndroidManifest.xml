@@ -174,8 +174,8 @@
             android:exported="false"  />
         <activity
             android:name="com.orbit.ProjectionPermissionActivity"
-            android:launchMode="singleTop">
-        </activity>
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.NotificationExtensionActivity" />
     </application>
 
     <queries>

@@ -1,31 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent">
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root_layout" android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@android:color/transparent">
 
-    <!-- 模拟通知栏的实体卡片 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_alignParentTop="true"
         android:layout_margin="12dp"
-        android:background="#DD222222"
+        android:background="#E61A1A1A"
         android:orientation="horizontal"
-        android:padding="16dp"
-        android:elevation="6dp">
+        android:padding="14dp"
+        android:elevation="8dp"
+        android:clickable="true"    android:focusable="true"    android:gravity="center_vertical">
 
-        <TextView
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="🖥️ ORBIT 远程控制中 (安全通道)"
-            android:textColor="#FFFFFF" />
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tv_alert_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/orbit_alert_title"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tv_alert_desc"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/orbit_alert_desc"
+                android:textColor="#CCCCCC"
+                android:textSize="12sp"
+                android:lineSpacingMultiplier="1.1" />
+        </LinearLayout>
 
         <Button
             android:id="@+id/btn_disconnect"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="断开"
-            android:backgroundTint="#FF4444" />
+            android:text="@string/orbit_btn_disconnect"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#FF4444"
+            android:layout_marginStart="14dp"
+            android:layout_gravity="center_vertical"
+            android:textStyle="bold" />
+
     </LinearLayout>
-</RelativeLayout>
+</FrameLayout>

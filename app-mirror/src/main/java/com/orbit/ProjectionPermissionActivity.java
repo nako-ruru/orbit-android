@@ -8,6 +8,9 @@ import android.media.projection.MediaProjectionManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.Window;
 import android.view.WindowManager;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -17,13 +20,52 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.connect_screen.mirror.R;
 import com.connect_screen.mirror.State;
 import com.connect_screen.mirror.SunshineService;
+import com.connect_screen.mirror.job.ExitAll;
 
 public class ProjectionPermissionActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_notification);
 
-        // 1. 立即注册并启动
+        // 1. 强行把原本全屏的窗口砍成顶部悬浮条
+        Window window = getWindow();
+        if (window != null) {
+            // 🚀 【核心新增】：FLAG_WATCH_OUTSIDE_TOUCH
+            // 允许把点击漏给后面的应用（看电影不耽误），同时只要后面被点击了，当前 Activity 就会收到一个 OUTSIDE 信号
+            window.addFlags(
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
+                            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL |
+                            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN |
+                            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
+            );
+
+            window.setGravity(Gravity.TOP);
+            window.setLayout(
+                    WindowManager.LayoutParams.MATCH_PARENT,
+                    WindowManager.LayoutParams.WRAP_CONTENT
+            );
+        }
+
+        // 2. 【核心新增】：点击卡片周围的透明 Margin 区域，直接隐藏提示条
+        View rootLayout = findViewById(R.id.root_layout);
+        if (rootLayout != null) {
+            rootLayout.setOnClickListener(v -> {
+                State.log("用户点击了提示条内部的透明边缘，隐藏悬浮条");
+                finish(); // 只关闭UI，SunshineService 依旧在后台欢快地投屏
+            });
+        }
+
+        // 3. 绑定“断开”按钮（点击此按钮才会真正彻底杀死投屏服务）
+        View btnDisconnect = findViewById(R.id.btn_disconnect);
+        if (btnDisconnect != null) {
+            btnDisconnect.setOnClickListener(v -> {
+                State.log("用户点击断开按钮，彻底释放资源...");
+                ExitAll.execute(this, true);
+            });
+        }
+
+        // 4. 注册并启动权限申请（保持你原有的优秀链路）
         ActivityResultLauncher<Intent> launcher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
@@ -48,51 +90,40 @@ public class ProjectionPermissionActivity extends AppCompatActivity {
                                 public void onStop() {
                                     super.onStop();
                                     State.log("MediaProjection onStop 回调");
+                                    finish();
                                 }
                             }, null);
                             State.resumeJob();
                         }
                     } else {
                         State.log("用户拒绝了投屏权限");
-//                refresh();
                         State.resumeJob();
+                        finish();
                     }
                 }
         );
 
+        // 5. 触发系统投屏授权弹窗
         MediaProjectionManager mm = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
         Intent captureIntent;
-        // 判断是否是 Android 14 (API 34) 及以上版本
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            // 核心点：通过 createConfigForDefaultDisplay() 隐式指定目标为“整个物理屏幕”
             MediaProjectionConfig config = MediaProjectionConfig.createConfigForDefaultDisplay();
-            // 将全屏配置传入
             captureIntent = mm.createScreenCaptureIntent(config);
         } else {
-            // Android 13 及以下：旧版 API 不支持配置，系统默认行为就是全屏
             captureIntent = mm.createScreenCaptureIntent();
         }
         launcher.launch(captureIntent);
-/*
-        setContentView(R.layout.activity_notification);
+    }
 
-        // 关键控制：让这个 Activity 之外的空白区域，允许用户的触摸事件穿透到后面的看电影 App 中
-        getWindow().addFlags(
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
-                        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL |
-                        WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
-        );
-
-        // 把窗口宽度强制拉满，靠顶对齐
-        WindowManager.LayoutParams lp = getWindow().getAttributes();
-        lp.width = WindowManager.LayoutParams.MATCH_PARENT;
-        lp.height = WindowManager.LayoutParams.WRAP_CONTENT;
-        lp.gravity = Gravity.TOP; // 贴在屏幕顶部
-        getWindow().setAttributes(lp);
-
-        // 点断开按钮时，停止投屏，finish
-        findViewById(R.id.btn_disconnect).setOnClickListener(v -> {
-        });
-*/
+    // 🚀 【核心新增】：捕获整个屏幕其它任意“空白区域”的点击
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        // 当用户点击了当前 Activity 物理窗口之外的任何地方（比如下方的桌面或电影）
+        if (event.getAction() == MotionEvent.ACTION_OUTSIDE) {
+            State.log("用户点击了屏幕外部空白区域（忽略操作），隐藏悬浮条");
+            finish(); // 功成身退：只关闭 UI 提示框，后台投屏不受丝毫影响
+            return true;
+        }
+        return super.onTouchEvent(event);
     }
 }
