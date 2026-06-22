@@ -1,0 +1,16 @@
+vars:
+  base_ip: 'guanghe.asia'
+  project: /mnt/project/orbit
+clipboard-signal-url: 'wss://guanghe.asia/ws/clipboard'
+api: https://guanghe.asia
+oauth:
+  issuer: https://auth.logto.guanghe.asia/oidc
+  audience: https://guanghe.asia
+  client-id: dv1i9zpp572c3esabd0qj
+webdav:
+  port: 6710
+  url: http://{{.base_ip}}:5921/webdav
+npc:
+  nps-addr: '83.229.122.196:8024'
+webview:
+  resources: https://guanghe.asia/app/

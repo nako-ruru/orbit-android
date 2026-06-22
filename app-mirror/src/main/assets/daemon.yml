@@ -1,0 +1,11 @@
+vars:
+  base_ip: 'guanghe.asia'
+desktop-signal-url: wss://guanghe.asia/ws/desktop
+api: https://guanghe.asia
+sunshine:
+  config: '/data/user/0/com.connect_screen.mirror/files/sunshine.conf'
+npc:
+  nps-addr: '83.229.122.196:8024'
+session:
+  stream-timeout: 1m
+  heartbeat-timeout: 1m

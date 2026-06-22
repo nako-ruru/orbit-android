@@ -1,0 +1,7 @@
+vars:
+  project: D:\projects\orbital-client
+rclone:
+  path: 'd:\rclone-v1.71.0-windows-amd64\rclone.exe'
+pinyin-path: '{{.project}}/pkg/filetransfer/pinyin.txt'
+webview:
+  external-url: 'https://guanghe.asia/filetransfer/'
