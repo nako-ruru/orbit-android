@@ -98,6 +98,7 @@ public class OrbitApplication  extends Application {
         Aar.registerStreamerProvider(new AndroidStreamerProvider(this));
         Aar.registerDisplayTopologyProvider(new AndroidDisplayTopologyProvider(this));
         Aar.registerClipboardProvider(clipboardProvider = new AndroidClipboardProvider(this));
+        Aar.registerFileLauncherProvider(new AndroidFileLauncherProvider(this));
         startKeepAliveService();
     }
 

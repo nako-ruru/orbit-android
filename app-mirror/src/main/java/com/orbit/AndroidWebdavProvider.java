@@ -8,6 +8,7 @@ import android.net.Uri;
 import android.os.ParcelFileDescriptor;
 import android.preference.PreferenceManager;
 import android.provider.DocumentsContract;
+import android.util.Log;
 import android.util.Pair;
 import android.webkit.MimeTypeMap;
 
@@ -19,6 +20,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -105,9 +107,31 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
 
     @Override
     public void removeAll(String s) throws Exception {
+        // 1. 清洗路径，去掉前后的斜杠和空格。例如："/Download (1)/" -> "Download (1)"
+        String cleanedPath = s.replaceAll("^\\s*/+", "").replaceAll("/+\\s*$", "");
+
+        if (cleanedPath.isBlank()) {
+            throw new IllegalArgumentException("不能删除 WebDAV 根目录本身");
+        }
+
+        // 2. 如果清洗后的路径不包含 '/'，说明用户要删除的就是第一层挂载点！
+        if (!cleanedPath.contains("/")) {
+            // 执行卸载逻辑（从 SharedPreferences 中移除）
+            unmountByRootId(cleanedPath);
+            return;
+        }
+
+        // 3. 如果包含 '/'，说明是深层文件，比如 "/Download/movie.mp4"，走原有的物理删除逻辑
         Uri uri = getRootUri(s);
         DocumentFile file = findDocumentFile(uri, s);
-        file.delete();
+        if (file != null && file.exists()) {
+            boolean success = file.delete();
+            if (!success) {
+                throw new IOException("物理文件删除失败: " + s);
+            }
+        } else {
+            throw new FileNotFoundException("文件不存在: " + s);
+        }
     }
 
     @Override
@@ -175,6 +199,26 @@ public class AndroidWebdavProvider implements FSProvider, WebdavProvider {
         }
         Set<MountPoint> mountPoints = new ObjectMapper().readValue(rootUriStr,   new TypeReference<LinkedHashSet<MountPoint>>() {});
         return mountPoints;
+    }
+
+    // 新增的卸载核心方法
+    private void unmountByRootId(String rootId) throws JsonProcessingException {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
+        String uris = prefs.getString("dir_uris", "[]");
+
+        // 读取现有的挂载点列表
+        Set<MountPoint> mountPoints = new ObjectMapper().readValue(uris, new TypeReference<LinkedHashSet<MountPoint>>() {});
+
+        // 根据 rootId（也就是虚拟目录名，如 "Download (1)"）进行匹配并移除
+        boolean isRemoved = mountPoints.removeIf(m -> m.getRootId().equals(rootId));
+
+        if (isRemoved) {
+            // 写回 SharedPreferences，触发持久化更新
+            prefs.edit().putString("dir_uris", new ObjectMapper().writeValueAsString(mountPoints)).apply();
+            Log.i("WebDAV", "成功卸载目录: " + rootId);
+        } else {
+            throw new IllegalArgumentException("未找到该挂载点，无法卸载: " + rootId);
+        }
     }
 
     private DocumentFile findDocumentFile(Uri rootUri, String path) {

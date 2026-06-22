@@ -8,7 +8,6 @@ import android.media.projection.MediaProjectionManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -31,13 +30,11 @@ public class ProjectionPermissionActivity extends AppCompatActivity {
         // 1. 强行把原本全屏的窗口砍成顶部悬浮条
         Window window = getWindow();
         if (window != null) {
-            // 🚀 【核心新增】：FLAG_WATCH_OUTSIDE_TOUCH
-            // 允许把点击漏给后面的应用（看电影不耽误），同时只要后面被点击了，当前 Activity 就会收到一个 OUTSIDE 信号
+            // 🛡️ 移除 FLAG_WATCH_OUTSIDE_TOUCH。现在用户乱点屏幕别的地方，悬浮条绝对不会被误隐藏！
             window.addFlags(
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
                             WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL |
-                            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN |
-                            WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
+                            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
             );
 
             window.setGravity(Gravity.TOP);
@@ -47,16 +44,25 @@ public class ProjectionPermissionActivity extends AppCompatActivity {
             );
         }
 
-        // 2. 【核心新增】：点击卡片周围的透明 Margin 区域，直接隐藏提示条
+        // 2. 点击卡片自身周围的透明 Margin 区域，允许隐藏（属于有意图的局部点击）
         View rootLayout = findViewById(R.id.root_layout);
         if (rootLayout != null) {
             rootLayout.setOnClickListener(v -> {
-                State.log("用户点击了提示条内部的透明边缘，隐藏悬浮条");
-                finish(); // 只关闭UI，SunshineService 依旧在后台欢快地投屏
+                State.log("用户点击了提示条自身的透明边缘，隐藏悬浮条");
+                finish();
             });
         }
 
-        // 3. 绑定“断开”按钮（点击此按钮才会真正彻底杀死投屏服务）
+        // 3. 【新增】绑定显式的“忽略”按钮
+        View btnIgnore = findViewById(R.id.btn_ignore);
+        if (btnIgnore != null) {
+            btnIgnore.setOnClickListener(v -> {
+                State.log("用户点击了明确的忽略按钮，隐藏悬浮条");
+                finish(); // 仅仅关闭当前通知UI，后台投屏依然在安全运行
+            });
+        }
+
+        // 4. 绑定“断开”按钮（点击此按钮才会真正彻底杀死投屏服务）
         View btnDisconnect = findViewById(R.id.btn_disconnect);
         if (btnDisconnect != null) {
             btnDisconnect.setOnClickListener(v -> {
@@ -65,7 +71,7 @@ public class ProjectionPermissionActivity extends AppCompatActivity {
             });
         }
 
-        // 4. 注册并启动权限申请（保持你原有的优秀链路）
+        // 5. 注册并启动权限申请
         ActivityResultLauncher<Intent> launcher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
@@ -103,7 +109,7 @@ public class ProjectionPermissionActivity extends AppCompatActivity {
                 }
         );
 
-        // 5. 触发系统投屏授权弹窗
+        // 6. 触发系统投屏授权弹窗
         MediaProjectionManager mm = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
         Intent captureIntent;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -113,17 +119,5 @@ public class ProjectionPermissionActivity extends AppCompatActivity {
             captureIntent = mm.createScreenCaptureIntent();
         }
         launcher.launch(captureIntent);
-    }
-
-    // 🚀 【核心新增】：捕获整个屏幕其它任意“空白区域”的点击
-    @Override
-    public boolean onTouchEvent(MotionEvent event) {
-        // 当用户点击了当前 Activity 物理窗口之外的任何地方（比如下方的桌面或电影）
-        if (event.getAction() == MotionEvent.ACTION_OUTSIDE) {
-            State.log("用户点击了屏幕外部空白区域（忽略操作），隐藏悬浮条");
-            finish(); // 功成身退：只关闭 UI 提示框，后台投屏不受丝毫影响
-            return true;
-        }
-        return super.onTouchEvent(event);
     }
 }

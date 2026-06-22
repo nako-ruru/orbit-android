@@ -55,6 +55,3 @@
 * https://github.com/WuDi-ZhanShen/ScreenOff
 * https://blog.csdn.net/liaosongmao1/article/details/136129774
 * https://github.com/keymapperorg/KeyMapper/
-
-
-C:\Users\PC\AppData\Local\Android\Sdk\platform-tools\adb.exe connect 192.168.3.16:39551
