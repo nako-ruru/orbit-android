@@ -234,10 +234,7 @@ public class MainActivity extends androidx.activity.ComponentActivity {
 
         // 2. 拿到 code
         Uri uri = intent.getData();
-        if (uri != null && "myapp".equals(uri.getScheme())) {
-            // 直接调用你的 Provider 静态方法把 code 给 Go
-            AndroidAuthProvider.handleResult(uri);
-        }
+        AndroidAuthProvider.handleResult(uri);
     }
 
     @Override
