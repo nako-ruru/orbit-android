@@ -18,6 +18,16 @@ on:
         description: "是否存为草稿 (Draft)"
         type: boolean
         default: true
+      notify_flag:
+        description: '是否弹窗提示更新 (Notify User)?'
+        required: true
+        default: false
+        type: boolean  # 渲染成复选框
+      force_update_flag:
+        description: '是否强制更新 (Force Update)?'
+        required: true
+        default: false
+        type: boolean  # 渲染成复选框
 
 permissions:
   contents: write
@@ -84,26 +94,23 @@ jobs:
           chmod +x ./script/build-orbit.sh
           ./script/build-orbit.sh
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
       - name: Calculate Version and Strategy
         id: meta
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 将 CI 的 inputs 注入为环境变量供 Python 读取
+          INPUT_NOTIFY: ${{ github.event.inputs.notify_flag }}       # 替换为你实际的 input key
+          INPUT_FORCE: ${{ github.event.inputs.force_update_flag }}  # 替换为你实际的 input key
         run: |
-          # 1. 自动计算本次的 versionCode (基于已有的 v* Tag 最大值 + 1)
+          # 依然保留 git fetch 确保本地环境有 tag 缓存（虽然 gh cli 走的是 API，但留着稳妥）
           git fetch --tags
-          MAX_TAG_NUM=$(git tag -l "v*" | sed 's/v//' | sort -n | tail -n 1 || echo "0")
-          CURRENT_VC=$((MAX_TAG_NUM + 1))
-          
-          # 2. 确定上一个 Tag 作为 AI Diff 的起点
-          LAST_TAG="v$MAX_TAG_NUM"
-          
-          # 3. 从上个 Release Body 继承强制更新断点
-          LAST_BODY=$(gh release view "$LAST_TAG" --json body -q '.body' || echo "")
-          OLD_FORCE=$(echo -e "$LAST_BODY" | grep "lastForceVersionCode=" | cut -d'=' -f2 || echo "0")
-
-          echo "VC=$CURRENT_VC" >> $GITHUB_ENV
-          echo "LAST_TAG=$LAST_TAG" >> $GITHUB_ENV
-          echo "OLD_FORCE=$OLD_FORCE" >> $GITHUB_ENV
+          # 直接运行 Python 脚本
+          python3 ./script/calculate_meta.py
 
       - name: Build Release APK
         run: |
@@ -121,11 +128,6 @@ jobs:
           keyPassword: ${{ secrets.KEY_PASSWORD }}
         env:
           BUILD_TOOLS_VERSION: "34.0.0"
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
 
       - name: Install Python Dependencies
         run: |

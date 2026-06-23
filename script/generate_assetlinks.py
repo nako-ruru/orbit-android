@@ -2,13 +2,24 @@ import os
 import sys
 import subprocess
 import json
+import shutil
 
 # 接收从 GitHub Actions 或命令行传进来的参数
 APK_PATH = sys.argv[1] if len(sys.argv) > 1 else "app/build/outputs/apk/release/app-release.apk"
 OUTPUT_PATH = sys.argv[2] if len(sys.argv) > 2 else "./assetlinks.json"
 
-ANDROID_SDK = os.environ.get("ANDROID_HOME", "d:/Android/Sdk")
-APKANALYZER = "apkanalyzer" if os.name != 'nt' else os.path.join(ANDROID_SDK, "cmdline-tools/latest/bin/apkanalyzer.bat")
+# 1. 动态获取 Android SDK 路径（兼容本地和 GitHub Actions 环境）
+ANDROID_SDK = os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT")
+if not ANDROID_SDK:
+    # 回退默认路径
+    ANDROID_SDK = "d:/Android/Sdk" if os.name == 'nt' else "/usr/local/lib/android/sdk"
+
+# 2. 精准定位 apkanalyzer 绝对路径
+if os.name == 'nt':
+    APKANALYZER = os.path.join(ANDROID_SDK, "cmdline-tools/latest/bin/apkanalyzer.bat")
+else:
+    # Linux 下优先看系统 path 有没有（比如本地配置过），没有就去 SDK 目录里死磕绝对路径
+    APKANALYZER = shutil.who("apkanalyzer") or os.path.join(ANDROID_SDK, "cmdline-tools/latest/bin/apkanalyzer")
 
 def get_apk_info():
     # 1. 动态提取最终 APK 的真实 applicationId
