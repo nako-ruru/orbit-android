@@ -37,13 +37,9 @@ android {
 
         missingDimensionStrategy 'root', 'nonRoot'
 
-        buildConfigField "String", "UPDATE_URL", "\"http://192.168.3.253:8811/repos/nako-ruru/orbit-android/releases/latest\""
+        buildConfigField "String", "UPDATE_URL", "\"https://gh-releases-mirror.guanghe.asia/repos/nako-ruru/orbit-android/releases/latest\""
         // 调用函数自动获取
         versionCode getGitVersionCode()
-
-        manifestPlaceholders = [
-                'appAuthRedirectScheme': 'myapp'
-        ]
     }
 
     buildTypes {

@@ -150,28 +150,6 @@ jobs:
           # 读取 AI 生成的 Markdown 文本
           # 如果文件不存在则提供回退信息
           AI_SUMMARY=$(cat ai_content.md 2>/dev/null || echo "AI 摘要生成失败，请检查脚本输出。")
-
-          # 构造元数据 (隐藏在注释中)
-          METADATA="<!--
-          RELEASE_METADATA_START
-          versionCode=${{ env.VC }}
-          lastNotifyVersionCode=${{ env.VC }}
-          lastForceVersionCode=${{ env.OLD_FORCE }}
-          RELEASE_METADATA_END
-          -->"
-
-          FINAL_BODY="### ✨ AI 自动更新摘要\n$AI_SUMMARY\n\n$METADATA"
-
-          # 拼装参数：处理 draft 和 prerelease 标志
-          PRERELEASE_OPT=""
-          if [ "${{ github.event.inputs.prerelease_flag }}" = "true" ]; then
-            PRERELEASE_OPT="--prerelease"
-          fi
-
-          DRAFT_OPT=""
-          if [ "${{ github.event.inputs.draft_flag }}" = "true" ]; then
-            DRAFT_OPT="--draft"
-          fi
           
           # 1. 获取插件输出的那个尴尬的路径
           RAW_SIGNED_APK="${{ steps.sign_app.outputs.signedReleaseFile }}"
@@ -179,14 +157,57 @@ jobs:
           # 2. 定义一个漂亮的名字
           CLEAN_NAME="orbit_android.apk"
           
-          # 3. 重命名文件
+          # 3. 重inement重命名文件
           mv "$RAW_SIGNED_APK" "./$CLEAN_NAME"
           
-          # 4. 发布这个漂亮名字的文件
+          # =================【 🛠️ 新增：动态生成 AssetLinks 】=================
+          # 从刚刚重命名好的 APK 中现场提取 SHA-256 指纹
+          SHA256_FINGERPRINT=$(keytool -printcert -jarfile "./$CLEAN_NAME" | grep -i sha256 | awk '{print $2}')
+          
+          # =================【 🛠️ 更新：动态生成同时兼容本地与线上的 AssetLinks 】=================
+          # 1. 从刚刚编译重命名好的正式版 APK 中，动态提取生产环境的 SHA-256 指纹
+          SHA256_FINGERPRINT=$(keytool -printcert -jarfile "./$CLEAN_NAME" | grep -i sha256 | awk '{print $2}')
+      
+          # 2. 凭空组装出完整的 assetlinks.json 产物（同时放入生产指纹和你的本地 Debug 指纹）
+          cat <<EOF > ./assetlinks.json
+          [
+            {
+              "relation": ["delegate_permission/common.handle_all_urls"],
+              "target": {
+                "namespace": "android_app",
+                "package_name": "asia.guanghe.orbit.client",
+                "sha256_cert_fingerprints": [
+                  "$SHA256_FINGERPRINT",
+                  "24:E8:2F:19:59:66:A4:32:FC:79:CB:69:78:78:69:B6:05:C3:7E:88:40:91:90:37:A9:4D:E9:63:B3:CE:D3:4C"
+                ]
+              }
+            }
+          ]
+          EOF
+          # ===================================================================================
+          
+          # 构造元数据 (隐藏在注释中，同时把 sha256 捎带进去，极其方便服务器 API 延迟读取)
+          METADATA=""
+          
+          FINAL_BODY="### ✨ AI 自动更新摘要\n$AI_SUMMARY\n\n$METADATA"
+          
+          # 拼装参数：处理 draft 和 prerelease 标志
+          PRERELEASE_OPT=""
+          if [ "${{ github.event.inputs.prerelease_flag }}" = "true" ]; then
+            PRERELEASE_OPT="--prerelease"
+          fi
+          
+          DRAFT_OPT=""
+          if [ "${{ github.event.inputs.draft_flag }}" = "true" ]; then
+            DRAFT_OPT="--draft"
+          fi
+          
+          # 4. 同时发布 APK 和 assetlinks.json 两个资产文件
           gh release create ${{ github.event.inputs.release_tag }} \
             --target ${{ github.event.inputs.source_ref }} \
             --title "Release ${{ github.event.inputs.release_tag }}" \
             --notes "$FINAL_BODY" \
             $DRAFT_OPT \
             $PRERELEASE_OPT \
-            "./$CLEAN_NAME"
+            "./$CLEAN_NAME" \
+            "./assetlinks.json"

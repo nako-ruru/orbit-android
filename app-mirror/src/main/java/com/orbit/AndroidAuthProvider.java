@@ -30,7 +30,7 @@ public class AndroidAuthProvider implements AuthProvider {
 
     @Override
     public String prepareLogin() throws Exception {
-        return "myapp://auth";
+        return "https://guanghe.asia/api/oauth/callback";
     }
 
     // 供 MainActivity 调用的静态方法
