@@ -2,7 +2,7 @@
 # -e: 遇到错误立即停止; -x: 打印执行的命令
 set -ex
 
-ORBIT_VERSION=v0.5.15
+ORBIT_VERSION=v0.5.16
 NPS_VERSION=v0.34.7
 
 JNI_LIBS_DIR="app-mirror/src/main/jniLibs/arm64-v8a"
