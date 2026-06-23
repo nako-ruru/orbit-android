@@ -166,11 +166,6 @@
             android:foregroundServiceType="mediaProjection"
             android:enabled="true"
             android:exported="false" />
-        <service
-            android:name="com.orbit.StreamerService"
-            android:foregroundServiceType="specialUse|dataSync"
-            android:enabled="true"
-            android:exported="false" />
         <service android:name="com.orbit.KeepAliveService"
             android:foregroundServiceType="remoteMessaging"
             android:enabled="true"
