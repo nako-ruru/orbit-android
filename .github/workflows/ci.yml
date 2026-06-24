@@ -111,11 +111,12 @@ jobs:
           git fetch --tags
           # 直接运行 Python 脚本
           python3 ./script/calculate_meta.py
+          echo "VC=${{ github.run_number }}" >> $GITHUB_ENV
 
       - name: Build Release APK
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease -PversionCode=${{ env.VC }} -PversionName=${{ github.event.inputs.release_tag }}
+          ./gradlew assembleRelease -PversionCode=${{ env.VC }} -PversionName=${{ github.event.inputs.release_tag }} --stacktrace
 
       - name: Sign APK
         uses: r0adkll/sign-android-release@v1
