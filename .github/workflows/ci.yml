@@ -115,7 +115,7 @@ jobs:
       - name: Build Release APK
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease -Pvc=${{ env.VC }}
+          ./gradlew assembleRelease -PversionCode=${{ env.VC }} -PversionName=${{ github.event.inputs.release_tag }}
 
       - name: Sign APK
         uses: r0adkll/sign-android-release@v1
