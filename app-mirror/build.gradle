@@ -3,16 +3,6 @@ plugins {
     id 'dev.rikka.tools.refine'
 }
 
-def getGitVersionCode() {
-    // 获取 Git 总提交次数
-    def stdout = new ByteArrayOutputStream()
-    exec {
-        commandLine 'git', 'rev-list', '--count', 'HEAD'
-        standardOutput = stdout
-    }
-    return stdout.toString().trim().toInteger()
-}
-
 android {
     namespace 'com.connect_screen.mirror'
     compileSdk 34
@@ -39,8 +29,8 @@ android {
 
         buildConfigField "String", "UPDATE_URL", "\"https://gh-releases-mirror.guanghe.asia/repos/nako-ruru/orbit-android/releases/latest\""
         // 调用函数自动获取
-        versionCode (project.findProperty("versionCode") ?: "1").toInteger()
-        versionName (project.findProperty("versionName") ?: "dev")
+        versionCode = providers.gradleProperty("versionCode").map { it.toInteger() }.getOrElse(1)
+        versionName = providers.gradleProperty("versionName").getOrElse("dev")
     }
 
     buildTypes {
