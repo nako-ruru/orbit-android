@@ -40,6 +40,7 @@ android {
         buildConfigField "String", "UPDATE_URL", "\"https://gh-releases-mirror.guanghe.asia/repos/nako-ruru/orbit-android/releases/latest\""
         // 调用函数自动获取
         versionCode getGitVersionCode()
+        versionName "v1.0.0"
     }
 
     buildTypes {

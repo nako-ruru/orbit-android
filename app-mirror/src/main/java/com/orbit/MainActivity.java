@@ -7,6 +7,7 @@ import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.net.VpnService;
@@ -197,6 +198,23 @@ public class MainActivity extends androidx.activity.ComponentActivity {
             @android.webkit.JavascriptInterface
             public void openApp(String packageName) {
                 MainActivity.this.openApp(packageName);
+            }
+
+            @android.webkit.JavascriptInterface
+            public String getVersion() throws PackageManager.NameNotFoundException, JSONException {
+                PackageInfo packageInfo =                        getPackageManager().getPackageInfo(getPackageName(), 0);
+
+                long versionCode;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    versionCode = packageInfo.getLongVersionCode();
+                } else {
+                    versionCode = packageInfo.versionCode;
+                }
+
+                JSONObject json = new JSONObject();
+                json.put("versionName", packageInfo.versionName);
+                json.put("versionCode", versionCode);
+                return json.toString();
             }
         }, "_android_bridge");
         String jsInit = getIntent().getStringExtra("JS_INIT");
