@@ -8,7 +8,6 @@ oauth:
   audience: https://guanghe.asia
   client-id: dv1i9zpp572c3esabd0qj
 webdav:
-  port: 6710
   url: http://{{.base_ip}}:5921/webdav
 npc:
   nps-addr: '83.229.122.196:8024'

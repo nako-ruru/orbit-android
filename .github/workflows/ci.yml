@@ -113,6 +113,25 @@ jobs:
           python3 ./script/calculate_meta.py
           echo "VC=${{ github.run_number }}" >> $GITHUB_ENV
 
+      # =================【新增：在编译前注入 Android 资源文件】=================
+      - name: Inject Configs to Android Assets
+        env:
+          ORBIT_YML: ${{ vars.ORBIT_YML }}
+          ORBITD_YML: ${{ vars.ORBITD_YML }}
+          FILETRANSFER_YML: ${{ vars.FILETRANSFER_YML }}
+        run: |
+          ASSETS_DIR="app-mirror/src/main/assets"
+          
+          # 确保 assets 目录存在（防止新项目或空目录未提交到 Git）
+          mkdir -p "$ASSETS_DIR"
+          
+          # 将变量写入对应的配置文件（按照你要求的 daemon.yml 等命名）
+          echo "$ORBITD_YML" > "$ASSETS_DIR/daemon.yml"
+          echo "$ORBIT_YML" > "$ASSETS_DIR/orbit.yml"
+          echo "$FILETRANSFER_YML" > "$ASSETS_DIR/filetransfer.yml"
+
+      # =====================================================================
+
       - name: Build Release APK
         run: |
           chmod +x gradlew

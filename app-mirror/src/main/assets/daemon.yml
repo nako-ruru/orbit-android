@@ -1,5 +1,3 @@
-vars:
-  base_ip: 'guanghe.asia'
 desktop-signal-url: wss://guanghe.asia/ws/desktop
 api: https://guanghe.asia
 sunshine:
