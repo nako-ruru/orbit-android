@@ -33,7 +33,7 @@ public class TransparentProxyActivity extends Activity {
         if (requestCode == 0x66 && resultCode == RESULT_OK) {
             // 3. 用户点了“允许”！
             // 这里可以发一个简单的广播或者直接调用 Go 侧的启动函数
-            Log.d("VPN", "Permission Granted by User");
+            Log.d("Secure", "Permission Granted by User");
         }
         finish(); // 任务完成，自毁
         AndroidTunProvider.future.complete(new Object());

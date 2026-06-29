@@ -10,6 +10,7 @@ oauth:
 webdav:
   url: http://{{.base_ip}}:5921/webdav
 npc:
-  nps-addr: '83.229.122.196:8024'
+  nps-bridge-addr: 'nps-bridge.guanghe.asia:443'
+  nps-bridge-protocol: wss
 webview:
   resources: https://guanghe.asia/app/
