@@ -1,16 +1,13 @@
-vars:
-  base_ip: 'guanghe.asia'
-  project: /mnt/project/orbit
-clipboard-signal-url: 'wss://guanghe.asia/ws/clipboard'
-api: https://guanghe.asia
+clipboard-signal-url: 'wss://guanghe.co/ws/clipboard'
+api: https://guanghe.co
 oauth:
-  issuer: https://auth.logto.guanghe.asia/oidc
-  audience: https://guanghe.asia
+  issuer: https://auth.logto.guanghe.co/oidc
+  audience: https://guanghe.co
   client-id: dv1i9zpp572c3esabd0qj
 webdav:
-  url: http://{{.base_ip}}:5921/webdav
+  url: https://clipboard-webdav.guanghe.co/webdav
 npc:
-  nps-bridge-addr: 'nps-bridge.guanghe.asia:443'
+  nps-bridge-addr: 'nps-bridge.guanghe.co:443'
   nps-bridge-protocol: wss
 webview:
-  resources: https://guanghe.asia/app/
+  resources: https://guanghe.co/app/
