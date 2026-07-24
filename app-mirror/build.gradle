@@ -27,9 +27,9 @@ android {
 
         missingDimensionStrategy 'root', 'nonRoot'
 
-        buildConfigField "String", "UPDATE_URL", "\"https://gh-releases-mirror.guanghe.asia/repos/nako-ruru/orbit-android/releases/latest\""
+        buildConfigField "String", "UPDATE_URL", "\"https://gh-releases-mirror.guanghe.co/repos/nako-ruru/orbit-android/releases/latest\""
         // 调用函数自动获取
-        versionCode = providers.gradleProperty("versionCode").map { it.toInteger() }.getOrElse(1)
+        versionCode = providers.gradleProperty("versionCode").map { it.toInteger() }.getOrElse(1_000_000)
         versionName = providers.gradleProperty("versionName").getOrElse("dev")
     }
 
