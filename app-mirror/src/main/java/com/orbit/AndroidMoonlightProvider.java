@@ -1,6 +1,7 @@
 package com.orbit;
 
 import android.content.Intent;
+import android.util.Log;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -82,12 +83,18 @@ public class AndroidMoonlightProvider implements ViewerProvider {
 
     @Override
     public void pin(String sunshineAddr, String pin, String localIp) throws Exception {
-        NvHTTP httpConn = createNvHTTP(sunshineAddr, localIp);
-        PairingManager pm = httpConn.getPairingManager();
-        pm.pair(httpConn.getServerInfo(true), pin);
-        ComputerDetails computerDetails = httpConn.getComputerDetails(true);
-        computerDetails.serverCert = pm.getPairedCert();
-        new ComputerDatabaseManager(this.context).updateComputer(computerDetails);
+        new Thread(() -> {
+            try {
+                NvHTTP httpConn = createNvHTTP(sunshineAddr, localIp);
+                PairingManager pm = httpConn.getPairingManager();
+                pm.pair(httpConn.getServerInfo(true), pin);
+                ComputerDetails computerDetails = httpConn.getComputerDetails(true);
+                computerDetails.serverCert = pm.getPairedCert();
+                new ComputerDatabaseManager(this.context).updateComputer(computerDetails);
+            } catch (Exception ex) {
+                Log.e("TAG", "pin: ", ex);
+            }
+        }).start();
     }
 
     @Override

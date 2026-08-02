@@ -31,6 +31,9 @@ android {
         // 调用函数自动获取
         versionCode = providers.gradleProperty("versionCode").map { it.toInteger() }.getOrElse(1_000_000)
         versionName = providers.gradleProperty("versionName").getOrElse("dev")
+
+        def resolvedOrbitVersion = project.findProperty('orbitVersion') ?: "v0.0.0-unknown"
+        buildConfigField "String", "ORBIT_VERSION", "\"${resolvedOrbitVersion}\""
     }
 
     buildTypes {

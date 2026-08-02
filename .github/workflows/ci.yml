@@ -10,6 +10,11 @@ on:
       release_tag:
         description: "本次发布的 Tag (如 v10)"
         required: true
+      # 【新增】支持设置 Orbit 内核版本
+      orbit_version:
+        description: "Orbit 内核版本 (指定 tag 如 v0.5.41，或 latest / latest-prerelease)"
+        required: true
+        default: "latest"
       prerelease_flag:
         description: "标记为预发布 (Pre-release)"
         type: boolean
@@ -82,10 +87,30 @@ jobs:
           ndk-version: r25c # 建议根据你的项目需求选择版本
           add-to-path: true
 
-      # 5. 执行构建命令
+      # 【新增】解析 Orbit 真实的 Tag 版本号
+      - name: Resolve Orbit Version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_ORBIT_VER: ${{ github.event.inputs.orbit_version }}
+        run: |
+          TARGET_REPO="nako-ruru/orbit-release"
+          if [ "$INPUT_ORBIT_VER" = "latest" ]; then
+            REAL_VER=$(gh release view --repo "$TARGET_REPO" --json tagName -q .tagName)
+          elif [ "$INPUT_ORBIT_VER" = "latest-prerelease" ]; then
+            REAL_VER=$(gh release list --repo "$TARGET_REPO" --json tagName,isPrerelease -q '.[] | select(.isPrerelease) | .tagName' | head -n1)
+          else
+            REAL_VER="$INPUT_ORBIT_VER"
+          fi
+          
+          echo "Resolved Orbit Version: $REAL_VER"
+          # 写入 GITHUB_ENV 供后续所有 Step 读取
+          echo "RESOLVED_ORBIT_VERSION=$REAL_VER" >> $GITHUB_ENV
+
+      # 执行构建脚本（把 RESOLVED_ORBIT_VERSION 传给 build-orbit.sh）
       - name: Build Components
         env:
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          ORBIT_VERSION: ${{ env.RESOLVED_ORBIT_VERSION }} # 【关键修改】传递给 shell 脚本
         run: |
           chmod +x ./script/build-streamer.sh
           ./script/build-streamer.sh
@@ -132,10 +157,16 @@ jobs:
 
       # =====================================================================
 
+
+      # 【修改】在 Gradle 编译命令中注入 -PorbitVersion
       - name: Build Release APK
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease -PversionCode=${{ env.VC }} -PversionName=${{ github.event.inputs.release_tag }} --stacktrace
+          ./gradlew assembleRelease \
+            -PversionCode=${{ env.VC }} \
+            -PversionName=${{ github.event.inputs.release_tag }} \
+            -PorbitVersion=${{ env.RESOLVED_ORBIT_VERSION }} \
+            --stacktrace
 
       - name: Sign APK
         uses: r0adkll/sign-android-release@v1
@@ -165,14 +196,25 @@ jobs:
             --repo . \
             --output ai_content.md
 
+      # 【新增】自动生成给官网/客户端调用的 version.json 元数据文件
+      - name: Generate Version JSON Metadata
+        run: |
+          cat <<EOF > version.json
+          {
+            "app_version": "${{ github.event.inputs.release_tag }}",
+            "orbit_version": "${{ env.RESOLVED_ORBIT_VERSION }}",
+            "version_code": ${{ env.VC }},
+            "build_time": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')",
+            "download_url": "https://gh-releases-mirror.guanghe.co/${{ github.repository }}/releases/download/${{ github.event.inputs.release_tag }}/orbit_android.apk"
+          }
+          EOF
+
       - name: Create Release Task
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 读取 AI 生成的 Markdown 文本
           AI_SUMMARY=$(cat ai_content.md 2>/dev/null || echo "AI 摘要生成失败，请检查脚本输出。")
           
-          # =================【 🛠️ 修复：对齐 Python 算出来的最新变量 】=================
           METADATA="<!--
           RELEASE_METADATA_START
           versionCode=${{ env.VC }}
@@ -180,11 +222,9 @@ jobs:
           lastForceVersionCode=${{ env.LAST_FORCE_VC }}
           RELEASE_METADATA_END
           -->"
-          # =========================================================================
           
           FINAL_BODY="### ✨ AI 自动更新摘要\n$AI_SUMMARY\n\n$METADATA"
           
-          # 拼装参数：处理 draft 和 prerelease 标志
           PRERELEASE_OPT=""
           if [ "${{ github.event.inputs.prerelease_flag }}" = "true" ]; then
             PRERELEASE_OPT="--prerelease"
@@ -195,19 +235,13 @@ jobs:
             DRAFT_OPT="--draft"
           fi
           
-          # 1. 获取插件输出的物理路径
           RAW_SIGNED_APK="${{ steps.sign_app.outputs.signedReleaseFile }}"
-          
-          # 2. 定义一个漂亮的名字
           CLEAN_NAME="orbit_android.apk"
-          
-          # 3. 重命名文件到当前工作目录
           mv "$RAW_SIGNED_APK" "./$CLEAN_NAME"
           
-          # 4. 运行修复后的 Python 脚本动态生成 assetlinks.json
           python3 ./script/generate_assetlinks.py "./$CLEAN_NAME" "./assetlinks.json"
           
-          # 5. 同时发布 APK 和由 Python 生成的 assetlinks.json 两个资产文件
+          # 【修改】在发布 Release 时，把 version.json 也一起发布上去！
           gh release create ${{ github.event.inputs.release_tag }} \
             --target ${{ github.event.inputs.source_ref }} \
             --title "Release ${{ github.event.inputs.release_tag }}" \
@@ -215,4 +249,5 @@ jobs:
             $DRAFT_OPT \
             $PRERELEASE_OPT \
             "./$CLEAN_NAME" \
-            "./assetlinks.json"
+            "./assetlinks.json" \
+            "./version.json"
