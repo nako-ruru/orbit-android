@@ -44,8 +44,6 @@ public class OrbitApplication  extends Application {
     public void onCreate() {
         Log.i("LIFECYCLE", "OrbitApplication.onCreate");
         super.onCreate();
-
-        String id = "500";
         registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
             @Override
             public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
@@ -106,6 +104,7 @@ public class OrbitApplication  extends Application {
         clipboardProvider.watch0();
 
         List<String> fixedIpList = new ArrayList<>();
+        /*
         Random random = new Random();
         for(int i = 0; i < 256; i++) {
             int v;
@@ -118,11 +117,12 @@ public class OrbitApplication  extends Application {
             String ip = String.format("10.133.%d.%d", i, v);
             fixedIpList.add(ip);
         }
-//        fixedIpList.add("10.249.128.128");
+        */
+        fixedIpList.add("10.126.126.12");
 
         new Thread(ThrowingRunnable.sneaky(() -> {
             String[] fixedIpArray = fixedIpList.toArray(new String[0]);
-            AndroidTunProvider tunProvider = new AndroidTunProvider(context, fixedIpArray);
+            AndroidPrivNetworkProvider tunProvider = new AndroidPrivNetworkProvider(context, fixedIpArray);
             Aar.registerTunProvider(tunProvider);
 
             NanoHTTPD httpd = new NanoHTTPD(59723) {
@@ -161,20 +161,30 @@ public class OrbitApplication  extends Application {
             }
             StreamerService.copyAssetsFolder(context, "streamer/static", writableDir);
             /*
-            Intent intent = new Intent(context, StreamerService.class);
-            context.startForegroundService(intent);
+            new Thread(ThrowingRunnable.sneaky(() -> {
+                String conf = """
+instance_name = "easytier"
+instance_id = "19411df7-3589-4a54-902f-cf7649d008fa"
+ipv4 = "10.126.126.12/24"
+listeners = [
+    "tcp://0.0.0.0:11010",
+    "udp://0.0.0.0:11010",
+    "wss://0.0.0.0:11012",
+    "quic://0.0.0.0:11012",
+]
+
+[network_identity]
+network_name = "easytier"
+
+[[peer]]
+uri = "udp://192.168.3.19:11010"
+
+[flags]
+""";
+                tunProvider.newPrivateNetwork("pb", conf).start();
+            })).start();
              */
         })).start();
-
-        /*
-        new Thread(() -> {
-            try {
-                tunProvider.getTunId();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }).start();
-         */
 
         // 2. 在子线程中启动 Go 逻辑，避免阻塞主线程（UI 线程）
         new Thread(ThrowingRunnable.sneaky(() -> {
