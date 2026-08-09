@@ -24,10 +24,8 @@ public class AndroidPrivNetworkProvider implements PrivateNetworkProvider {
     private final Context context;
     private final String[] fixedIps;
 
-    public static CompletableFuture<Object> future;
-
     public AndroidPrivNetworkProvider(Context context, String[] fixedIps) {
-        Log.i("AndroidTunProvider", "AndroidTunProvider");
+        Log.i("AndroidPrivNetworkProvider", "AndroidPrivNetworkProvider");
         this.context = context.getApplicationContext();
         this.fixedIps = fixedIps;
     }
@@ -45,9 +43,8 @@ class AndroidPrivateNetwork implements PrivateNetwork {
     private final String easytierConf;
     private final String requestId;
 
-    private final Object lock = new Object();
-
-    public static CompletableFuture<Object> future;
+    // 核心：所有 JNI 操作共享同一个进程级别的静态锁！
+    private static final Object JNI_LOCK = new Object();
 
     AndroidPrivateNetwork(Context context, String requestId, String[] fixedIps, String easytierConf) {
         this.context = context;
@@ -58,7 +55,8 @@ class AndroidPrivateNetwork implements PrivateNetwork {
 
     @Override
     public void start() throws Exception {
-        synchronized (lock) {
+        // 1. JNI 启动实例（使用全局静态锁保护 C 底层全局状态）
+        synchronized (JNI_LOCK) {
             int res = EasyTierJNI.runNetworkInstance(easytierConf);
             if (res != 0) {
                 String error = EasyTierJNI.getLastError();
@@ -66,19 +64,18 @@ class AndroidPrivateNetwork implements PrivateNetwork {
             }
         }
 
-        synchronized (lock) {
-            // 1. 检查权限：如果返回不为 null，说明需要用户点击系统确认
-            if (VpnService.prepare(context) != null) {
-                // 激活透明 Activity 呼出系统弹窗
-                Intent intent = new Intent(context, TransparentProxyActivity.class);
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                future = new CompletableFuture<>();
-                context.startActivity(intent);
-                future.get(1, TimeUnit.MINUTES);
+        // 2. 检查并请求 VPN 权限（内部静态同步，无需外部加锁）
+        CompletableFuture<Boolean> vpnFuture = PrivNetworkPermissionManager.requestPermissionIfNeeded(context);
+        if (vpnFuture != null) {
+            // 直接 get()，不再裹一层 try-catch！让 TimeoutException / InterruptedException 直接向上抛
+            Boolean granted = vpnFuture.get(1, TimeUnit.MINUTES);
+            if (!Boolean.TRUE.equals(granted)) {
+                throw new IllegalStateException("用户拒绝了 VPN 权限授权");
             }
         }
 
-        Intent intent = new Intent(context, NebulaService.class);
+        // 3. 启动前台服务
+        Intent intent = new Intent(context, PrivNetworkService.class);
         intent.putExtra("FIXED_IPS", fixedIps);
         intent.putExtra("EASYTIER_CONFIG", easytierConf);
         intent.putExtra("REQUEST_ID", requestId);
@@ -87,68 +84,29 @@ class AndroidPrivateNetwork implements PrivateNetwork {
 
     @Override
     public void terminate() throws Exception {
-        synchronized (lock) {
+        // 停止实例同样走全局静态 JNI 锁
+        synchronized (JNI_LOCK) {
             stopSingleInstance(requestId);
         }
     }
 
-    /**
-     * 停止指定的 EasyTier 网络实例，其他实例保持运行。
-     *
-     * 实现逻辑：
-     * 1. 通过 listInstances 获取当前运行的实例列表
-     * 2. 排除需要停止的 instanceName
-     * 3. 调用 retainNetworkInstance 保留剩余实例
-     * 4. 被排除的实例会被 EasyTier 停止
-     *
-     * @param instanceName 要停止的实例名称
-     * @return 0 表示成功，-1 表示失败
-     */
-    public int stopSingleInstance(String instanceName) throws JsonProcessingException {
-        // 获取当前运行的实例
+    private int stopSingleInstance(String instanceName) throws JsonProcessingException {
+        // 此方法已在 terminate() 的 JNI_LOCK 保护下，确保 list -> retain 过程原子化
         String instancesJson = EasyTierJNI.listInstances(1000);
         if (instancesJson == null || instancesJson.isBlank()) {
             return -1;
         }
 
-        /*
-         * listInstances 返回：
-         *
-         * {
-         *     "instance1": "instance-id-1",
-         *     "instance2": "instance-id-2",
-         *     "instance3": "instance-id-3"
-         * }
-         */
         Map<String, String> instances = new ObjectMapper().readValue(
                 instancesJson,
                 new TypeReference<Map<String, String>>() {}
         );
 
-        // 如果目标实例不存在，直接认为操作失败
         if (!instances.containsKey(instanceName)) {
             return -1;
         }
 
-        /*
-         * 保留除目标实例之外的所有实例。
-         *
-         * 例如：
-         *
-         * 当前：
-         * instance1
-         * instance2
-         * instance3
-         *
-         * stopSingleInstance("instance2")
-         *
-         * 最终：
-         * retainNetworkInstance(["instance1", "instance3"])
-         *
-         * instance2 就会被停止。
-         */
         List<String> instancesToRetain = new ArrayList<>();
-
         for (String name : instances.keySet()) {
             if (!instanceName.equals(name)) {
                 instancesToRetain.add(name);
@@ -158,5 +116,47 @@ class AndroidPrivateNetwork implements PrivateNetwork {
         return EasyTierJNI.retainNetworkInstance(
                 instancesToRetain.toArray(new String[0])
         );
+    }
+}
+
+class PrivNetworkPermissionManager {
+
+    private static final Object LOCK = new Object();
+    private static volatile CompletableFuture<Boolean> activeFuture = null;
+
+    /**
+     * 检查并请求 VPN 权限：
+     * - 如果已经有权限，返回 null，调用方无需等待；
+     * - 如果需要授权且未弹出 Activity，启动 Activity 并返回全新的 Future；
+     * - 如果已经有在等待的授权弹窗，直接复用同一个 Future（多线程 A 共享等 1 个 B）。
+     */
+    public static CompletableFuture<Boolean> requestPermissionIfNeeded(Context context) {
+        // 1. 系统级别检查：如果已经有权限，直接返回 null，不需要启动 Activity
+        if (VpnService.prepare(context) == null) {
+            return null;
+        }
+
+        // 2. 需要授权，加锁确保全局只启动一次 Activity 和创建一个 Future
+        synchronized (LOCK) {
+            if (activeFuture == null || activeFuture.isDone()) {
+                activeFuture = new CompletableFuture<>();
+
+                Intent intent = new Intent(context, TransparentProxyActivity.class);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                context.startActivity(intent);
+            }
+            return activeFuture;
+        }
+    }
+
+    /**
+     * 透明 Activity 在授权结束/销毁时调用，唤醒所有挂在 Future 上的线程
+     */
+    public static void complete(boolean success) {
+        synchronized (LOCK) {
+            if (activeFuture != null && !activeFuture.isDone()) {
+                activeFuture.complete(success);
+            }
+        }
     }
 }

@@ -40,7 +40,7 @@ public class AndroidFileTransferProvider implements FileTransferProvider {
 
         File pinyinTargetFile = new File(context.getFilesDir(), "pinyin.txt");
         if(!pinyinTargetFile.exists()) {
-            StreamerService.copyAssetsFolder(context, "pinyin.txt", pinyinTargetFile);
+            AssetsUtils.copyAssetsFolder(context, "pinyin.txt", pinyinTargetFile);
         }
         rootObj.put("pinyin-path", pinyinTargetFile.getAbsolutePath());
 

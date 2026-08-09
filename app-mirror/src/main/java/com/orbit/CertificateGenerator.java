@@ -13,14 +13,12 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.math.BigInteger;
-import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.security.spec.ECGenParameterSpec;
 import java.util.Date;
 
 

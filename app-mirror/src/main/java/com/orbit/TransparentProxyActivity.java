@@ -11,31 +11,56 @@ import android.util.Log;
  * 拿到结果后立即自毁，不留任何痕迹。
  */
 public class TransparentProxyActivity extends Activity {
+
+    private static final int REQUEST_PN_CODE = 0x66;
+    private boolean isNotified = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // 1. 立即检查系统权限
         Intent intent = VpnService.prepare(this);
         if (intent != null) {
-            // 2. 弹出系统自带的那个【确定/取消】对话框
-            startActivityForResult(intent, 0x66);
+            startActivityForResult(intent, REQUEST_PN_CODE);
         } else {
-            // 已经有权限了，直接关掉
-            finish();
-            AndroidPrivNetworkProvider.future.complete(new Object());
+            // 已经有权限，直接通知成功并关闭
+            notifyResultAndFinish(true);
         }
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == 0x66 && resultCode == RESULT_OK) {
-            // 3. 用户点了“允许”！
-            // 这里可以发一个简单的广播或者直接调用 Go 侧的启动函数
-            Log.d("Secure", "Permission Granted by User");
+        if (requestCode == REQUEST_PN_CODE) {
+            boolean isGranted = (resultCode == RESULT_OK);
+            if (isGranted) {
+                Log.d("Secure", "VPN Permission Granted by User");
+            } else {
+                Log.w("Secure", "VPN Permission Denied by User");
+            }
+            // 准确传递授权结果 (true / false)
+            notifyResultAndFinish(isGranted);
+        } else {
+            notifyResultAndFinish(false);
         }
-        finish(); // 任务完成，自毁
-        AndroidPrivNetworkProvider.future.complete(new Object());
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // 兜底逻辑：如果用户按 Back 键或系统强杀 Activity，确保通知等待方“失败”，防止卡死
+        if (!isNotified) {
+            notifyResultAndFinish(false);
+        }
+    }
+
+    private void notifyResultAndFinish(boolean success) {
+        if (!isNotified) {
+            isNotified = true;
+            PrivNetworkPermissionManager.complete(success);
+        }
+        if (!isFinishing()) {
+            finish();
+        }
     }
 }
