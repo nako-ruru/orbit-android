@@ -29,4 +29,5 @@ local.properties
 /app-mirror/src/main/cpp/.idea
 /app-mirror/src/main/assets/orbit.yml
 /app-mirror/src/main/assets/daemon.yml
+/app-mirror/src/main/assets/filetransfer.yml
 /.kotlin

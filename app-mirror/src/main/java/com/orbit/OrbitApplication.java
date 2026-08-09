@@ -104,9 +104,8 @@ public class OrbitApplication  extends Application {
         clipboardProvider.watch0();
 
         List<String> fixedIpList = new ArrayList<>();
-        /*
         Random random = new Random();
-        for(int i = 0; i < 256; i++) {
+        for(int i = 0; i < 16; i++) {
             int v;
             for (;;) {
                 v = random.nextInt(256);
@@ -117,8 +116,7 @@ public class OrbitApplication  extends Application {
             String ip = String.format("10.133.%d.%d", i, v);
             fixedIpList.add(ip);
         }
-        */
-        fixedIpList.add("10.126.126.12");
+//        fixedIpList.add("10.249.128.128");
 
         new Thread(ThrowingRunnable.sneaky(() -> {
             String[] fixedIpArray = fixedIpList.toArray(new String[0]);
@@ -159,7 +157,7 @@ public class OrbitApplication  extends Application {
             if (writableDir.exists()) {
                 writableDir.delete();
             }
-            StreamerService.copyAssetsFolder(context, "streamer/static", writableDir);
+            AssetsUtils.copyAssetsFolder(context, "streamer/static", writableDir);
             /*
             new Thread(ThrowingRunnable.sneaky(() -> {
                 String conf = """

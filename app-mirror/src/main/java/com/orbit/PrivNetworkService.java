@@ -6,7 +6,7 @@ import android.os.ParcelFileDescriptor;
 
 import com.easytier.jni.EasyTierJNI;
 
-public class NebulaService extends VpnService {
+public class PrivNetworkService extends VpnService {
 
     private ParcelFileDescriptor vpnInterface;
 
