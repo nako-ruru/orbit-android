@@ -2,19 +2,13 @@ package com.orbit;
 
 import android.net.VpnService;
 
-import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.os.Build;
 import android.os.ParcelFileDescriptor;
+
+import com.easytier.jni.EasyTierJNI;
 
 public class NebulaService extends VpnService {
 
-    private static final String CHANNEL_ID = "vpn_service_channel";
-    private static final int NOTIFICATION_ID = 1; // 必须是非 0 整数
-
-    public static ParcelFileDescriptor vpnInterface;
-
+    private ParcelFileDescriptor vpnInterface;
 
     @Override
     public void onCreate() {
@@ -55,36 +49,11 @@ public class NebulaService extends VpnService {
         }
     }
 
-    private Notification createNotification() {
-        Notification notification = new Notification.Builder(this, "VPN_CHANNEL")
-                .setContentTitle("Nebula VPN")
-                .setContentText("VPN 正在运行中...")
-                .setSmallIcon(android.R.drawable.ic_dialog_info)
-                .build();
-        return notification;
-    }
-
-    private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID,
-                    "VPN 服务状态",
-                    NotificationManager.IMPORTANCE_LOW // 建议用 LOW，不会有烦人的提示音
-            );
-            channel.setDescription("用于显示 VPN 隧道运行状态的通知");
-
-            NotificationManager manager = getSystemService(NotificationManager.class);
-            if (manager != null) {
-                manager.createNotificationChannel(channel);
-            }
-        }
-    }
-
     @Override
     public int onStartCommand(android.content.Intent intent, int flags, int startId) {
         try {
             Builder builder = new Builder()
-                    .setSession("DemoVPN")
+                    .setSession("default")
                     .addAllowedApplication("com.orbit")
                     .addAllowedApplication("com.android.shell")
                     .addRoute("fdc8:d0db:a315:cb00::0", 64)
@@ -93,10 +62,17 @@ public class NebulaService extends VpnService {
                 builder = builder.addAddress(address, 24);
             }
             vpnInterface = builder.establish();
-            AndroidTunProvider.future.complete(new Object());
+            int fd = vpnInterface.getFd();
+            String requestId = intent.getStringExtra("REQUEST_ID");
+            new Thread(() -> {
+                int res = EasyTierJNI.setTunFd(requestId, fd);
+                if (res == -1) {
+                    throw new RuntimeException();
+                }
+            }).start();
             return START_STICKY;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
         }
     }
 
