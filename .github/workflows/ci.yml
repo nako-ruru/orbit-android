@@ -64,10 +64,10 @@ jobs:
           fetch-depth: 0
           submodules: recursive  # <--- 必须加上这一行
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '21' # 👈 从 '17' 改为 '21'
           distribution: 'temurin'
           cache: gradle
 
