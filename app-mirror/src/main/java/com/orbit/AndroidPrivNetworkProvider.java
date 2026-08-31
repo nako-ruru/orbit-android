@@ -6,13 +6,7 @@ import android.net.VpnService;
 import android.util.Log;
 
 import com.easytier.jni.EasyTierJNI;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -86,37 +80,14 @@ class AndroidPrivateNetwork implements PrivateNetwork {
     public void terminate() throws Exception {
         // 停止实例同样走全局静态 JNI 锁
         synchronized (JNI_LOCK) {
-            stopSingleInstance(requestId);
-        }
-    }
-
-    private int stopSingleInstance(String instanceName) throws JsonProcessingException {
-        // 此方法已在 terminate() 的 JNI_LOCK 保护下，确保 list -> retain 过程原子化
-        String instancesJson = EasyTierJNI.listInstances(1000);
-        if (instancesJson == null || instancesJson.isBlank()) {
-            return -1;
-        }
-
-        Map<String, String> instances = new ObjectMapper().readValue(
-                instancesJson,
-                new TypeReference<Map<String, String>>() {}
-        );
-
-        if (!instances.containsKey(instanceName)) {
-            return -1;
-        }
-
-        List<String> instancesToRetain = new ArrayList<>();
-        for (String name : instances.keySet()) {
-            if (!instanceName.equals(name)) {
-                instancesToRetain.add(name);
+            int res = EasyTierJNI.deleteSingleInstance(requestId);
+            if (res != 0) {
+                String error = EasyTierJNI.getLastError();
+                throw new RuntimeException("网络实例停止失败: " + error);
             }
         }
-
-        return EasyTierJNI.retainNetworkInstance(
-                instancesToRetain.toArray(new String[0])
-        );
     }
+
 }
 
 class PrivNetworkPermissionManager {

@@ -188,6 +188,7 @@ uri = "udp://192.168.3.19:11010"
         new Thread(ThrowingRunnable.sneaky(() -> {
             Map<String, Object> requireModified = new HashMap<>();
             requireModified.put("vpn.fixed-ips", fixedIpList);
+            requireModified.put("pn.fixed-ips", fixedIpList);
             String nativeLibraryDir = context.getApplicationInfo().nativeLibraryDir;
             requireModified.put("streamer.path", new File(nativeLibraryDir, "libweb-server.so").getAbsoluteFile());
             requireModified.put("streamer.streamer-path", new File(nativeLibraryDir, "libstreamer.so").getAbsoluteFile());

@@ -4,9 +4,8 @@ fun interface ConfigServerEventCallback {
     fun onEvent(eventJson: String)
 }
 
-/** EasyTier JNI 接口类 提供 Android 应用调用 EasyTier 网络功能的接口 */
+/** EasyTier JNI 接口类 提供 Android 应用调用 EasyTier 核心网络功能的接口 */
 object EasyTierJNI {
-
     init {
         // 加载本地库
         System.loadLibrary("easytier_android_jni")
@@ -49,11 +48,11 @@ object EasyTierJNI {
      */
     @JvmStatic
     external fun startConfigServerClient(
-        url: String,
-        hostname: String?,
-        machineId: String,
-        secureMode: Boolean,
-        callback: ConfigServerEventCallback?
+            url: String,
+            hostname: String?,
+            machineId: String,
+            secureMode: Boolean,
+            callback: ConfigServerEventCallback?
     ): Int
 
     /**
@@ -73,6 +72,14 @@ object EasyTierJNI {
      * @throws RuntimeException 当操作失败时抛出异常
      */
     @JvmStatic external fun retainNetworkInstance(instanceNames: Array<String>?): Int
+
+    /**
+     * 删除指定的网络实例，不影响其他实例
+     * @param instanceNames 要删除的实例名称数组，传入 null 或空数组时不做任何操作
+     * @return 0 表示成功，-1 表示失败
+     * @throws RuntimeException 当操作失败时抛出异常
+     */
+    @JvmStatic external fun deleteNetworkInstance(instanceNames: Array<String>?): Int
 
     /**
      * 收集网络信息
@@ -96,13 +103,6 @@ object EasyTierJNI {
      * 不支持 api.manage.WebClientService；实例启动、保留、删除、信息收集请继续使用专用 JNI API。
      * payloadJson 需要包含目标 RPC 所需的 instance selector。
      *
-     * serviceName 必须以 "Service" 结尾，与上游 FFI call_json_rpc 的 match 分支一致：
-     *   api.instance.PeerManageRpcService / ConnectorManageRpcService / VpnPortalRpcService
-     *   / TcpProxyRpcService / AclManageRpcService / PortForwardManageRpcService
-     *   / StatsRpcService / MappedListenerManageRpcService / CredentialManageRpcService
-     *   / PeerCenterManageRpcService
-     *   api.logger.LoggerRpcService / api.config.ConfigRpcService
-     *
      * @param serviceName RPC 服务名，例如 api.instance.PeerManageRpcService
      * @param methodName RPC 方法名，支持 snake_case 或 proto 方法名
      * @param domainName 仅 TcpProxyRpcService 使用；传 null 或空字符串默认 tcp
@@ -112,10 +112,10 @@ object EasyTierJNI {
      */
     @JvmStatic
     external fun callJsonRpc(
-        serviceName: String,
-        methodName: String,
-        domainName: String?,
-        payloadJson: String
+            serviceName: String,
+            methodName: String,
+            domainName: String?,
+            payloadJson: String
     ): String?
 
     /**
@@ -151,5 +151,16 @@ object EasyTierJNI {
     @JvmStatic
     fun retainSingleInstance(instanceName: String): Int {
         return retainNetworkInstance(arrayOf(instanceName))
+    }
+
+    /**
+     * 便利方法：删除单个网络实例，不影响其他实例
+     * @param instanceName 要删除的实例名称
+     * @return 0 表示成功，-1 表示失败
+     * @throws RuntimeException 当操作失败时抛出异常
+     */
+    @JvmStatic
+    fun deleteSingleInstance(instanceName: String): Int {
+        return deleteNetworkInstance(arrayOf(instanceName))
     }
 }
