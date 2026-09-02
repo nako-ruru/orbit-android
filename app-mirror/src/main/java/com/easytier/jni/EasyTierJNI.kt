@@ -48,11 +48,11 @@ object EasyTierJNI {
      */
     @JvmStatic
     external fun startConfigServerClient(
-            url: String,
-            hostname: String?,
-            machineId: String,
-            secureMode: Boolean,
-            callback: ConfigServerEventCallback?
+        url: String,
+        hostname: String?,
+        machineId: String,
+        secureMode: Boolean,
+        callback: ConfigServerEventCallback?
     ): Int
 
     /**
@@ -74,12 +74,12 @@ object EasyTierJNI {
     @JvmStatic external fun retainNetworkInstance(instanceNames: Array<String>?): Int
 
     /**
-     * 删除指定的网络实例，不影响其他实例
-     * @param instanceNames 要删除的实例名称数组，传入 null 或空数组时不做任何操作
+     * 停止指定的网络实例，其他实例不受影响
+     * @param instanceName 要停止的实例名称，不存在时为 no-op
      * @return 0 表示成功，-1 表示失败
      * @throws RuntimeException 当操作失败时抛出异常
      */
-    @JvmStatic external fun deleteNetworkInstance(instanceNames: Array<String>?): Int
+    @JvmStatic external fun deleteNetworkInstance(instanceName: String): Int
 
     /**
      * 收集网络信息
@@ -112,10 +112,10 @@ object EasyTierJNI {
      */
     @JvmStatic
     external fun callJsonRpc(
-            serviceName: String,
-            methodName: String,
-            domainName: String?,
-            payloadJson: String
+        serviceName: String,
+        methodName: String,
+        domainName: String?,
+        payloadJson: String
     ): String?
 
     /**
@@ -151,16 +151,5 @@ object EasyTierJNI {
     @JvmStatic
     fun retainSingleInstance(instanceName: String): Int {
         return retainNetworkInstance(arrayOf(instanceName))
-    }
-
-    /**
-     * 便利方法：删除单个网络实例，不影响其他实例
-     * @param instanceName 要删除的实例名称
-     * @return 0 表示成功，-1 表示失败
-     * @throws RuntimeException 当操作失败时抛出异常
-     */
-    @JvmStatic
-    fun deleteSingleInstance(instanceName: String): Int {
-        return deleteNetworkInstance(arrayOf(instanceName))
     }
 }

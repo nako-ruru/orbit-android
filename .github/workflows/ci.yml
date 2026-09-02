@@ -126,6 +126,8 @@ jobs:
         run: |
           chmod +x ./script/build-streamer.sh
           ./script/build-streamer.sh
+          chmod +x ./script/build-easytier.sh
+          ./script/build-easytier.sh
 
       # =================【2. 构建其他轻量/必跑组件】=================
       - name: Build Rclone & Orbit Components

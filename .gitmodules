@@ -28,3 +28,6 @@
 [submodule "app-mirror/src/main/go/rclone"]
 	path = app-mirror/src/main/go/rclone
 	url = https://github.com/rclone/rclone.git
+[submodule "app-mirror/src/main/rust/easytier"]
+	path = app-mirror/src/main/rust/easytier
+	url = https://github.com/EasyTier/EasyTier.git

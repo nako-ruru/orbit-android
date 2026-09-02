@@ -59,7 +59,7 @@ public class PrivNetworkService extends VpnService {
                     .addRoute("fdc8:d0db:a315:cb00::0", 64)
             ;
             for(String address: intent.getStringArrayExtra("FIXED_IPS")) {
-                builder = builder.addAddress(address, 24);
+                builder = builder.addAddress(address, 8);
             }
             vpnInterface = builder.establish();
             int fd = vpnInterface.getFd();

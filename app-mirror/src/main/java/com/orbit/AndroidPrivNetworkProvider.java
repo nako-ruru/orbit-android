@@ -80,7 +80,7 @@ class AndroidPrivateNetwork implements PrivateNetwork {
     public void terminate() throws Exception {
         // 停止实例同样走全局静态 JNI 锁
         synchronized (JNI_LOCK) {
-            int res = EasyTierJNI.deleteSingleInstance(requestId);
+            int res = EasyTierJNI.deleteNetworkInstance(requestId);
             if (res != 0) {
                 String error = EasyTierJNI.getLastError();
                 throw new RuntimeException("网络实例停止失败: " + error);

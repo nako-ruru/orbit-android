@@ -14,6 +14,7 @@ import androidx.annotation.NonNull;
 
 import com.connect_screen.mirror.job.ExitAll;
 import com.connect_screen.mirror.job.SunshineServer;
+import com.easytier.jni.EasyTierJNI;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -105,6 +106,7 @@ public class OrbitApplication  extends Application {
 
         List<String> fixedIpList = new ArrayList<>();
         Random random = new Random();
+        /*
         for(int i = 0; i < 16; i++) {
             int v;
             for (;;) {
@@ -116,7 +118,8 @@ public class OrbitApplication  extends Application {
             String ip = String.format("10.133.%d.%d", i, v);
             fixedIpList.add(ip);
         }
-//        fixedIpList.add("10.249.128.128");
+        */
+        fixedIpList.add("10.249.128.128");
 
         new Thread(ThrowingRunnable.sneaky(() -> {
             String[] fixedIpArray = fixedIpList.toArray(new String[0]);
@@ -158,30 +161,104 @@ public class OrbitApplication  extends Application {
                 writableDir.delete();
             }
             AssetsUtils.copyAssetsFolder(context, "streamer/static", writableDir);
-            /*
+
             new Thread(ThrowingRunnable.sneaky(() -> {
                 String conf = """
-instance_name = "easytier"
-instance_id = "19411df7-3589-4a54-902f-cf7649d008fa"
-ipv4 = "10.126.126.12/24"
-listeners = [
-    "tcp://0.0.0.0:11010",
-    "udp://0.0.0.0:11010",
-    "wss://0.0.0.0:11012",
-    "quic://0.0.0.0:11012",
-]
+    instance_name = "easytier"
+    instance_id = "19411df7-3589-4a54-902f-cf7649d008fa"
+    ipv4 = "10.249.128.128/24"
+    listeners = [
+        "tcp://0.0.0.0:11010",
+        "udp://0.0.0.0:11010",
+        "wss://0.0.0.0:11012",
+        "quic://0.0.0.0:11012",
+    ]
+    
+    [network_identity]
+    network_name = "abc"
+    
+    [[proxy_network]]
+    cidr = "10.249.128.128"
+    
+    [[peer]]
+    uri = "tcp://83.229.122.196:51010"
+    
+    
+    [flags]
+    
+    [[acl.acl_v1.chains]]
+    name = "Inbound"
+    chain_type = "Inbound"
+    enabled = true
+    default_action = "Drop"
+    
+    [[acl.acl_v1.chains.rules]]
+    priority = 1
+    enabled = true
+    protocol = "ICMP"
+    action = "Allow"
+    
+    [[acl.acl_v1.chains.rules]]
+    enabled = true
+    protocol = "ICMPv6"
+    action = "Allow"
+    """;
+                tunProvider.newPrivateNetwork("easytier", conf).start();
 
-[network_identity]
-network_name = "easytier"
-
-[[peer]]
-uri = "udp://192.168.3.19:11010"
-
-[flags]
-""";
-                tunProvider.newPrivateNetwork("pb", conf).start();
+                boolean allow = false;
+                while (true) {
+                    try {
+                        Thread.sleep(10000);
+                    } catch (InterruptedException e) {
+                        break;
+                    }
+                    String jsonPayload = String.format("""
+                        {
+                          "instance": {
+                            "instance_selector": {
+                              "name": "easytier"
+                            }
+                          },
+                          "patch": {
+                            "acl": {
+                              "acl": {
+                                "acl_v1": {
+                                  "chains": [
+                                    {
+                                      "name": "Inbound",
+                                      "chain_type": 1,
+                                      "enabled": true,
+                                      "default_action": 1,
+                                      "rules": [
+                                        {
+                                          "priority": 1,
+                                          "enabled": true,
+                                          "protocol": 3,
+                                          "action": %d,
+                                          "source_ips": [],
+                                          "destination_ips": [],
+                                          "ports": [],
+                                          "source_ports": []
+                                        }
+                                      ]
+                                    }
+                                  ],
+                                  "group": {
+                                    "declares": [],
+                                    "members": []
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                        """, allow ? 1 : 2);
+                    String resp = EasyTierJNI.callJsonRpc("api.config.ConfigRpcService", "PatchConfig", "", jsonPayload);
+                    Log.i("OrbitApplication", "Dynamic ACL Patch Response: " + resp);
+                    allow = !allow;
+                }
             })).start();
-             */
+
         })).start();
 
         // 2. 在子线程中启动 Go 逻辑，避免阻塞主线程（UI 线程）
