@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Random;
 
 import aar.Aar;
+import aar.PrivNetworkProvider;
 import fi.iki.elonen.NanoHTTPD;
 
 public class OrbitApplication  extends Application {
@@ -104,27 +105,9 @@ public class OrbitApplication  extends Application {
     public static void test(Context context, String id) {
         clipboardProvider.watch0();
 
-        List<String> fixedIpList = new ArrayList<>();
-        Random random = new Random();
-        /*
-        for(int i = 0; i < 16; i++) {
-            int v;
-            for (;;) {
-                v = random.nextInt(256);
-                if (v != 0 && v != 1 && v != 255) {
-                    break;
-                }
-            }
-            String ip = String.format("10.133.%d.%d", i, v);
-            fixedIpList.add(ip);
-        }
-        */
-        fixedIpList.add("10.249.128.128");
-
         new Thread(ThrowingRunnable.sneaky(() -> {
-            String[] fixedIpArray = fixedIpList.toArray(new String[0]);
-            AndroidPrivNetworkProvider tunProvider = new AndroidPrivNetworkProvider(context, fixedIpArray);
-            Aar.registerTunProvider(tunProvider);
+            AndroidPrivNetworkProvider tunProvider = new AndroidPrivNetworkProvider(context);
+            Aar.registerTunProvider(ExceptionProxyUtils.wrapWithStackMessageException(PrivNetworkProvider.class, tunProvider));
 
             NanoHTTPD httpd = new NanoHTTPD(59723) {
                 @Override
@@ -161,111 +144,11 @@ public class OrbitApplication  extends Application {
                 writableDir.delete();
             }
             AssetsUtils.copyAssetsFolder(context, "streamer/static", writableDir);
-
-            new Thread(ThrowingRunnable.sneaky(() -> {
-                String conf = """
-    instance_name = "easytier"
-    instance_id = "19411df7-3589-4a54-902f-cf7649d008fa"
-    ipv4 = "10.249.128.128/24"
-    listeners = [
-        "tcp://0.0.0.0:11010",
-        "udp://0.0.0.0:11010",
-        "wss://0.0.0.0:11012",
-        "quic://0.0.0.0:11012",
-    ]
-    
-    [network_identity]
-    network_name = "abc"
-    
-    [[proxy_network]]
-    cidr = "10.249.128.128"
-    
-    [[peer]]
-    uri = "tcp://83.229.122.196:51010"
-    
-    
-    [flags]
-    
-    [[acl.acl_v1.chains]]
-    name = "Inbound"
-    chain_type = "Inbound"
-    enabled = true
-    default_action = "Drop"
-    
-    [[acl.acl_v1.chains.rules]]
-    priority = 1
-    enabled = true
-    protocol = "ICMP"
-    action = "Allow"
-    
-    [[acl.acl_v1.chains.rules]]
-    enabled = true
-    protocol = "ICMPv6"
-    action = "Allow"
-    """;
-                tunProvider.newPrivateNetwork("easytier", conf).start();
-
-                boolean allow = false;
-                while (true) {
-                    try {
-                        Thread.sleep(10000);
-                    } catch (InterruptedException e) {
-                        break;
-                    }
-                    String jsonPayload = String.format("""
-                        {
-                          "instance": {
-                            "instance_selector": {
-                              "name": "easytier"
-                            }
-                          },
-                          "patch": {
-                            "acl": {
-                              "acl": {
-                                "acl_v1": {
-                                  "chains": [
-                                    {
-                                      "name": "Inbound",
-                                      "chain_type": 1,
-                                      "enabled": true,
-                                      "default_action": 1,
-                                      "rules": [
-                                        {
-                                          "priority": 1,
-                                          "enabled": true,
-                                          "protocol": 3,
-                                          "action": %d,
-                                          "source_ips": [],
-                                          "destination_ips": [],
-                                          "ports": [],
-                                          "source_ports": []
-                                        }
-                                      ]
-                                    }
-                                  ],
-                                  "group": {
-                                    "declares": [],
-                                    "members": []
-                                  }
-                                }
-                              }
-                            }
-                          }
-                        }
-                        """, allow ? 1 : 2);
-                    String resp = EasyTierJNI.callJsonRpc("api.config.ConfigRpcService", "PatchConfig", "", jsonPayload);
-                    Log.i("OrbitApplication", "Dynamic ACL Patch Response: " + resp);
-                    allow = !allow;
-                }
-            })).start();
-
         })).start();
 
         // 2. 在子线程中启动 Go 逻辑，避免阻塞主线程（UI 线程）
         new Thread(ThrowingRunnable.sneaky(() -> {
             Map<String, Object> requireModified = new HashMap<>();
-            requireModified.put("vpn.fixed-ips", fixedIpList);
-            requireModified.put("pn.fixed-ips", fixedIpList);
             String nativeLibraryDir = context.getApplicationInfo().nativeLibraryDir;
             requireModified.put("streamer.path", new File(nativeLibraryDir, "libweb-server.so").getAbsoluteFile());
             requireModified.put("streamer.streamer-path", new File(nativeLibraryDir, "libstreamer.so").getAbsoluteFile());

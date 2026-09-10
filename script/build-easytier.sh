@@ -26,4 +26,10 @@ cargo ndk --platform 26 -t aarch64-linux-android build --release -p easytier-and
 JNI_LIBS_PATH=$BASE_PATH/app-mirror/src/main/jniLibs
 mkdir -p "$JNI_LIBS_PATH/arm64-v8a"
 cp "target/aarch64-linux-android/release/libeasytier_android_jni.so" "$JNI_LIBS_PATH/arm64-v8a/"
-cp "target/aarch64-linux-android/release/libeasytier_ffi.so" "$JNI_LIBS_PATH/arm64-v8a/"
+ cp "target/aarch64-linux-android/release/libeasytier_ffi.so" "$JNI_LIBS_PATH/arm64-v8a/"
+
+# 6. 复制 Kotlin 源码
+KOTLIN_SRC_PATH="$BUILD_PATH/easytier-contrib/easytier-android-jni/kotlin/com/easytier/jni"
+ANDROID_JAVA_PATH="$BASE_PATH/app-mirror/src/main/java/com/easytier/jni"
+mkdir -p "$ANDROID_JAVA_PATH"
+cp "$KOTLIN_SRC_PATH/EasyTierJNI.kt" "$ANDROID_JAVA_PATH/"

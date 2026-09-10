@@ -55,17 +55,26 @@ public class PrivNetworkService extends VpnService {
             Builder builder = new Builder()
                     .setSession("default")
                     .addAllowedApplication("com.orbit")
-                    .addAllowedApplication("com.android.shell")
-                    .addRoute("fdc8:d0db:a315:cb00::0", 64)
-            ;
-            for(String address: intent.getStringArrayExtra("FIXED_IPS")) {
-                builder = builder.addAddress(address, 8);
+                    .addAllowedApplication("com.android.shell");
+
+            for (IpRange ipRange : PRIV_IP_PREFIXES) {
+                builder.addRoute(ipRange.address, ipRange.prefixLength);
+            }
+
+            String[] fixedIps = intent.getStringArrayExtra("FIXED_IPS");
+            if (fixedIps != null) {
+                for (String ip : fixedIps) {
+                    if (ip.contains(":")) {
+                        builder.addAddress(ip, 128);
+                    } else {
+                        builder.addAddress(ip, 32);
+                    }
+                }
             }
             vpnInterface = builder.establish();
             int fd = vpnInterface.getFd();
-            String requestId = intent.getStringExtra("REQUEST_ID");
             new Thread(() -> {
-                int res = EasyTierJNI.setTunFd(requestId, fd);
+                int res = EasyTierJNI.setTunFd("easytier", fd);
                 if (res == -1) {
                     throw new RuntimeException();
                 }
@@ -84,5 +93,24 @@ public class PrivNetworkService extends VpnService {
                 vpnInterface.close();
             }
         } catch (Exception ignored) {}
+    }
+
+    private static final IpRange[] PRIV_IP_PREFIXES = new IpRange[] {
+        new IpRange("10.0.0.0", 8),
+        new IpRange("172.16.0.0", 12),
+//        new IpRange("192.168.0.0", 16),
+        new IpRange("100.64.0.0", 10),
+        new IpRange("198.18.0.0", 15),
+        new IpRange("fc00::", 7),
+    };
+
+    private static class IpRange {
+        public final String address;
+        public final int prefixLength;
+
+        public IpRange(String address, int prefixLength) {
+            this.address = address;
+            this.prefixLength = prefixLength;
+        }
     }
 }
