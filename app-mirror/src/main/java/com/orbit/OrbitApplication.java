@@ -14,7 +14,6 @@ import androidx.annotation.NonNull;
 
 import com.connect_screen.mirror.job.ExitAll;
 import com.connect_screen.mirror.job.SunshineServer;
-import com.easytier.jni.EasyTierJNI;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -26,11 +25,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.ref.Reference;
 import java.lang.ref.WeakReference;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Random;
 
 import aar.Aar;
 import aar.PrivNetworkProvider;
@@ -104,11 +100,9 @@ public class OrbitApplication  extends Application {
 
     public static void test(Context context, String id) {
         clipboardProvider.watch0();
+        Aar.registerTunProvider(ExceptionProxyUtils.wrapWithStackMessageException(PrivNetworkProvider.class, new AndroidPrivNetworkProvider(context)));
 
         new Thread(ThrowingRunnable.sneaky(() -> {
-            AndroidPrivNetworkProvider tunProvider = new AndroidPrivNetworkProvider(context);
-            Aar.registerTunProvider(ExceptionProxyUtils.wrapWithStackMessageException(PrivNetworkProvider.class, tunProvider));
-
             NanoHTTPD httpd = new NanoHTTPD(59723) {
                 @Override
                 public Response serve(IHTTPSession session) {

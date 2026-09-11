@@ -10,9 +10,12 @@ import com.easytier.jni.EasyTierJNI;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.net.InetAddress;
+import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -34,7 +37,7 @@ public class AndroidPrivNetworkProvider implements PrivNetworkProvider {
     }
 
     @Override
-    public PrivNetwork getVpn() throws Exception {
+    public PrivNetwork getPrivNetwork() throws Exception {
         return ExceptionProxyUtils.wrapWithStackMessageException(PrivNetwork.class, new AndroidPrivNetwork(this.context));
     }
 }
@@ -75,16 +78,19 @@ class AndroidPrivNetwork implements PrivNetwork {
         int quicPort = portsArr.getInt(1);
         int wssPort = portsArr.getInt(1); // QUIC 和 WSS 共享端口
 
-        String ipv4Config = !vpnIp.isEmpty() ? String.format("ipv4 = \"%s/26\"", vpnIp) : "";
-        String ipv6Config = !vpnIpv6.isEmpty() ? String.format("ipv6 = \"%s\"", vpnIpv6) : "";
-        String proxyNetworkConfig = !vpnIp.isEmpty() ? String.format("[[proxy_network]]\ncidr = \"%s\"", vpnIp) : "";
+        String ipv4Config = "", ipv6Config = "", proxyNetworkConfig = "";
+        if(!vpnIp.isEmpty()) {
+           ipv4Config = String.format("ipv4 = \"%s/26\"", vpnIp) ;
+           proxyNetworkConfig =  String.format("[[proxy_network]]\ncidr = \"%s\"", vpnIp);
+        }
+        if(!vpnIpv6.isEmpty()) {
+            ipv6Config = String.format("ipv6 = \"%s\"", vpnIpv6);
+        }
 
         String easytierConf = String.format("""
                 instance_name = "easytier"
                 instance_id = "19411df7-3589-4a54-902f-cf7649d008fa"
-                endpoint_protocols = ["tcp", "udp", "quic", "ws", "wss", "faketcp"]
-                
-           
+
                 %s
                 %s
                 listeners = [
@@ -92,10 +98,6 @@ class AndroidPrivNetwork implements PrivNetwork {
                 	   "quic://0.0.0.0:%d",
                 	   "wss://0.0.0.0:%d",
                 ]
-                
-                        
-                            [[peer]]
-                            uri = "tcp://192.168.3.253:41010"
 
                 [network_identity]
                 network_name = "abc"
@@ -233,11 +235,18 @@ class AndroidPrivNetwork implements PrivNetwork {
             JSONObject inst = new JSONObject();
             inst.put("instance_selector", instSel);
 
-            // 2. 添加 Connector 并记录映射 (通过 api.config.ConfigRpcService PatchConfig)
+            // 2. 获取当前配置并合并 Connector 与 ACL Patch 到同一个请求中
+            JSONObject nodePayload = new JSONObject();
+            nodePayload.put("instance", inst);
+            String nodeConfigStr = EasyTierJNI.callJsonRpc("api.config.ConfigRpcService", "GetConfig", "easytier", nodePayload.toString());
+            JSONObject nodeConfig = new JSONObject(nodeConfigStr);
+            JSONObject configObj = nodeConfig.optJSONObject("config");
+            JSONObject currentAcl = configObj != null ? configObj.optJSONObject("acl") : null;
+
             List<String> peerList = new ArrayList<>();
             JSONArray peers = config.optJSONArray("Peers");
+            JSONArray connectorsArr = new JSONArray();
             if (peers != null) {
-                JSONArray connectorsArr = new JSONArray();
                 for (int i = 0; i < peers.length(); i++) {
                     String peer = peers.getString(i);
                     peerList.add(peer);
@@ -246,45 +255,15 @@ class AndroidPrivNetwork implements PrivNetwork {
                     commonUrlObj.put("url", peer);
 
                     JSONObject urlPatchObj = new JSONObject();
-                    urlPatchObj.put("action", 2); // 2 = Add
+                    urlPatchObj.put("action", 0); // 0 = Add
                     urlPatchObj.put("url", commonUrlObj);
                     connectorsArr.put(urlPatchObj);
-                }
-
-                if (connectorsArr.length() > 0) {
-                    JSONObject patchObj = new JSONObject();
-                    patchObj.put("connectors", connectorsArr);
-
-                    JSONObject requestObj = new JSONObject();
-                    requestObj.put("instance", inst);
-                    requestObj.put("patch", patchObj);
-
-                    String res = EasyTierJNI.callJsonRpc("api.config.ConfigRpcService", "PatchConfig", "easytier", requestObj.toString());
-                    Log.i("AndroidPrivNetwork", "PatchConfig Add Connector result: " + res);
                 }
             }
             sessionPeers.put(sessionId, peerList);
 
-            // 复核 Connector 是否添加成功
-            try {
-                JSONObject listReq = new JSONObject();
-                listReq.put("instance", inst);
-                String listRes = EasyTierJNI.callJsonRpc("api.instance.ConnectorManageRpcService", "ListConnector", "easytier", listReq.toString());
-                Log.i("AndroidPrivNetwork", "Verify ListConnector result after createSession: " + listRes);
-            } catch (Exception e) {
-                Log.e("AndroidPrivNetwork", "Failed to verify connectors", e);
-            }
-
-            // 3. 获取当前 ACL 配置以便进行 Patch
-            JSONObject nodePayload = new JSONObject();
-            nodePayload.put("instance", inst);
-            String nodeConfigStr = EasyTierJNI.callJsonRpc("api.config.ConfigRpcService", "GetConfig", "easytier", nodePayload.toString());
-            JSONObject nodeConfig = new JSONObject(nodeConfigStr);
-            JSONObject configObj = nodeConfig.optJSONObject("config");
-            JSONObject currentAcl = configObj != null ? configObj.optJSONObject("acl") : null;
-
-            // 4. 修改 ACL (合并 Session ACL 到现有 ACL 中)
             JSONObject sessionAcl = config.optJSONObject("ACL");
+            JSONObject innerAcl = null;
             if (sessionAcl != null) {
                 if (currentAcl == null) {
                     currentAcl = new JSONObject();
@@ -313,7 +292,7 @@ class AndroidPrivNetwork implements PrivNetwork {
                 aclV1.put("group", group);
                 
                 // Inbound 规则处理
-                if ("Inbound".equals(sessionAcl.optString("Direction"))) {
+                if (sessionAcl.optInt("Direction") == 0) {
                     JSONArray chains = aclV1.optJSONArray("chains");
                     if (chains == null) chains = new JSONArray();
                     
@@ -353,18 +332,42 @@ class AndroidPrivNetwork implements PrivNetwork {
                     aclV1.put("chains", chains);
                 }
                 
-                JSONObject aclPayload = new JSONObject();
-                aclPayload.put("instance", inst);
-                JSONObject patch = new JSONObject();
-                JSONObject patchAcl = new JSONObject();
-                JSONObject innerAcl = new JSONObject();
+                innerAcl = new JSONObject();
                 innerAcl.put("acl_v1", aclV1);
+            }
+
+            // 构建合并后的 Patch 请求
+            JSONObject patchObj = new JSONObject();
+            if (connectorsArr.length() > 0) {
+                patchObj.put("connectors", connectorsArr);
+            }
+            if (innerAcl != null) {
+                JSONObject patchAcl = new JSONObject();
                 patchAcl.put("acl", innerAcl);
-                patch.put("acl", patchAcl);
-                aclPayload.put("patch", patch);
-                
-                String aclRes = EasyTierJNI.callJsonRpc("api.config.ConfigRpcService", "PatchConfig", "easytier", aclPayload.toString());
-                Log.i("AndroidPrivNetwork", "PatchConfig ACL result: " + aclRes);
+                patchObj.put("acl", patchAcl);
+            }
+
+            if (patchObj.length() > 0) {
+                JSONObject requestObj = new JSONObject();
+                requestObj.put("instance", inst);
+                requestObj.put("patch", patchObj);
+
+                String res = EasyTierJNI.callJsonRpc("api.config.ConfigRpcService", "PatchConfig", "easytier", requestObj.toString());
+                Log.i("AndroidPrivNetwork", "PatchConfig Combined (Connectors & ACL) result: " + res);
+            }
+
+            // 复核 Connector 是否添加成功并打印当前 Config 与 peers 映射状态
+            try {
+                JSONObject listReq = new JSONObject();
+                listReq.put("instance", inst);
+                String listRes = EasyTierJNI.callJsonRpc("api.instance.ConnectorManageRpcService", "ListConnector", "easytier", listReq.toString());
+                Log.i("AndroidPrivNetwork", "Verify ListConnector result after createSession: " + listRes);
+
+                String verifyConfigStr = EasyTierJNI.callJsonRpc("api.config.ConfigRpcService", "GetConfig", "easytier", listReq.toString());
+                Log.i("AndroidPrivNetwork", "Verify GetConfig after createSession: " + verifyConfigStr);
+                Log.i("AndroidPrivNetwork", "Current sessionPeers mapping: " + sessionPeers.toString());
+            } catch (Exception e) {
+                Log.e("AndroidPrivNetwork", "Failed to verify connectors or config", e);
             }
         }
     }
@@ -379,40 +382,44 @@ class AndroidPrivNetwork implements PrivNetwork {
             JSONObject inst = new JSONObject();
             inst.put("instance_selector", instSel);
             
-            // 1. 移除 Connector (通过 api.config.ConfigRpcService PatchConfig)
+            // 1. 获取当前配置
+            String nodeConfigStr = EasyTierJNI.callJsonRpc("api.config.ConfigRpcService", "GetConfig", "easytier", new JSONObject().put("instance", inst).toString());
+            JSONObject nodeConfig = new JSONObject(nodeConfigStr);
+            JSONObject configObj = nodeConfig.optJSONObject("config");
+            JSONObject currentAcl = configObj != null ? configObj.optJSONObject("acl") : null;
+            JSONObject aclV1 = currentAcl != null ? currentAcl.optJSONObject("acl_v1") : null;
+            
+            // 2. 准备移除 Connector 数组（仅当 peer 不再被其他任何存活 session 占用时才移除）
             List<String> peers = sessionPeers.remove(sessionId);
+            JSONArray connectorsArr = new JSONArray();
             if (peers != null && !peers.isEmpty()) {
-                JSONArray connectorsArr = new JSONArray();
                 for (String peer : peers) {
-                    JSONObject commonUrlObj = new JSONObject();
-                    commonUrlObj.put("url", peer);
+                    boolean usedByOther = false;
+                    for (List<String> otherPeers : sessionPeers.values()) {
+                        if (otherPeers != null && otherPeers.contains(peer)) {
+                            usedByOther = true;
+                            break;
+                        }
+                    }
 
-                    JSONObject urlPatchObj = new JSONObject();
-                    urlPatchObj.put("action", 3); // 3 = Remove
-                    urlPatchObj.put("url", commonUrlObj);
-                    connectorsArr.put(urlPatchObj);
-                }
+                    if (!usedByOther) {
+                        JSONObject commonUrlObj = new JSONObject();
+                        commonUrlObj.put("url", peer);
 
-                if (connectorsArr.length() > 0) {
-                    JSONObject patchObj = new JSONObject();
-                    patchObj.put("connectors", connectorsArr);
-
-                    JSONObject requestObj = new JSONObject();
-                    requestObj.put("instance", inst);
-                    requestObj.put("patch", patchObj);
-
-                    String res = EasyTierJNI.callJsonRpc("api.config.ConfigRpcService", "PatchConfig", "easytier", requestObj.toString());
-                    Log.i("AndroidPrivNetwork", "PatchConfig Remove Connector result: " + res);
+                        JSONObject urlPatchObj = new JSONObject();
+                        urlPatchObj.put("action", 1); // 1 = Remove
+                        urlPatchObj.put("url", commonUrlObj);
+                        connectorsArr.put(urlPatchObj);
+                        Log.i("AndroidPrivNetwork", "Peer " + peer + " is not used by other sessions, scheduling removal.");
+                    } else {
+                        Log.i("AndroidPrivNetwork", "Peer " + peer + " is still used by other sessions, skipping removal.");
+                    }
                 }
             }
             
-            // 2. 清理 ACL
-            String nodeConfigStr = EasyTierJNI.callJsonRpc("api.config.ConfigRpcService", "GetConfig", "easytier", new JSONObject().put("instance", inst).toString());
-            JSONObject nodeConfig = new JSONObject(nodeConfigStr);
-            JSONObject aclV1 = nodeConfig.optJSONObject("acl").optJSONObject("acl_v1");
-            
+            // 3. 准备清理 ACL
+            JSONObject innerAcl = null;
             if (aclV1 != null) {
-                // 移除 Group 和规则
                 JSONObject group = aclV1.optJSONObject("group");
                 if (group != null) {
                     JSONArray declares = group.optJSONArray("declares");
@@ -436,10 +443,13 @@ class AndroidPrivNetwork implements PrivNetwork {
                         }
                     }
                     group.put("members", newMembers);
+                    
+                    aclV1.put("group", group);
                 }
                 
                 JSONArray chains = aclV1.optJSONArray("chains");
                 if (chains != null) {
+                    JSONArray newChains = new JSONArray();
                     for(int i=0; i<chains.length(); i++) {
                         JSONObject chain = chains.getJSONObject(i);
                         JSONArray rules = chain.optJSONArray("rules");
@@ -461,34 +471,93 @@ class AndroidPrivNetwork implements PrivNetwork {
                             }
                             chain.put("rules", newRules);
                         }
+                        newChains.put(chain);
                     }
+                    aclV1.put("chains", newChains);
                 }
                 
-                JSONObject aclPayload = new JSONObject();
-                aclPayload.put("instance", inst);
-                JSONObject patch = new JSONObject();
+                innerAcl = new JSONObject();
+                innerAcl.put("acl_v1", aclV1);
+            }
+            
+            // 4. 构建合并后的 Patch 请求
+            JSONObject patchObj = new JSONObject();
+            if (connectorsArr.length() > 0) {
+                patchObj.put("connectors", connectorsArr);
+            }
+            if (innerAcl != null) {
                 JSONObject patchAcl = new JSONObject();
-                patchAcl.put("acl_v1", aclV1);
-                patch.put("acl", patchAcl);
-                aclPayload.put("patch", patch);
+                patchAcl.put("acl", innerAcl);
+                patchObj.put("acl", patchAcl);
+            }
+            
+            if (patchObj.length() > 0) {
+                JSONObject requestObj = new JSONObject();
+                requestObj.put("instance", inst);
+                requestObj.put("patch", patchObj);
                 
-                String aclRes = EasyTierJNI.callJsonRpc("api.instance.AclManageRpcService", "SetAcl", "easytier", aclPayload.toString());
-                Log.i("AndroidPrivNetwork", "SetAcl result: " + aclRes);
+                String res = EasyTierJNI.callJsonRpc("api.config.ConfigRpcService", "PatchConfig", "easytier", requestObj.toString());
+                Log.i("AndroidPrivNetwork", "PatchConfig Combined CloseSession (Connectors & ACL) result: " + res);
+            }
+
+            // 5. 复核并打印当前最新配置与 peers 映射状态
+            try {
+                JSONObject verifyReq = new JSONObject();
+                verifyReq.put("instance", inst);
+                String verifyRes = EasyTierJNI.callJsonRpc("api.config.ConfigRpcService", "GetConfig", "easytier", verifyReq.toString());
+                Log.i("AndroidPrivNetwork", "Verify GetConfig result after closeSession: " + verifyRes);
+
+                String listRes = EasyTierJNI.callJsonRpc("api.instance.ConnectorManageRpcService", "ListConnector", "easytier", verifyReq.toString());
+                Log.i("AndroidPrivNetwork", "Verify ListConnector result after closeSession: " + listRes);
+                Log.i("AndroidPrivNetwork", "Current sessionPeers mapping after closeSession: " + sessionPeers.toString());
+            } catch (Exception e) {
+                Log.e("AndroidPrivNetwork", "Failed to verify config after closeSession", e);
             }
         }
     }
 
     private String getLocalIpNetsJson() throws SocketException {
         JSONArray jsonArray = new JSONArray();
-        java.util.Enumeration<NetworkInterface> interfaces = java.net.NetworkInterface                    .getNetworkInterfaces();
+        Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+
+        // 1. 防空检查：部分硬件或极特殊状态下可能返回 null
+        if (interfaces == null) {
+            return jsonArray.toString();
+        }
+
         while (interfaces.hasMoreElements()) {
             NetworkInterface ni = interfaces.nextElement();
-            for (java.net.InterfaceAddress ia : ni.getInterfaceAddresses()) {
-                if (ia.getAddress() instanceof java.net.Inet4Address) {
-                    jsonArray.put(ia.getAddress().getHostAddress() + "/" + ia.getNetworkPrefixLength());
+
+            // 注意：此处不过滤 !ni.isUp() 和 ni.isLoopback()
+            // 确保已被占用或未来可能被激活的网卡网段全量收集
+
+            for (InterfaceAddress ia : ni.getInterfaceAddresses()) {
+                InetAddress addr = ia.getAddress();
+                if (addr == null) {
+                    continue;
+                }
+
+                String hostAddress = addr.getHostAddress();
+                if (hostAddress == null) {
+                    continue;
+                }
+
+                // 2. 剥离 IPv6 链路本地地址带有的 %ScopeID（如 %rmnet_data0、%eth0）
+                // 保证输出标准的 CIDR 格式，便于后端解析或网段碰撞计算
+                int percentPos = hostAddress.indexOf('%');
+                if (percentPos != -1) {
+                    hostAddress = hostAddress.substring(0, percentPos);
+                }
+
+                short prefixLength = ia.getNetworkPrefixLength();
+
+                // 3. 过滤掉前缀长度异常的情况（极少数虚拟网卡会返回负数）
+                if (prefixLength >= 0) {
+                    jsonArray.put(hostAddress + "/" + prefixLength);
                 }
             }
         }
+
         return jsonArray.toString();
     }
 }

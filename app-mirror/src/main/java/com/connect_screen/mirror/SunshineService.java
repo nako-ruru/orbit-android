@@ -123,7 +123,7 @@ public class SunshineService extends Service {
             preventAutoLock();
         }
         // 在后台线程中启动 Sunshine 服务器
-        String sunshineName = "屏易连-" + Build.MANUFACTURER + "-" + Build.MODEL;
+        String sunshineName = Build.MANUFACTURER + "-" + Build.MODEL;
         SunshineServer.setSunshineName(sunshineName);
         probeH265();
 
