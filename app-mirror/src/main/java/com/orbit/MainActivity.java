@@ -298,19 +298,17 @@ public class MainActivity extends androidx.activity.ComponentActivity {
                 .collect(Collectors.joining());
     }
     private static String injectBinding(String name) {
-        String script = String.format("""
-    window.%s =  (...args) => {
-      let res = _android_bridge.callGo('%s', JSON.stringify(args));
+        return String.format("""
+    window.%s = async (...args) => {
+      // 始终通过异步包装，确保 Android 端返回的也是 Promise
+      let res = await Promise.resolve(_android_bridge.callGo('%s', JSON.stringify(args)));
       try {
-                          // 如果是 JSON 字符串，说明是 Object 模式
-                          return JSON.parse(res);
-                      } catch (e) {
-                          // 如果解析失败，说明是性能敏感的 Raw String 模式
-                          return res;
-                      }
+          return JSON.parse(res);
+      } catch (e) {
+          return res;
+      }
     };
     """, name, name);
-        return script;
     }
 
     @Override

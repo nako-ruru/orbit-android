@@ -58,33 +58,27 @@ class AndroidPrivNetwork implements PrivNetwork {
 
     @Override
     public void start() throws Exception {
-        Log.i("AndroidPrivNetwork", "0.0 enter start()");
+        Log.i("AndroidPrivNetwork", "start()");
         
-        Log.i("AndroidPrivNetwork", "1. about to call Aar.selectCandidateIPs");
         String ipsJson = Aar.selectCandidateIPs("", "", getLocalIpNetsJson());
-        Log.i("AndroidPrivNetwork", "1.1 Aar.selectCandidateIPs success, result: " + ipsJson);
 
         JSONObject ipsObj = new JSONObject(ipsJson);
-        String vpnIp = ipsObj.optString("ipv4", "");
-        String vpnIpv6 = ipsObj.optString("ipv6", "");
+        String ipv4 = ipsObj.optString("ipv4", "");
+        String ipv6 = ipsObj.optString("ipv6", "");
 
-        Log.i("AndroidPrivNetwork", "2. about to call Aar.randDualPortsJSON");
         String portsJson = Aar.randDualPortsJSON("40000-60000", 3);
-        Log.i("AndroidPrivNetwork", "2.1 Aar.randDualPortsJSON success, result: " + portsJson);
-
-        Log.i("AndroidPrivNetwork", "2. randDualPortsJSON parsed");
         JSONArray portsArr = new JSONArray(portsJson);
         int udpPort = portsArr.getInt(0);
         int quicPort = portsArr.getInt(1);
         int wssPort = portsArr.getInt(1); // QUIC 和 WSS 共享端口
 
         String ipv4Config = "", ipv6Config = "", proxyNetworkConfig = "";
-        if(!vpnIp.isEmpty()) {
-           ipv4Config = String.format("ipv4 = \"%s/26\"", vpnIp) ;
-           proxyNetworkConfig =  String.format("[[proxy_network]]\ncidr = \"%s\"", vpnIp);
+        if(!ipv4.isEmpty()) {
+           ipv4Config = String.format("ipv4 = \"%s/26\"", ipv4) ;
+           proxyNetworkConfig =  String.format("[[proxy_network]]\ncidr = \"%s\"", ipv4);
         }
-        if(!vpnIpv6.isEmpty()) {
-            ipv6Config = String.format("ipv6 = \"%s\"", vpnIpv6);
+        if(!ipv6.isEmpty()) {
+//            ipv6Config = String.format("ipv6 = \"%s\"", ipv6);
         }
 
         String easytierConf = String.format("""
@@ -115,39 +109,33 @@ class AndroidPrivNetwork implements PrivNetwork {
         );
 
         // 1. JNI 启动实例（使用全局静态锁保护 C 底层全局状态）
-        Log.i("AndroidPrivNetwork", "3. running EasyTier network instance: " + easytierConf);
         synchronized (JNI_LOCK) {
             int res = EasyTierJNI.runNetworkInstance(easytierConf);
             if (res != 0) {
                 String error = EasyTierJNI.getLastError();
-                Log.e("AndroidPrivNetwork", "Network instance start failed: " + error);
+                Log.e("AndroidPrivNetwork", "Network instance start failed");
                 throw new RuntimeException("网络实例启动失败: " + error);
             }
         }
-        Log.i("AndroidPrivNetwork", "4. EasyTier network instance started successfully");
 
-        // 2. 检查并请求 VPN 权限
-        Log.i("AndroidPrivNetwork", "5. requesting VPN permission if needed");
-        CompletableFuture<Boolean> vpnFuture = PrivNetworkPermissionManager.requestPermissionIfNeeded(context);
-        if (vpnFuture != null) {
-            Boolean granted = vpnFuture.get(1, TimeUnit.MINUTES);
+        // 2. 检查并请求权限
+        CompletableFuture<Boolean> permFuture = PrivNetworkPermissionManager.requestPermissionIfNeeded(context);
+        if (permFuture != null) {
+            Boolean granted = permFuture.get(1, TimeUnit.MINUTES);
             if (!Boolean.TRUE.equals(granted)) {
-                Log.e("AndroidPrivNetwork", "VPN permission denied by user");
-                throw new IllegalStateException("用户拒绝了 VPN 权限授权");
+                Log.e("AndroidPrivNetwork", "Permission denied");
+                throw new IllegalStateException("用户拒绝了权限授权");
             }
         }
-        Log.i("AndroidPrivNetwork", "6. VPN permission granted");
 
         // 3. 启动前台服务
-        Log.i("AndroidPrivNetwork", "7. starting foreground service PrivNetworkService");
         Intent intent = new Intent(context, PrivNetworkService.class);
         List<String> ips = new ArrayList<>();
-        if (!vpnIp.isEmpty()) ips.add(vpnIp);
-        if (!vpnIpv6.isEmpty()) ips.add(vpnIpv6);
+        if (!ipv4.isEmpty()) ips.add(ipv4);
+        if (!ipv6.isEmpty()) ips.add(ipv6);
         String[] fixedIps = ips.toArray(new String[0]);
         intent.putExtra("FIXED_IPS", fixedIps);
         context.startForegroundService(intent);
-        Log.i("AndroidPrivNetwork", "8. start() completed successfully");
     }
 
     @Override
@@ -375,8 +363,6 @@ class AndroidPrivNetwork implements PrivNetwork {
     @Override
     public void closeSession(String sessionId) throws Exception {
         synchronized (JNI_LOCK) {
-            Log.i("AndroidPrivNetwork", "closeSession: " + sessionId);
-            
             JSONObject instSel = new JSONObject();
             instSel.put("name", "easytier");
             JSONObject inst = new JSONObject();
@@ -410,9 +396,6 @@ class AndroidPrivNetwork implements PrivNetwork {
                         urlPatchObj.put("action", 1); // 1 = Remove
                         urlPatchObj.put("url", commonUrlObj);
                         connectorsArr.put(urlPatchObj);
-                        Log.i("AndroidPrivNetwork", "Peer " + peer + " is not used by other sessions, scheduling removal.");
-                    } else {
-                        Log.i("AndroidPrivNetwork", "Peer " + peer + " is still used by other sessions, skipping removal.");
                     }
                 }
             }
@@ -567,11 +550,19 @@ class PrivNetworkPermissionManager {
     private static final Object LOCK = new Object();
     private static volatile CompletableFuture<Boolean> activeFuture = null;
 
+    /**
+     * 检查并请求权限：
+     * - 如果已经有权限，返回 null，调用方无需等待；
+     * - 如果需要授权且未弹出 Activity，启动 Activity 并返回全新的 Future；
+     * - 如果已经有在等待的授权弹窗，直接复用同一个 Future（多线程 A 共享等 1 个 B）。
+     */
     public static CompletableFuture<Boolean> requestPermissionIfNeeded(Context context) {
+        // 1. 系统级别检查：如果已经有权限，直接返回 null，不需要启动 Activity
         if (VpnService.prepare(context) == null) {
             return null;
         }
 
+        // 2. 需要授权，加锁确保全局只启动一次 Activity 和创建一个 Future
         synchronized (LOCK) {
             if (activeFuture == null || activeFuture.isDone()) {
                 activeFuture = new CompletableFuture<>();
@@ -584,6 +575,9 @@ class PrivNetworkPermissionManager {
         }
     }
 
+    /**
+     * 透明 Activity 在授权结束/销毁时调用，唤醒所有挂在 Future 上的线程
+     */
     public static void complete(boolean success) {
         synchronized (LOCK) {
             if (activeFuture != null && !activeFuture.isDone()) {

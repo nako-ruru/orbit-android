@@ -2,8 +2,8 @@
 # -e: 遇到错误立即停止; -x: 打印执行的命令
 set -ex
 
-# 【修改】优先使用环境变量中的 ORBIT_VERSION，如果未设置则兜底使用 v0.5.41
-ORBIT_VERSION="${ORBIT_VERSION:-v0.5.41}"
+# 【修改】优先使用环境变量中的 ORBIT_VERSION，如果未设置则兜底使用 v0.6.1
+ORBIT_VERSION="${ORBIT_VERSION:-v0.6.1}"
 NPS_VERSION=v0.34.7
 
 echo "Using Orbit Version: ${ORBIT_VERSION}"
