@@ -20,6 +20,24 @@ tar -cC "$SOURCE_PATH" --exclude='target' --exclude='.git' . | tar -xC "$BUILD_P
 # 4. 进场构建
 cd "$BUILD_PATH" || exit
 
+# rust-toolchain.toml 锁定工具链且未声明 android target，需在此补装
+# （该目录含拷贝过来的 rust-toolchain.toml，rustup 会装给锁定的版本）
+rustup target add aarch64-linux-android
+command -v cargo-ndk >/dev/null || cargo install cargo-ndk
+
+# easytier-proto 的 build script (prost-wkt-types) 需要 protoc
+# 版本从上游 CI 配置里解析（.github/actions/prepare-build/action.yml 的 setup-protoc），解析失败则回退 35.1
+PROTOC_VERSION=$(sed -n "s/^ *version: '\([0-9.]*\)'/\1/p" .github/actions/prepare-build/action.yml 2>/dev/null | head -n1)
+PROTOC_VERSION="${PROTOC_VERSION:-35.1}"
+PROTOC_HOME="$HOME/.local/protoc-$PROTOC_VERSION"
+if [ ! -x "$PROTOC_HOME/bin/protoc" ]; then
+  curl -sL "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip" -o /tmp/protoc.zip
+  mkdir -p "$PROTOC_HOME"
+  unzip -qo /tmp/protoc.zip -d "$PROTOC_HOME"
+fi
+export PATH="$PROTOC_HOME/bin:$PATH"
+export PROTOC="$PROTOC_HOME/bin/protoc"
+
 cargo ndk --platform 26 -t aarch64-linux-android build --release -p easytier-android-jni -p easytier-ffi || { echo "Cargo build failed"; exit 1; }
 
 # 5. 使用绝对路径拷回产物

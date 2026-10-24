@@ -24,6 +24,19 @@ tar -cC "$SOURCE_PATH" --exclude='node_modules' --exclude='target' --exclude='di
 # 4. 进场构建
 cd "$BUILD_PATH" || exit
 
+# rust-toolchain.toml 锁定工具链且未声明 android target，需在此补装
+# （该目录含拷贝过来的 rust-toolchain.toml，rustup 会装给锁定的版本）
+rustup target add aarch64-linux-android
+command -v cargo-ndk >/dev/null || cargo install cargo-ndk
+
+# ubrn 要求 wasm-bindgen CLI 与 Cargo.wasm.toml 里锁的版本严格一致
+WASM_BINDGEN_VER=$(sed -n 's/^wasm-bindgen = "=\([0-9.]*\)".*/\1/p' Cargo.wasm.toml)
+if [ -n "$WASM_BINDGEN_VER" ]; then
+  if ! command -v wasm-bindgen >/dev/null || ! wasm-bindgen --version | grep -q "$WASM_BINDGEN_VER"; then
+    cargo install wasm-bindgen-cli --version "$WASM_BINDGEN_VER"
+  fi
+fi
+
 # 4. 进场构建
 cargo ndk --platform 33 -t aarch64-linux-android build --release || { echo "Cargo build failed"; exit 1; }
 npm install && npm run build || { echo "NPM build failed"; exit 1; }
