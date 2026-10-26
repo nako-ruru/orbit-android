@@ -105,7 +105,6 @@ jobs:
           # 需要缓存的最终产物路径
           path: |
             app-mirror/src/main/jniLibs/arm64-v8a/libweb-server.so
-            app-mirror/src/main/jniLibs/arm64-v8a/libstreamer.so
             app-mirror/src/main/assets/streamer/static
           # 只要 moonlight-web-stream 源码目录下的任何文件变了，Hash 就会变，从而重新编译
           key: streamer-${{ runner.os }}-${{ hashFiles('app-mirror/src/main/rust/moonlight-web-stream/**') }}

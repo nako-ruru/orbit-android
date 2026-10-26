@@ -145,7 +145,6 @@ public class OrbitApplication  extends Application {
             Map<String, Object> requireModified = new HashMap<>();
             String nativeLibraryDir = context.getApplicationInfo().nativeLibraryDir;
             requireModified.put("streamer.path", new File(nativeLibraryDir, "libweb-server.so").getAbsoluteFile());
-            requireModified.put("streamer.streamer-path", new File(nativeLibraryDir, "libstreamer.so").getAbsoluteFile());
             requireModified.put("streamer.workspace", new File(context.getFilesDir(), "streamer").getAbsoluteFile());
             requireModified.put("npc.path", new File(nativeLibraryDir, "libnpc.so").getAbsoluteFile());
             // 读取配置文件

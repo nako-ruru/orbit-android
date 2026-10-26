@@ -42,10 +42,10 @@ cargo ndk --platform 33 -t aarch64-linux-android build --release || { echo "Carg
 npm install && npm run build || { echo "NPM build failed"; exit 1; }
 
 # 5. 使用绝对路径拷回产物，完全不用担心上下文丢失
+# 上游 v3 起只产出 web-server 一个 binary（streamer 已合并/移除）
 JNI_LIBS_PATH=$BASE_PATH/app-mirror/src/main/jniLibs
-mkdir -p "$JNI_LIBS_PATH"
+mkdir -p "$JNI_LIBS_PATH/arm64-v8a"
 cp "target/aarch64-linux-android/release/web-server" "$JNI_LIBS_PATH/arm64-v8a/libweb-server.so"
-cp "target/aarch64-linux-android/release/streamer" "$JNI_LIBS_PATH/arm64-v8a/libstreamer.so"
 ASSETS_PATH=$BASE_PATH/app-mirror/src/main/assets
 mkdir -p "$ASSETS_PATH/streamer/static"
 tar -cf - -C dist . | tar -xf - -C "$ASSETS_PATH/streamer/static"
