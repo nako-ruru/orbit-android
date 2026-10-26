@@ -27,11 +27,11 @@ command -v cargo-ndk >/dev/null || cargo install cargo-ndk
 
 # easytier-proto 的 build script (prost-wkt-types) 需要 protoc
 # 版本从上游 CI 配置里解析（.github/actions/prepare-build/action.yml 的 setup-protoc），解析失败则回退 35.1
-PROTOC_VERSION=$(sed -n "s/^ *version: '\([0-9.]*\)'/\1/p" .github/actions/prepare-build/action.yml 2>/dev/null | head -n1)
+PROTOC_VERSION=$(sed -n "s/^ *version: '\([0-9.]*\)'.*/\1/p" .github/actions/prepare-build/action.yml 2>/dev/null | tr -d '\r' | head -n1)
 PROTOC_VERSION="${PROTOC_VERSION:-35.1}"
 PROTOC_HOME="$HOME/.local/protoc-$PROTOC_VERSION"
 if [ ! -x "$PROTOC_HOME/bin/protoc" ]; then
-  curl -sL "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip" -o /tmp/protoc.zip
+  curl -fsSL "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip" -o /tmp/protoc.zip || { echo "Failed to download protoc ${PROTOC_VERSION}"; exit 1; }
   mkdir -p "$PROTOC_HOME"
   unzip -qo /tmp/protoc.zip -d "$PROTOC_HOME"
 fi
