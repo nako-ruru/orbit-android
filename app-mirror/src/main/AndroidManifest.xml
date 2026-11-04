@@ -37,7 +37,6 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme"
         tools:replace="android:icon,android:label"
-        android:extractNativeLibs="true"
         >
 
         <activity

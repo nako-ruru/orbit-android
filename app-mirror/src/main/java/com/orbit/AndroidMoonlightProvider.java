@@ -9,8 +9,6 @@ import androidx.activity.result.contract.ActivityResultContracts;
 
 import aar.Aar;
 import aar.ViewerProvider;
-import okhttp3.HttpUrl;
-import okhttp3.OkHttpClient;
 
 import com.limelight.Game;
 import com.limelight.binding.PlatformBinding;
@@ -21,14 +19,10 @@ import com.limelight.nvstream.http.*;
 import com.limelight.utils.ServerHelper;
 
 import java.io.IOException;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.net.InetAddress;
+import java.security.cert.X509Certificate;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import javax.net.SocketFactory;
 
 public class AndroidMoonlightProvider implements ViewerProvider {
 
@@ -39,7 +33,6 @@ public class AndroidMoonlightProvider implements ViewerProvider {
     public AndroidMoonlightProvider(MainActivity context) {
         this.context = context;
 
-        // 2. 注册回调逻辑
         mStartSettingsLauncher = context.registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
@@ -50,14 +43,16 @@ public class AndroidMoonlightProvider implements ViewerProvider {
 
     @Override
     public void connectRemote(String sunshineAddr, String localIp) throws Exception {
+        // 不再支持多本地 IP 绑定：统一使用系统默认路由
         ComputerDetails.AddressTuple addressTuple = createAddressTuple(sunshineAddr);
-        NvHTTP httpConn = createNvHTTP(addressTuple, localIp);
+        NvHTTP httpConn = createNvHTTP(addressTuple);
         NvApp app = httpConn.getAppByName("Desktop");
         ComputerDetails computer = httpConn.getComputerDetails(true);
-        ComputerDetails persistent = new ComputerDatabaseManager(context).getComputerByUUID(computer.uuid);
-        computer.serverCert = persistent.serverCert;
+        if (computer.serverCert == null) {
+            computer.serverCert = findServerCert(addressTuple.address);
+        }
         computer.activeAddress = addressTuple;
-        doStart(app, computer, localIp);
+        doStart(app, computer);
     }
 
     @Override
@@ -77,19 +72,24 @@ public class AndroidMoonlightProvider implements ViewerProvider {
 
     @Override
     public boolean paired(String sunshineAddr, String localIp) throws Exception {
-        NvHTTP httpConn = createNvHTTP(sunshineAddr, localIp);
-        return paired(httpConn);
+        // 使用月光自带的 getPairState()，内部会根据是否已有固定证书选择 HTTPS/HTTP
+        NvHTTP httpConn = createNvHTTP(sunshineAddr);
+        return httpConn.getPairState() == PairingManager.PairState.PAIRED;
     }
 
     @Override
     public void pin(String sunshineAddr, String pin, String localIp) throws Exception {
         new Thread(() -> {
             try {
-                NvHTTP httpConn = createNvHTTP(sunshineAddr, localIp);
+                ComputerDetails.AddressTuple addressTuple = createAddressTuple(sunshineAddr);
+                NvHTTP httpConn = createNvHTTP(addressTuple);
                 PairingManager pm = httpConn.getPairingManager();
                 pm.pair(httpConn.getServerInfo(true), pin);
                 ComputerDetails computerDetails = httpConn.getComputerDetails(true);
                 computerDetails.serverCert = pm.getPairedCert();
+                // 数据库不保存 activeAddress，把本次连接地址写进 manualAddress，
+                // 下次 paired() 才能按地址找回这台主机的证书。
+                computerDetails.manualAddress = addressTuple;
                 new ComputerDatabaseManager(this.context).updateComputer(computerDetails);
             } catch (Exception ex) {
                 Log.e("TAG", "pin: ", ex);
@@ -105,13 +105,55 @@ public class AndroidMoonlightProvider implements ViewerProvider {
     public void terminatePin() throws Exception {
     }
 
-    private NvHTTP createNvHTTP(String sunshineAddr, String localIp) throws IOException {
-        return createNvHTTP(createAddressTuple(sunshineAddr), localIp);
+    private NvHTTP createNvHTTP(String sunshineAddr) throws IOException {
+        return createNvHTTP(createAddressTuple(sunshineAddr));
     }
 
-    private NvHTTP createNvHTTP(ComputerDetails.AddressTuple addressTuple, String localIp) throws IOException {
-        SocketFactory socketFactory = new BoundSocketFactory(InetAddress.getByName(localIp));
-        return new NvHTTP(addressTuple, addressTuple.port - 5, "ignored", null, PlatformBinding.getCryptoProvider(context), socketFactory);
+    private NvHTTP createNvHTTP(ComputerDetails.AddressTuple addressTuple) throws IOException {
+        // 不绑定本地 IP，使用默认路由。
+        // 带上此前配对保存的服务器证书，HTTPS 才会按固定证书校验。
+        return new NvHTTP(addressTuple, addressTuple.port - 5, "ignored",
+                findServerCert(addressTuple.address), PlatformBinding.getCryptoProvider(context));
+    }
+
+    /**
+     * 查找这台主机已配对保存的服务器证书。
+     * 数据库里不保存 activeAddress，所以这里把所有地址字段都比对一遍。
+     */
+    private X509Certificate findServerCert(String ip) {
+        try {
+            List<ComputerDetails> computers = new ComputerDatabaseManager(context).getAllComputers();
+            X509Certificate onlyCert = null;
+            int certCount = 0;
+
+            for (ComputerDetails computer : computers) {
+                if (computer.serverCert == null) {
+                    continue;
+                }
+                certCount++;
+                onlyCert = computer.serverCert;
+                ComputerDetails.AddressTuple[] tuples = new ComputerDetails.AddressTuple[]{
+                        computer.activeAddress,
+                        computer.localAddress,
+                        computer.remoteAddress,
+                        computer.manualAddress,
+                        computer.ipv6Address,
+                };
+                for (ComputerDetails.AddressTuple tuple : tuples) {
+                    if (tuple != null && ip.equals(tuple.address)) {
+                        return computer.serverCert;
+                    }
+                }
+            }
+
+            // 单机场景回退：证书只可能属于这一台主机（校验失败会自动走重新配对）
+            if (certCount == 1) {
+                return onlyCert;
+            }
+        } catch (Exception e) {
+            Log.e("TAG", "findServerCert: ", e);
+        }
+        return null;
     }
 
     private ComputerDetails.AddressTuple createAddressTuple(String addr) {
@@ -129,7 +171,7 @@ public class AndroidMoonlightProvider implements ViewerProvider {
         return addressTuple;
     }
 
-    private void doStart(NvApp app, ComputerDetails computer, String srcIP) {
+    private void doStart(NvApp app, ComputerDetails computer) {
         Game.listener = new NvConnectionListenerAdapter() {
             @Override
             public void connectionStarted() {
@@ -144,34 +186,15 @@ public class AndroidMoonlightProvider implements ViewerProvider {
                 return managerBinder.getUniqueId();
             }
         };
-        doStart(app, computer, srcIP, mockBinder);
+        doStart(app, computer, mockBinder);
     }
 
-    private boolean paired(NvHTTP httpConn) throws NoSuchFieldException, IllegalAccessException, NoSuchMethodException, IOException, InvocationTargetException {
-        Field httpClientShortConnectTimeout = NvHTTP.class.getDeclaredField("httpClientShortConnectTimeout");
-        if(!httpClientShortConnectTimeout.isAccessible()) {
-            httpClientShortConnectTimeout.setAccessible(true);
-        }
-        OkHttpClient client = (OkHttpClient) httpClientShortConnectTimeout.get(httpConn);
-        Method openHttpConnectionToString = NvHTTP.class.getDeclaredMethod("openHttpConnectionToString", OkHttpClient.class, HttpUrl.class, String.class);
-        if(!openHttpConnectionToString.isAccessible()) {
-            openHttpConnectionToString.setAccessible(true);
-        }
-        String serverInfo = (String) openHttpConnectionToString.invoke(httpConn, client, httpConn.getHttpsUrl(true), "serverinfo");
-        Matcher matcher = Pattern.compile("<PairStatus>(\\d+)</PairStatus>").matcher(serverInfo);
-        if(matcher.find()) {
-            String pairedState = matcher.group(1);
-            return pairedState.equals("1");
-        }
-        return false;
-    }
-
-    private void doStart(NvApp app, ComputerDetails computer, String srcIP,
+    private void doStart(NvApp app, ComputerDetails computer,
                                ComputerManagerService.ComputerManagerBinder managerBinder) {
         if (computer.state == ComputerDetails.State.OFFLINE || computer.activeAddress == null) {
             Toast.makeText(context, context.getResources().getString(com.limelight.R.string.pair_pc_offline), Toast.LENGTH_SHORT).show();
             return;
         }
-        mStartSettingsLauncher.launch(ServerHelper.createStartIntent(context, app, computer, srcIP, managerBinder));
+        mStartSettingsLauncher.launch(ServerHelper.createStartIntent(context, app, computer, managerBinder));
     }
 }
